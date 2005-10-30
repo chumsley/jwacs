@@ -15,6 +15,7 @@
   :components ((:file   "package")
                (:file   "lexer-macros")
                (:file   "lex-javascript")
+               (:file   "js-source-model")
                (:file   "parse-javascript")
                (:file   "pretty-print"))
   :depends-on (cl-ppcre))

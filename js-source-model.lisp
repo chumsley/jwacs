@@ -1,3 +1,4 @@
+;;; js-source-model
 (in-package :sugarscript)
 
 (defstruct special-value
@@ -16,10 +17,10 @@
   value)
 
 (defstruct array-literal
-  value)
+  elements)
 
 (defstruct object-literal
-  value)
+  properties)                           ; List of (PROPERTY-NAME . PROPERTY-VALUE)
 
 (defstruct new-expr
   object-name
@@ -50,7 +51,7 @@
 (defstruct comma-expr
   exprs)
 
-(defstruct var-decl-block
+(defstruct var-decl-stmt
   var-decls)
 
 (defstruct var-decl
@@ -98,10 +99,11 @@
   body)
 
 (defstruct switch
+  value
   clauses)
 
 (defstruct case
-  alternative
+  label
   body)
 
 (defstruct default
@@ -117,10 +119,13 @@
 (defstruct try
   body
   catch-clause
-  finally-body)
+  finally-clause)
 
 (defstruct catch-clause
   binding
+  body)
+
+(defstruct finally-clause
   body)
 
 (defstruct function-decl
