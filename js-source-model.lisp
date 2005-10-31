@@ -13,9 +13,6 @@
 (defstruct string-literal
   value)
 
-(defstruct boolean-literal
-  value)
-
 (defstruct array-literal
   elements)
 
