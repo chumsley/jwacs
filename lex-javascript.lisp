@@ -6,6 +6,7 @@
     ((eq token-type :operator)
      `(progn
        (setf (gethash ,key *tokens-to-symbols*) ,symbol)
+       (setf (gethash ,symbol *symbols-to-tokens*) ,key)
        (push ,key *operator-tokens*)))
     ((eq token-type :keyword)
      `(progn
@@ -20,11 +21,14 @@
 ;;; These are the symbols that the tokenizer will return
 (defparameter *tokens-to-symbols* (make-hash-table :test 'equal))
 
+(defparameter *symbols-to-tokens* (make-hash-table :test 'eq))
+
 ;;; These are operators (as distinct from general tokens) that will be built into
-;;; a special regular expression.
+;;; a special regular expression.  We can't just use the keys from *symbols-to-tokens*,
+;;; because the order that the tokens appear in this list is significant.
 (defparameter *operator-tokens* nil)
 
-;;; These are keyword tokens
+;;; These are keyword tokens ???
 (defparameter *keyword-tokens* nil)
 
 ;; end of input

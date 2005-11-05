@@ -74,3 +74,10 @@
      (format s "[")
      (pretty-print (property-access-field element) s)
      (format s "]"))))
+
+;HERE precedence handling
+(defmethod pretty-print ((element unary-operator) s)
+  (case (unary-operator-op-symbol element)
+    ((:post-decr :post-incr)
+     (pretty-print (unary-operator-arg) s)
+     ;;HERE
