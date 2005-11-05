@@ -1,4 +1,4 @@
-(in-package :sugarscript)
+(in-package :jwacs)
 
 ;;;;; Parser
 (defparser javascript-script
@@ -331,7 +331,8 @@
 (defun parse (str)
   (javascript-script (make-javascript-lexer str)))
 
-;;TODO Tests need to be updated to account for source-model conversion
+;;TODO Tests need to be updated to account for conversion to structure source-model instead
+;; of plists
 (defun test-broken ()
   (flet ((check (string form)
            (format t "~&~S -> ~S" string (parse string))

@@ -1,4 +1,4 @@
-(in-package :sugarscript)
+(in-package :jwacs)
   
 ;;;;; Token definitions
 (defmacro deftoken (symbol &optional key token-type)

@@ -1,4 +1,4 @@
-(in-package :sugarscript)
+(in-package :jwacs)
 
 ;;;;;;; Helper macros and functions
 (defun re-cond-clause (string start block-name clause)

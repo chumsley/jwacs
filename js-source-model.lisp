@@ -1,5 +1,5 @@
 ;;; js-source-model
-(in-package :sugarscript)
+(in-package :jwacs)
 
 (defstruct special-value
   symbol)

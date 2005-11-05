@@ -1,9 +1,9 @@
 ;;; package.lisp
-;;; Define the packages used by the sugarscript system
+;;; Define the packages used by the jwacs system
 
 ;; Eventually this may want to be several sub-packages, but let's start simple for now
-(defpackage :sugarscript
+(defpackage :jwacs
     (:use :cl :parsergen :cl-ppcre)
-  (:nicknames :sscript :ss)
+  (:nicknames :jw)
   (:export #:parse))
 

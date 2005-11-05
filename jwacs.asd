@@ -1,13 +1,13 @@
-;;; sugarscript.asd
+;;; jwacs.asd
 
-(defpackage #:sugarscript-system
+(defpackage #:jwacs-system
   (:use :cl :asdf)
-  (:nicknames :sscript-system :ss-system))
-(in-package :sugarscript-system)
+  (:nicknames :jw-system))
+(in-package :jwacs-system)
 
 (require "parsergen")                   ; TODO Use cl-yacc instead?
 
-(asdf:defsystem sugarscript 
+(asdf:defsystem jwacs 
   :version "0.1"
   :author "James Wright <chumsley@gmail.com>"
   :license "BSD License <http://www.opensource.org/licenses/bsd-license.php>"

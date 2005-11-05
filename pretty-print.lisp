@@ -1,6 +1,10 @@
 ;; pretty-print.lisp
 ;; Print an abstract syntax tree for Javascript in a nicely-formatted fashion
-(in-package :sugarscript)
+(in-package :jwacs)
+
+;;TODO I don't have any indentation handling yet.  Once we are printing a parseable
+;; representation, a fairly crucial piece of back-fill will be to go back and add
+;; indentation.
 
 (defun pretty-print-separated-list (elm-list s &optional (sep-string ", "))
   (loop
@@ -75,9 +79,9 @@
      (pretty-print (property-access-field element) s)
      (format s "]"))))
 
-;HERE precedence handling
-(defmethod pretty-print ((element unary-operator) s)
-  (case (unary-operator-op-symbol element)
-    ((:post-decr :post-incr)
-     (pretty-print (unary-operator-arg) s)
-     ;;HERE
+;;HERE precedence handling
+;(defmethod pretty-print ((element unary-operator) s)
+;  (case (unary-operator-op-symbol element)
+;    ((:post-decr :post-incr)
+;     (pretty-print (unary-operator-arg) s)
+;     ;;HERE
