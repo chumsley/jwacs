@@ -254,11 +254,11 @@
   ((iteration-statement :for :left-paren expression-no-in :semicolon expression :semicolon expression :right-paren statement)
    (make-for :initializer $3 :condition $5 :step $7 :body $9))
   ((iteration-statement :for :left-paren :var variable-decl-list-no-in :semicolon expression :semicolon expression :right-paren statement)
-   (make-for :initializer (make-var-decl-stmt :var-decls $4 :condition $6 :step $8 :body $10)))
+   (make-for :initializer (make-var-decl-stmt :var-decls $4) :condition $6 :step $8 :body $10))
   ((iteration-statement :for :left-paren left-hand-side-expression :in expression :right-paren statement)
    (make-for-in :binding $3 :collection $5 :body $7))
   ((iteration-statement :for :left-paren :var variable-decl-no-in :in expression :right-paren statement)
-   (make-for-in :binding (make-var-decl :name $4) :collection $6 :body $8))
+   (make-for-in :binding (make-var-decl-stmt :var-decls (list $4)) :collection $6 :body $8))
 
   ((continue-statement :continue :identifier :semicolon) (make-continue :label $2))
   ((continue-statement :continue :semicolon) (make-continue))
