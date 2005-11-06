@@ -12,7 +12,7 @@
 ;;;
 ;;; This is (hopefully) an attainable ideal, but it will require us to change our parsing a little in order
 ;;; to be able to distinguish between (for example) expressions and expression statements.  (We'll
-;;; probably just create an expression-statement source element that contains a single expression)
+;;; probably just create an expression-statement source element that contains a single expression.)
 ;;;
 ;;; I'm a little concerned that we may not be able to create all of the disambiguating source-element
 ;;; types because the parser itself may not be able to tell all of the cases apart.  I've omitted a few
@@ -46,13 +46,17 @@
 ;; single statements, but not blocks (because blocks will do the indentation for us).
 ;; In those situations, use pretty-print-subordinate instead of pretty-print; it will
 ;; indent correctly depending upon the type of source-element that it receives.
-(defmethod pretty-print-subordinate ((elm block) s)
+;; TODO The semicolon keyword will disappear once we are dealing correctly with semicolon termination
+(defmethod pretty-print-subordinate ((elm block) s &key semicolon)
+  (declare (ignore semicolon))
   (pretty-print elm s))
 
-(defmethod pretty-print-subordinate (elm s)
+(defmethod pretty-print-subordinate (elm s &key semicolon)
   (with-indent
     (fresh-line-indented s)
-    (pretty-print elm s)))
+    (pretty-print elm s)
+    (if semicolon
+      (format s ";"))))
 
 ;;;;; General helpers
 (defun pretty-print-separated-list (elm-list s &optional (sep-string ", "))
@@ -176,11 +180,11 @@
   (fresh-line-indented s)
   (format s "{")
   (with-indent
-      (loop for stmt in (block-statements elm)
-            do
-            (fresh-line-indented s)
-            (pretty-print stmt s)
-            (format s ";")))
+    (loop for stmt in (block-statements elm)
+          do
+          (fresh-line-indented s)
+          (pretty-print stmt s)
+          (format s ";")))
   (fresh-line-indented s)
   (format s "}"))
 
@@ -196,7 +200,42 @@
     (format s "else")
     (pretty-print-subordinate (if-else-statement elm) s)))
 
-;;HERE: Next step, do/while/for/for-in statements
+(defmethod pretty-print ((elm do) s)
+  (format s "do")
+  (pretty-print-subordinate (do-body elm) s :semicolon t)
+  (fresh-line-indented s)
+  (format s "while(")
+  (pretty-print (do-condition elm) s)
+  (format s ")"))
+
+(defmethod pretty-print ((elm while) s)
+  (format s "while(")
+  (pretty-print (while-condition elm) s)
+  (format s ")")
+  (pretty-print-subordinate (while-body elm) s))
+
+(defmethod pretty-print ((elm null) s)
+  (declare (ignore elm s)))
+
+(defmethod pretty-print ((elm for) s)
+  (format s "for(")
+  (pretty-print (for-initializer elm) s)
+  (format s "; ")
+  (pretty-print (for-condition elm) s)
+  (format s "; ")
+  (pretty-print (for-step elm) s)
+  (format s ")")
+  (pretty-print-subordinate (for-body elm) s))
+
+(defmethod pretty-print ((elm for-in) s)
+  (format s "for(")
+  (pretty-print (for-in-binding elm) s)
+  (format s " in ")
+  (pretty-print (for-in-collection elm) s)
+  (format s ")")
+  (pretty-print-subordinate (for-in-body elm) s))
+
+;;HERE: Next step, continue/break/return
 
 (defun test-pretty-printer ()
   (flet ((check (elm string)
@@ -293,5 +332,47 @@ else
 {
   baz;
 }")
+       (check (make-do :condition (make-binary-operator :op-symbol :greater-than
+                                                        :left-arg foo-id
+                                                        :right-arg (make-numeric-literal :value 55.0))
+                       :body (make-block :statements
+                                         (list (make-unary-operator :op-symbol :post-incr :arg foo-id))))
+              "do
+{
+  foo++;
+}
+while(foo > 55.0)")
+       (check (make-while :condition (make-unary-operator :op-symbol :typeof :arg foo-id)
+                              :body (make-unary-operator :op-symbol :delete :arg foo-id))
+              "while(typeof foo)
+  delete foo")
+       (check (make-while :condition (make-unary-operator :op-symbol :typeof :arg foo-id)
+                              :body (make-block :statements (list (make-unary-operator :op-symbol :delete :arg foo-id))))
+              "while(typeof foo)
+{
+  delete foo;
+}")
+       (check (make-for :body (make-block))
+              "for(; ; )
+{
+}")
+       (check (make-for :initializer (make-var-decl-stmt :var-decls (list (make-var-decl :name "foo" :initializer bar-id)))
+                        :condition (make-binary-operator :op-symbol :not-equals :left-arg foo-id :right-arg baz-id)
+                        :step (make-unary-operator :op-symbol :pre-incr :arg foo-id)
+                        :body (make-block :statements (list (make-unary-operator :op-symbol :post-decr :arg foo-id))))
+              "for(var foo = bar; foo != baz; ++foo)
+{
+  foo--;
+}")
+       (check (make-for-in :binding (make-var-decl-stmt :var-decls (list (make-var-decl :name "foo")))
+                           :collection bar-id
+                           :body (make-fn-call :fn baz-id :args (list foo-id bar-id)))
+              "for(var foo in bar)
+  baz(foo, bar)")
 
+       (check (make-for-in :binding foo-id
+                           :collection bar-id
+                           :body (make-fn-call :fn baz-id :args (list foo-id bar-id)))
+              "for(foo in bar)
+  baz(foo, bar)")
        ))))
