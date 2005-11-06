@@ -14,7 +14,7 @@
   
   ((literal :null) (make-special-value :symbol :null))
   ((literal boolean-literal) $1)
-  ((literal :number) (make-number :value $1))
+  ((literal :number) (make-numeric-literal :value $1))
   ((literal :string-literal) (make-string-literal :value $1))
   
   ((boolean-literal :true) (make-special-value :symbol :true))
@@ -34,7 +34,7 @@
 
   ((property-name :identifier) (make-identifier :name $1))
   ((property-name :string-literal) (make-string-literal :value $1))
-  ((property-name :number) (make-number :value $1))
+  ((property-name :number) (make-numeric-literal :value $1))
 
   ;; Pg 55
   ((member-expression primary-expression) $1)
@@ -338,7 +338,7 @@
            (format t "~&~S -> ~S" string (parse string))
            (equal form (parse string))))
     (and
-     (check "x = {a:10};" '(#S(object-literal :properties (#S(identifier :name "a") #S(number :value 10)))))
+     (check "x = {a:10};" '(#S(object-literal :properties (#S(identifier :name "a") #S(numeric-literal :value 10)))))
      t)))
 
 (defun test-parser ()

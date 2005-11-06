@@ -7,7 +7,7 @@
 (defstruct identifier
   name)
 
-(defstruct number
+(defstruct numeric-literal
   value)
 
 (defstruct string-literal
