@@ -176,15 +176,19 @@
     (format s " = ")
     (pretty-print (var-decl-initializer elm) s)))
 
+;; Pretty-print a list of source elements
+(defmethod pretty-print ((elm list) s)
+  (loop for stmt in elm
+        do
+        (fresh-line-indented s)
+        (pretty-print stmt s)
+        (format s ";")))
+  
 (defmethod pretty-print ((elm block) s)
   (fresh-line-indented s)
   (format s "{")
   (with-indent
-    (loop for stmt in (block-statements elm)
-          do
-          (fresh-line-indented s)
-          (pretty-print stmt s)
-          (format s ";")))
+    (pretty-print (block-statements elm) s))
   (fresh-line-indented s)
   (format s "}"))
 
@@ -217,6 +221,9 @@
 (defmethod pretty-print ((elm null) s)
   (declare (ignore elm s)))
 
+(defmethod pretty-print ((elm string) s)
+  (format s "~A" elm))
+
 (defmethod pretty-print ((elm for) s)
   (format s "for(")
   (pretty-print (for-initializer elm) s)
@@ -235,7 +242,115 @@
   (format s ")")
   (pretty-print-subordinate (for-in-body elm) s))
 
-;;HERE: Next step, continue/break/return
+;; TODO Consolidate break/return/continue/throw into a single struct type?
+(defmethod pretty-print ((elm continue) s)
+  (format s "continue")
+  (when (continue-label elm)
+    (format s " ")
+    (pretty-print (continue-label elm) s)))
+
+(defmethod pretty-print ((elm break) s)
+  (format s "break")
+  (when (break-label elm)
+    (format s " ")
+    (pretty-print (break-label elm) s)))
+
+(defmethod pretty-print ((elm return) s)
+  (format s "return")
+  (when (return-arg elm)
+    (format s " ")
+    (pretty-print (return-arg elm) s)))
+
+(defmethod pretty-print ((elm throw) s)
+  (format s "throw ")
+  (pretty-print (throw-value elm) s))
+
+(defmethod pretty-print ((elm switch) s)
+  (format s "switch(")
+  (pretty-print (switch-value elm) s)
+  (format s ")")
+  (fresh-line-indented s)
+  (format s "{")
+  (loop for clause in (switch-clauses elm)
+        do (pretty-print clause s))
+  (fresh-line-indented s)
+  (format s "}"))
+
+(defmethod pretty-print ((elm case) s)
+  (fresh-line-indented s)
+  (format s "case ")
+  (pretty-print (case-label elm) s)
+  (format s ":")
+  (with-indent
+    (pretty-print (case-body elm) s)))
+
+(defmethod pretty-print ((elm default) s)
+  (fresh-line-indented s)
+  (format s "default:")
+  (with-indent
+    (pretty-print (default-body elm) s)))
+
+(defmethod pretty-print ((elm with) s)
+  (format s "with(")
+  (pretty-print (with-scope-object elm) s)
+  (format s ")")
+  (pretty-print-subordinate (with-body elm) s))
+
+(defmethod pretty-print ((elm label) s)
+  (format s "~A:" (label-name elm))
+  (fresh-line-indented s)
+  (pretty-print (label-statement elm) s))
+
+(defmethod pretty-print ((elm try) s)
+  (format s "try")
+  (pretty-print (try-body elm) s)
+  (when (try-catch-clause elm)
+    (fresh-line-indented s)
+    (pretty-print (try-catch-clause elm) s))
+  (when (try-finally-clause elm)
+    (fresh-line-indented s)
+    (pretty-print (try-finally-clause elm) s)))
+
+(defmethod pretty-print ((elm catch-clause) s)
+  (format s "catch(~A)" (catch-clause-binding elm))
+  (pretty-print (catch-clause-body elm) s))
+
+(defmethod pretty-print ((elm finally-clause) s)
+  (format s "finally")
+  (pretty-print (finally-clause-body elm) s))
+
+(defmethod pretty-print ((elm function-decl) s)
+  (fresh-line-indented s)
+  (format s "function ~A(" (function-decl-name elm))
+  (pretty-print-separated-list (function-decl-parameters elm) s)
+  (format s ")")
+  (fresh-line-indented s)
+  (format s "{")
+  (with-indent
+    (pretty-print (function-decl-body elm) s))
+  (fresh-line-indented s)
+  (format s "}"))
+
+(defmethod pretty-print ((elm function-expression) s)
+  (if (function-expression-name elm)
+    (format s "function ~A(" (function-expression-name elm))
+    (format s "function("))
+  (pretty-print-separated-list (function-expression-parameters elm) s)
+  (format s ")")
+
+  (cond
+    ;; If there's only one statement in the body, try to fit everything onto one line
+    ((<= (length (function-expression-body elm)) 1)
+     (format s " { ")
+     (pretty-print (first (function-expression-body elm)) s)
+     (format s "; }"))
+    (t
+     (fresh-line-indented s)
+     (format s "{")
+     (with-indent
+       (pretty-print (function-expression-body elm) s))
+     (fresh-line-indented s)
+     (format s "}"))))
 
 (defun test-pretty-printer ()
   (flet ((check (elm string)
@@ -375,4 +490,65 @@ while(foo > 55.0)")
                            :body (make-fn-call :fn baz-id :args (list foo-id bar-id)))
               "for(foo in bar)
   baz(foo, bar)")
+
+       (check (make-switch :value foo-id :clauses
+                 (list
+                  (make-case :label (make-numeric-literal :value 10)
+                             :body (list
+                                    (make-fn-call :fn bar-id :args (list (make-numeric-literal :value 1)))
+                                    (make-fn-call :fn baz-id :args (list foo-id))
+                                    (make-break)))
+                  (make-case :label (make-numeric-literal :value 20))
+                  (make-case :label (make-numeric-literal :value 30)
+                             :body (list
+                                    (make-fn-call :fn bar-id :args (list (make-numeric-literal :value 3)))))
+                  (make-default :body (list
+                                       (make-return :arg foo-id)))))
+              "switch(foo)
+{
+case 10:
+  bar(1);
+  baz(foo);
+  break;
+case 20:
+case 30:
+  bar(3);
+default:
+  return foo;
+}")
+       (check (make-with :scope-object foo-id :body (make-block :statements (list bar-id)))
+              "with(foo)
+{
+  bar;
+}")
+       (check (make-label :name "fhwqgads" :statement (make-fn-call :fn foo-id :args (list bar-id baz-id)))
+              "fhwqgads:
+foo(bar, baz)")
+
+       (check (make-try :body (make-block :statements (list (make-fn-call :fn foo-id :args (list bar-id))))
+                        :catch-clause (make-catch-clause :binding "e" :body (make-block :statements (list (make-fn-call :fn foo-id :args (list (make-identifier :name "e"))))))
+                        :finally-clause (make-finally-clause :body (make-block :statements (list (make-fn-call :fn baz-id) (make-unary-operator :op-symbol :delete :arg foo-id)))))
+              "try
+{
+  foo(bar);
+}
+catch(e)
+{
+  foo(e);
+}
+finally
+{
+  baz();
+  delete foo;
+}")
+       (check
+        (make-function-decl :name "yarb" :parameters '("x" "y") :body (list (make-fn-call :fn foo-id) (make-fn-call :fn bar-id) (make-fn-call :fn baz-id)))
+        "function yarb(x, y)
+{
+  foo();
+  bar();
+  baz();
+}")
+
+       ;; HERE TODO Add test case(s) for function expressions (at least one for single-line and one for multi-line)
        ))))
