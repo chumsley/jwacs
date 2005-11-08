@@ -47,6 +47,10 @@
 ;; In those situations, use pretty-print-subordinate instead of pretty-print; it will
 ;; indent correctly depending upon the type of source-element that it receives.
 ;; TODO The semicolon keyword will disappear once we are dealing correctly with semicolon termination
+(defgeneric pretty-print-subordinate (elm stream &key semicolon)
+  (:documentation "pretty-print source element ELM to stream STREAM as a 'subordinate statement'.
+This has differing indentation implications depending upon whether or not ELM is a BLOCK."))
+
 (defmethod pretty-print-subordinate ((elm block) s &key semicolon)
   (declare (ignore semicolon))
   (pretty-print elm s))
@@ -60,6 +64,7 @@
 
 ;;;;; General helpers
 (defun pretty-print-separated-list (elm-list s &optional (sep-string ", "))
+  "Pretty print the elements of ELM-LIST to S separated by SEP-STRING."
   (loop
       for idx upfrom 0
       for elm in elm-list
@@ -67,6 +72,11 @@
       (unless (zerop idx)
         (format s sep-string))
       (pretty-print elm s)))
+
+;;;;; The pretty-print generic function
+
+(defgeneric pretty-print (elm stream)
+  (:documentation "Print source element ELM to stream STREAM as parseable (and attractive) text"))
 
 (defmethod pretty-print ((elm special-value) s)
   (if (find (special-value-symbol elm) *keyword-symbols*)
