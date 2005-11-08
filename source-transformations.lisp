@@ -52,6 +52,12 @@ destructive updates on the provided source-element."))
             (transform xform arg))
           elm))
 
+;;;;; The COLLAPSE-ADJACENT-VAR-DECLS transformation
+;;; As the name suggests, this transformation collapses adjacent variable declaration statements
+;;; into a single statment.
+
+;;HERE
+
 ;;;;; Unit tests
 (defmethod transform ((xform (eql 'hello)) (elm string))
     "hello there!")
