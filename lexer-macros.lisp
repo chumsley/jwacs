@@ -1,6 +1,10 @@
+;;;; lexer-macros.lisp
+;;;
+;;; Contains macros and macro-supporting functions that
+;;; are used to define the lexer.
+
 (in-package :jwacs)
 
-;;;;;;; Helper macros and functions
 (defun re-cond-clause (string start block-name clause)
   (destructuring-bind (re-form &body body) clause
     (if (eq re-form t)

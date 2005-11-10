@@ -1,4 +1,7 @@
-;; source-transformations
+;;;; source-transformations.lisp
+;;;
+;;; Implements source transformations.  The interface is through the TRANSFORM generic function.
+
 (in-package :jwacs)
 
 ;;;;; Utility functions
@@ -20,20 +23,24 @@
   "Map from structure-type symbol to copy-function symbol")
 
 (defun get-copier (struct-object)
-  "Accept a structure object and return the (likely) name of its copy-function"
+  "Accept a structure object and return the (likely) name of its copy-function.
+   CAVEAT: Assumes that the structure was defined in the current package."
   (let* ((name (type-of struct-object))
          (copy-fn (gethash name *copy-functions*)))
     (if (null copy-fn)
       (setf (gethash name *copy-functions*) (intern (format nil "COPY-~A" name)))
       copy-fn)))
 
-;;;;; Default transformation behaviour
+;;;; Default transformation behaviour
+
+;;; The top-level TRANSFORM methods provide the default code-walking behaviour,
+;;; so that individual transformations can override just the important parts.
 
 (defgeneric transform (xform elm)
   (:documentation
    "Accepts a transformation name (symbol) and a source element, and returns a new
-source element that has been transformed in some way.  Methods should /not/ perform
-destructive updates on the provided source-element."))
+    source element that has been transformed in some way.  Methods should /not/ perform
+    destructive updates on the provided source-element."))
 
 ;; The default behaviour for any transformation is to do nothing
 (defmethod transform (xform elm)
@@ -53,7 +60,7 @@ destructive updates on the provided source-element."))
             (transform xform arg))
           elm))
 
-;;;;; The COLLAPSE-ADJACENT-VAR-DECLS transformation
+;;;; The COLLAPSE-ADJACENT-VAR-DECLS transformation
 ;;; As the name suggests, this transformation collapses adjacent variable declaration statements
 ;;; into a single statment.
 

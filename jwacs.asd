@@ -1,11 +1,16 @@
-;;; jwacs.asd
+;;;; jwacs.asd
+;;;
+;;; This is the system definition file for the jwacs project.
+;;; It defines the ASDF system plus any extra ASDF operations
+;;; (eg TEST-OP).
 
 (defpackage #:jwacs-system
   (:use :cl :asdf)
   (:nicknames :jw-system))
 (in-package :jwacs-system)
 
-(require "parsergen")                   ; TODO Use cl-yacc instead?
+;;TODO This will become more complex once Greg's cl-yacc port is done
+(require "parsergen")
 
 (asdf:defsystem jwacs 
   :version "0.1"

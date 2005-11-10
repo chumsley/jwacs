@@ -1,5 +1,5 @@
-;;; package.lisp
-;;; Define the packages used by the jwacs system
+;;;; package.lisp
+;;; Define the packages used by the jwacs system.
 
 ;; Eventually this may want to be several sub-packages, but let's start simple for now
 (defpackage :jwacs

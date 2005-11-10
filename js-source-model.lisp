@@ -1,4 +1,8 @@
-;;; js-source-model
+;;;; js-source-model.lisp
+;;;
+;;; Defines the data structures that are used for the internal representation
+;;; of parsed Javascript source files.
+
 (in-package :jwacs)
 
 (defstruct special-value

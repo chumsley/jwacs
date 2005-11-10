@@ -1,7 +1,22 @@
+;;;; lex-javascript.lisp
+;;;
+;;; Contains the definition of the Javascript lexer used by the parser,
+;;; as well as some lookup structures for dealing with tokens.
+
 (in-package :jwacs)
-  
-;;;;; Token definitions
+
+;;;; Token definitions
 (defmacro deftoken (symbol &optional key token-type)
+  "Add a token's symbol and possibly string to the appropriate lookups.
+
+   Different actions will be taken depending upon the TOKEN-TYPE:
+   OPERATOR-TOKENs are infix operators, which are recognized as atomic
+   tokens regardless of whether they are surrounded by whitespace (unlike
+   identifier tokens, for example).
+   KEYWORDs are reserved strings that can never be used as an identifier.
+   OPERATIONs will never be returned by the lexer, but they are used in the
+   source model in the same place as tokens (ie, in :op-symbol slots), so
+   they are treated as tokens for now."
   (cond
     ((eq token-type :operator-token)
      `(progn
@@ -19,19 +34,28 @@
     (t
      `(setf (gethash ,symbol *tokens-to-symbols*) ,symbol))))
 
-;;;;; Tokens
-;;; These are the symbols that the tokenizer will return
-(defparameter *tokens-to-symbols* (make-hash-table :test 'equal))
+;;;; Token lookups
 
-(defparameter *symbols-to-tokens* (make-hash-table :test 'eq))
+(defparameter *tokens-to-symbols* (make-hash-table :test 'equal)
+  "Map from string to token symbol.
+   Every symbol that the tokenizer will return is in this map.")
 
-;;; These are operators (as distinct from general tokens) that will be built into
-;;; a special regular expression.  We can't just use the keys from *symbols-to-tokens*,
-;;; because the order that the tokens appear in this list is significant.
-(defparameter *operator-tokens* nil)
+(defparameter *symbols-to-tokens* (make-hash-table :test 'eq)
+  "Map from token symbol to token string.  This contains an entry for every token
+   in *tokens-to-symbols*, plus additional entries for the 'operation' symbols.")
 
-;;; These are keyword tokens ??? Necessary?
-(defparameter *keyword-symbols* nil)
+(defparameter *operator-tokens* nil
+  "These are operators (as distinct from general tokens) that will be built into
+   a special regular expression.
+
+   We can't just use the keys from *symbols-to-tokens*, because the
+   order that the tokens appear in this list is significant.
+   Specifically, each 'long' operator must occur before any operator that
+   it is a supersequence of.  Eg, '<<<' must occur before '<<', which
+   must occur before '<'.  '!=' must occur before both '!' and '='.")
+
+(defparameter *keyword-symbols* nil
+  "A list of the keyword symbols.")
 
 ;; end of input
 (deftoken :eoi)
@@ -158,24 +182,6 @@
 (deftoken :re-literal)
 (deftoken :string-literal)
 
-;; Non-terminal tree node types
-;;TODO This is not too convincing all of a sudden.  We may want to look for the keywords that actually get used
-(deftoken :script)
-(deftoken :block)
-(deftoken :label)
-(deftoken :for-in)
-(deftoken :call)
-(deftoken :new-with-args)
-(deftoken :index)
-(deftoken :array-init)
-(deftoken :object-init)
-(deftoken :property-init)
-(deftoken :getter) ;???
-(deftoken :setter) ;???
-(deftoken :group)
-(deftoken :list)
-
-
 ;;;;; Regular expressions
 (defparameter floating-re (create-scanner
                             '(:sequence
@@ -195,7 +201,9 @@
                                   (:greedy-repetition 0 1
                                     (:sequence (:alternation #\e #\E)
                                                (:greedy-repetition 0 1 (:alternation #\+ #\-))
-                                               (:greedy-repetition 1 nil :digit-class))))))))
+                                               (:greedy-repetition 1 nil :digit-class)))))))
+
+  "Regular expression for recognizing floating-point literals")
 
 (defparameter string-re (create-scanner 
                           '(:sequence
@@ -214,8 +222,9 @@
                                   (:alternation
                                     (:sequence #\\ :everything)
                                     (:inverted-char-class #\')))
-                                #\')))))
+                                #\'))))
 
+  "Regular expression for recognizing string literals")
 
 (defparameter regexp-re (create-scanner
                          '(:sequence
@@ -229,13 +238,17 @@
                            #\/
                            (:register
                             (:greedy-repetition 0 nil
-                             (:char-class #\g #\i))))))
+                             (:char-class #\g #\i)))))
+
+  "(Lisp) regular expression for recognizing (Javascript) regular expression literals")
 
 (defparameter operator-re (create-scanner 
                            (list :sequence 
                                  :start-anchor 
                                  (cons :alternation
-                                       (reverse *operator-tokens*)))))
+                                       (reverse *operator-tokens*))))
+
+  "Regular expression for recognizing operators")
 
 (defparameter whitespace-and-comments-re (create-scanner
                                           '(:sequence
@@ -254,7 +267,9 @@
                                                (:greedy-repetition 0 nil
                                                 (:branch (:positive-lookahead "*/")
                                                          (:alternation :void :everything)))
-                                                "*/"))))))
+                                                "*/")))))
+
+  "Regular expression for consuming (and thereby skipping) whitespace and comments")
 
 (defparameter integer-re (create-scanner
                           '(:sequence
@@ -266,12 +281,14 @@
                                                (:range #\A #\F) 
                                                :digit-class)))
                              (:sequence "0" (:greedy-repetition 1 nil (:char-class (:range #\0 #\7))))
-                             (:greedy-repetition 1 nil :digit-class)))))
+                             (:greedy-repetition 1 nil :digit-class))))
+
+  "Regular expression for recognizing integer literals")
   
 
 ;;;;; Helper functions
 (defun parse-javascript-integer (integer-str &key (start 0) end)
-  "Parse integers, taking account of 0x and 0 radix-specifiers"
+  "Parse integer literals, taking account of 0x and 0 radix-specifiers"
   (cond
     ((and (> (- (length integer-str) start) 2)
           (eql #\0 (aref integer-str start))
@@ -287,6 +304,7 @@
 
 ;;;;; Top-level logic
 (defun make-javascript-lexer (string)
+  "Construct and return a new lexer that reads from the provided string."
   (let ((cursor 0))
     (lambda ()
       ;; Skip whitespace and comments
@@ -328,7 +346,7 @@
        (t
         (error "coding error - we should never get here"))))))
 
-;;;;; Auto-tests
+;;;; Unit tests
 (defun test-regexp-re ()
   (and
    (scan regexp-re "/hello/")

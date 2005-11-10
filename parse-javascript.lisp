@@ -1,6 +1,12 @@
+;;;; parse-javascript.lisp
+;;;
+;;; Define a parser for javascript.  The returned parse tree will
+;;; be built up from the data types declared in js-source-model.lisp.
+;;; The parser is exposed through the PARSE function.
+
 (in-package :jwacs)
 
-;;;;; Parser
+;;;; Parser
 (defparser javascript-script
     ((program source-elements) $1)
 
@@ -329,6 +335,7 @@
 )
 
 (defun parse (str)
+  "Parse a string as a Javascript script, returning a list of statements."
   (javascript-script (make-javascript-lexer str)))
 
 ;;TODO Tests need to be updated to account for conversion to structure source-model instead

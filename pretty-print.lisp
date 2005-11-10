@@ -1,9 +1,13 @@
-;; pretty-print.lisp
-;; Print an abstract syntax tree for Javascript in a nicely-formatted fashion
+;;;; pretty-print.lisp
+;;;
+;;; Provides generic functions for printing abstract source trees in a parseable (and
+;;; human-readable) fashion.  The PRETTY-PRINT generic function is the main interface.
+
 (in-package :jwacs)
 
-;;;;; Rules for semicolon-termination
-;;;;;;; The ideal situation
+;;;; Rules for semicolon-termination
+;;;
+;;; === The ideal situation ===
 ;;;
 ;;; There are two basic rules:
 ;;; 1. Calling `pretty-print` on a statement should always result in a semicolon-terminated statement
@@ -21,24 +25,27 @@
 ;;; grammar.  These omissions may have led to some extra ambiguity; certainly there is an awful lot of
 ;;; complaining when Lispworks is compiling the grammar.
 ;;;
-;;;;;;; The actual situation
+;;; === The actual situation ===
 ;;;
 ;;; For now, we assume that neither statements nor any other source element self-semicolon-terminates.
 ;;; The pretty-printer for blocks (and lists of statement) will just slap a semicolon after each
 ;;; statement minus some exceptions (if, while, for, function declarations, etc.).
 
-;;;;; Indentation helpers
-(defparameter *indent-step* 2)
-(defvar *indent* 0)
+;;;; Indentation helpers
+(defparameter *indent-step* 2
+  "Number of spaces per indentation step")
+
+(defvar *indent* 0
+  "Current indentation level, in spaces (not steps)")
 
 (defun fresh-line-indented (s)
-  "start a new, indented line"
+  "Start a new, indented line."
   (fresh-line s)
   (dotimes (n *indent*)
     (format s " ")))
 
 (defmacro with-indent (&body body)
-  "Execute the contained forms with *indent* set one step deeper"
+  "Execute the contained forms with *indent* set one step deeper."
   `(let ((*indent* (+ *indent* *indent-step*)))
     ,@body))
 
@@ -48,8 +55,9 @@
 ;; indent correctly depending upon the type of source-element that it receives.
 ;; TODO The semicolon keyword will disappear once we are dealing correctly with semicolon termination
 (defgeneric pretty-print-subordinate (elm stream &key semicolon)
-  (:documentation "pretty-print source element ELM to stream STREAM as a 'subordinate statement'.
-This has differing indentation implications depending upon whether or not ELM is a BLOCK."))
+  (:documentation
+   "pretty-print source element ELM to stream STREAM as a 'subordinate statement'.
+    This has differing indentation implications depending upon whether or not ELM is a BLOCK."))
 
 (defmethod pretty-print-subordinate ((elm block) s &key semicolon)
   (declare (ignore semicolon))
@@ -76,7 +84,8 @@ This has differing indentation implications depending upon whether or not ELM is
 ;;;;; The pretty-print generic function
 
 (defgeneric pretty-print (elm stream)
-  (:documentation "Print source element ELM to stream STREAM as parseable (and attractive) text"))
+  (:documentation
+   "Print source element ELM to stream STREAM as parseable and human-readable text."))
 
 (defmethod pretty-print ((elm special-value) s)
   (if (find (special-value-symbol elm) *keyword-symbols*)
@@ -126,6 +135,11 @@ This has differing indentation implications depending upon whether or not ELM is
   (format s ")"))
 
 (defun printable-as-dot (string-literal-elm)
+  "Return true if STRING-LITERAL-ELM is a valid identifier, and therefore can be used
+   in dotted form for accessing properties in Javascript.
+   Eg: (printable-as-dot #S(string-literal :value \"value\")) ==> T
+       (printable-as-dot #s(string-literal :value \"has spaces\")) ==> NIL
+       (printable-as-dot #s(string-literal :value \"has/punctuation\")) ==> NIL"
   (not (null (scan "^\\w+$" (string-literal-value string-literal-elm)))))
 
 (defmethod pretty-print ((elm property-access) s)
