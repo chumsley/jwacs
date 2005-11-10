@@ -1,10 +1,10 @@
 ;;;; jwacs.asd
 ;;;
 ;;; This is the system definition file for the jwacs project.
-;;; It defines the ASDF system plus any extra ASDF operations
-;;; (eg TEST-OP).
+;;; It defines the asdf system plus any extra asdf operations
+;;; (eg test-op).
 
-(defpackage #:jwacs-system
+(defpackage :jwacs-system
   (:use :cl :asdf)
   (:nicknames :jw-system))
 (in-package :jwacs-system)
@@ -17,10 +17,10 @@
   :author "James Wright <chumsley@gmail.com>"
   :license "BSD License <http://www.opensource.org/licenses/bsd-license.php>"
   :serial t
-  :components ((:file   "package")
-               (:file   "lexer-macros")
-               (:file   "lex-javascript")
-               (:file   "js-source-model")
-               (:file   "parse-javascript")
-               (:file   "pretty-print"))
+  :components ((:file "package")
+               (:file "lexer-macros")
+               (:file "lex-javascript")
+               (:file "js-source-model")
+               (:file "parse-javascript")
+               (:file "pretty-print"))
   :depends-on (cl-ppcre))

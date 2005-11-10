@@ -3,6 +3,9 @@
 ;;; Define a parser for javascript.  The returned parse tree will
 ;;; be built up from the data types declared in js-source-model.lisp.
 ;;; The parser is exposed through the PARSE function.
+;;;
+;;; The grammar for the parser is based on The ECMAScript Language Specification (ECMA-262),
+;;; available at <http://www.ecma-international.org/publications/standards/Ecma-262.htm>.
 
 (in-package :jwacs)
 

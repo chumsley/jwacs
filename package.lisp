@@ -3,7 +3,7 @@
 
 ;; Eventually this may want to be several sub-packages, but let's start simple for now
 (defpackage :jwacs
-    (:use :cl :parsergen :cl-ppcre)
+  (:use :cl :parsergen :cl-ppcre)
   (:nicknames :jw)
   (:export #:parse))
 
