@@ -2,7 +2,6 @@
 (in-package :jwacs)
 
 ;;;;; Utility functions
-;;TODO Figure out an entry for SBCL
 (defun structure-slots (object)
   #+openmcl
   (let* ((sd (gethash (class-name (class-of object)) ccl::%defstructs%))
@@ -12,6 +11,8 @@
   (mapcar #'pcl:slot-definition-name (pcl:class-slots (class-of object)))
   #+lispworks
   (structure:structure-class-slot-names (class-of object))
+  #+sbcl
+  (mapcar #'sb-mop:slot-definition-name (sb-mop:class-slots (class-of object)))
   #+allegro
   (mapcar #'mop:slot-definition-name (mop:class-slots (class-of object))))
 
