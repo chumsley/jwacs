@@ -22,5 +22,6 @@
                (:file "lex-javascript")
                (:file "js-source-model")
                (:file "parse-javascript")
-               (:file "pretty-print"))
+               (:file "pretty-print")
+               (:file "source-transformations"))
   :depends-on (cl-ppcre))
