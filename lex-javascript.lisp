@@ -2,6 +2,7 @@
 ;;;
 ;;; Contains the definition of the Javascript lexer used by the parser,
 ;;; as well as some lookup structures for dealing with tokens.
+;;; Unit tests are in tests/test-lexer.lisp.
 
 (in-package :jwacs)
 
@@ -345,75 +346,3 @@
         (error "unrecognized token: '~A'" (subseq string %s %e)))
        (t
         (error "coding error - we should never get here"))))))
-
-;;;; Unit tests
-(defun test-regexp-re ()
-  (and
-   (scan regexp-re "/hello/")
-   (scan regexp-re "/.\\n/")
-   (scan regexp-re "/(this)/g")   
-   (scan regexp-re "/(this)/gi")
-   (null (scan regexp-re "\"hi\""))
-   (null (scan regexp-re "/\"hi\""))))
-
-(defun test-lexer ()
-  (let ((js-string-1 "
-/* test string */
-function (f)
-{
-    // Ignore this stuff
-    var m = 010;
-    doStuff('stuff', \"nonsense\", 0xff, 45.0, f(m));
-}
-")
-        (js-string-2 "
-var re1 = /hello/g;
-var re2 = /hello\\/goodbye/ig;"))
-    (and
-     (equal
-      (loop with l = (make-javascript-lexer js-string-1)
-            for x = (multiple-value-list (funcall l))
-           while (not (eq (car x) :eoi))
-           collect x)
-      '((:FUNCTION "function")
-        (:LEFT-PAREN "(")
-        (:IDENTIFIER "f")
-        (:RIGHT-PAREN ")")
-        (:LEFT-CURLY "{")
-        (:VAR "var")
-        (:IDENTIFIER "m")
-        (:EQUALS "=")
-        (:NUMBER 8)
-        (:SEMICOLON ";")
-        (:IDENTIFIER "doStuff")
-        (:LEFT-PAREN "(")
-        (:STRING-LITERAL "stuff")
-        (:COMMA ",")
-        (:STRING-LITERAL "nonsense")
-        (:COMMA ",")
-        (:NUMBER 255)
-        (:COMMA ",")
-        (:NUMBER 45.0)
-        (:COMMA ",")
-        (:IDENTIFIER "f")
-        (:LEFT-PAREN "(")
-        (:IDENTIFIER "m")
-        (:RIGHT-PAREN ")")
-        (:RIGHT-PAREN ")")
-        (:SEMICOLON ";")
-        (:RIGHT-CURLY "}")))
-     (equal
-      (loop with l = (make-javascript-lexer js-string-2)
-            for x = (multiple-value-list (funcall l))
-            while (not (eq (car x) :eoi))
-            collect x)
-      '((:var "var")
-        (:identifier "re1")
-        (:equals "=")
-        (:re-literal ("hello" . "g"))
-        (:semicolon ";")
-        (:var "var")
-        (:identifier "re2")
-        (:equals "=")
-        (:re-literal ("hello/goodbye" . "ig"))
-        (:semicolon ";"))))))
