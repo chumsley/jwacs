@@ -5,136 +5,139 @@
 
 (in-package :jwacs)
 
-(defstruct special-value
+(defstruct source-element
+  "A common base type for all source elements")
+
+(defstruct (special-value (:include source-element))
   symbol)
 
-(defstruct identifier
+(defstruct (identifier (:include source-element))
   name)
 
-(defstruct numeric-literal
+(defstruct (numeric-literal (:include source-element))
   value)
 
-(defstruct string-literal
+(defstruct (string-literal (:include source-element))
   value)
 
-(defstruct array-literal
+(defstruct (array-literal (:include source-element))
   elements)
 
-(defstruct object-literal
-  properties)                           ; List of (PROPERTY-NAME . PROPERTY-VALUE)
+(defstruct (object-literal (:include source-element))
+  properties)  ; List of (PROPERTY-NAME . PROPERTY-VALUE)
 
-(defstruct new-expr
+(defstruct (new-expr (:include source-element))
   object-name
   args)
 
-(defstruct fn-call
+(defstruct (fn-call (:include source-element))
   fn
   args)
 
-(defstruct property-access
+(defstruct (property-access (:include source-element))
   target
   field)
 
-(defstruct unary-operator
+(defstruct (unary-operator (:include source-element))
   op-symbol
   arg)
 
-(defstruct binary-operator
+(defstruct (binary-operator (:include source-element))
   op-symbol
   left-arg
   right-arg)
     
-(defstruct conditional
+(defstruct (conditional (:include source-element))
   condition
   true-arg
   false-arg)
 
-(defstruct comma-expr
+(defstruct (comma-expr (:include source-element))
   exprs)
 
-(defstruct var-decl-stmt
+(defstruct (var-decl-stmt (:include source-element))
   var-decls)
 
-(defstruct var-decl
+(defstruct (var-decl (:include source-element))
   name
   initializer)
 
-(defstruct block
+(defstruct (block (:include source-element))
   statements)
 
-(defstruct if
+(defstruct (if (:include source-element))
   condition
   then-statement
   else-statement)
 
-(defstruct do
+(defstruct (do (:include source-element))
   condition
   body)
 
-(defstruct while
+(defstruct (while (:include source-element))
   condition
   body)
 
-(defstruct for
+(defstruct (for (:include source-element))
   initializer
   condition
   step
   body)
 
-(defstruct for-in
+(defstruct (for-in (:include source-element))
   binding
   collection
   body)
 
-(defstruct continue
+(defstruct (continue (:include source-element))
   label)
 
-(defstruct break
+(defstruct (break (:include source-element))
   label)
 
-(defstruct return
+(defstruct (return (:include source-element))
   arg)
 
-(defstruct with
+(defstruct (with (:include source-element))
   scope-object
   body)
 
-(defstruct switch
+(defstruct (switch (:include source-element))
   value
   clauses)
 
-(defstruct case
+(defstruct (case (:include source-element))
   label
   body)
 
-(defstruct default
+(defstruct (default (:include source-element))
   body)
 
-(defstruct label
+(defstruct (label (:include source-element))
   name
   statement)
 
-(defstruct throw
+(defstruct (throw (:include source-element))
   value)
 
-(defstruct try
+(defstruct (try (:include source-element))
   body
   catch-clause
   finally-clause)
 
-(defstruct catch-clause
+(defstruct (catch-clause (:include source-element))
   binding
   body)
 
-(defstruct finally-clause
+(defstruct (finally-clause (:include source-element))
   body)
 
-(defstruct function-decl
+(defstruct (function-decl (:include source-element))
   name
   parameters
   body)
 
-(defstruct function-expression
+(defstruct (function-expression (:include source-element))
   name
   parameters
   body)
