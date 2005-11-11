@@ -1,0 +1,6 @@
+This directory holds useful code or documents that can be used for reference.
+
+ecmscript.grammar    - a Yacc-compatable grammar for ECMAScript R3
+ecmascript.g 	     - a SableCC grammar for ECMAScript R3
+
+		   
