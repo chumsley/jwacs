@@ -15,11 +15,11 @@
   ((:module "tests"
             :serial t
             :components
-            (:file "package")
-            (:file "test-lexer")
-            (:file "test-parser")
-            (:file "test-pretty-printer")
-            (:file "test-source-transformations")))
+            ((:file "package")
+             (:file "test-lexer")
+             (:file "test-parser")
+             (:file "test-pretty-print")
+             (:file "test-source-transformations"))))
   :depends-on (jwacs rt))
 
             
