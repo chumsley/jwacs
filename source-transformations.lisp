@@ -5,6 +5,7 @@
 (in-package :jwacs)
 
 ;;;;; Utility functions
+;;TODO Structure-slots and friends may want to go into a separate "structure-helpers" file
 (defun structure-slots (object)
   #+openmcl
   (let* ((sd (gethash (class-name (class-of object)) ccl::%defstructs%))

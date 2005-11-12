@@ -341,6 +341,18 @@
   "Parse a string as a Javascript script, returning a list of statements."
   (javascript-script (make-javascript-lexer str)))
 
+;;TODO Move this to test-parser (along with the rest of the tests)
+(defun structure-to-plist (maybe-structure)
+  "Convert a structure to a list (for easier equality checks).
+   The list consists of the structure type followed by a property-list of
+   slot names and values.
+   Eg: (structure-to-plist (make-label :name foo :statement bar)) ==> (label name foo statement bar)"
+  (if (typep maybe-structure 'structure-object)
+    (cons (type-of maybe-structure)
+          (loop for slot in (structure-slots maybe-structure)
+                nconc (list slot (slot-value maybe-structure slot))))
+    maybe-structure))
+
 ;;TODO Tests need to be updated to account for conversion to structure source-model instead
 ;; of plists
 (defun test-broken ()
