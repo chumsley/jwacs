@@ -9,7 +9,15 @@
   (:nicknames :jw-system))
 (in-package :jwacs-system)
 
-;;TODO This will become more complex once Greg's cl-yacc port is done
+;;;; Compilation configuration
+(defparameter *use-yacc* t
+  "When t, use cl-yacc to generate a parser.  Otherwise, use the Lispworks parsergen.")
+
+(if *use-yacc*
+  (pushnew :use-yacc *features*)
+  (setf *features* (remove :use-yacc *features*)))
+
+#-use-yacc
 (require "parsergen")
 
 (asdf:defsystem jwacs 
@@ -17,10 +25,14 @@
   :author "James Wright <chumsley@gmail.com>"
   :license "BSD License <http://www.opensource.org/licenses/bsd-license.php>"
   :serial t
-  :components ((:file "package")
+  :components ((:module "external"
+                        :components
+                        ((:file "yacc")))
+               (:file "package")
                (:file "lexer-macros")
                (:file "lex-javascript")
                (:file "js-source-model")
+               #+use-yacc (:file "parse-javascript-yacc")
                (:file "parse-javascript")
                (:file "pretty-print")
                (:file "source-transformations"))

@@ -3,7 +3,8 @@
 ;;; Unit tests for the Javascript lexer.
 (in-package :jwacs-tests)
 (import '(jwacs::regexp-re
-          jwacs::make-javascript-lexer))
+          jwacs::make-javascript-lexer
+          jwacs::eoi))
 
 ;;;; Helper functions
 (defun non-null (x)
@@ -52,7 +53,7 @@
                       }"))
     (loop with l = (make-javascript-lexer js-string-1)
           for x = (multiple-value-list (funcall l))
-          while (not (eq (car x) :eoi))
+          while (not (eq (car x) eoi))
           collect x))
   ((:function "function")
    (:left-paren "(")
@@ -87,7 +88,7 @@
                      var re2 = /hello\\/goodbye/ig;"))
     (loop with l = (make-javascript-lexer js-string-2)
           for x = (multiple-value-list (funcall l))
-          while (not (eq (car x) :eoi))
+          while (not (eq (car x) eoi))
           collect x))
   ((:var "var")
    (:identifier "re1")

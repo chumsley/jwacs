@@ -9,8 +9,16 @@
 
 (in-package :jwacs)
 
+;;;; Cross-compiler configuration
+(defmacro defparser-generic (&rest args)
+  "Use this macro instead of defparser.  It evaluates to an invocation of either
+   parsergen:defparser or jwacs::defparser depending on the use-yacc feature."
+  #+use-yacc `(jwacs::defparser ,@args)
+  #-use-yacc `(parsergen:defparser ,@args))
+
 ;;;; Parser
-(defparser javascript-script
+(defparser-generic javascript-script
+    ;; Starting production
     ((program source-elements) $1)
 
   ;; Expressions
@@ -339,7 +347,8 @@
 
 (defun parse (str)
   "Parse a string as a Javascript script, returning a list of statements."
-  (javascript-script (make-javascript-lexer str)))
+  #+use-yacc (yacc:parse-with-lexer (make-javascript-lexer str) javascript-script)
+  #-use-yacc (javascript-script (make-javascript-lexer str)))
 
 ;;TODO Move this to test-parser (along with the rest of the tests)
 (defun structure-to-plist (maybe-structure)

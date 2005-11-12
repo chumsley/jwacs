@@ -59,7 +59,8 @@
   "A list of the keyword symbols.")
 
 ;; end of input
-(deftoken :eoi)
+(defconstant eoi nil
+  "The token to return on end-of-input")
 
 ;; Compound assignment operators
 (deftoken :times-equals   "*=" :operator-token)
@@ -318,10 +319,10 @@
       ;; because we just finished skipping all of the whitespace and comments.
       (re-cond (string :start cursor)
        ("^$"
-        :eoi)
+        eoi)
        (floating-re
         (incf cursor (- %e %s))
-        (values :number (read-from-string string nil :eoi :start %s :end %e)))
+        (values :number (read-from-string string nil eoi :start %s :end %e)))
        (integer-re
         (incf cursor (- %e %s))
         (values :number (parse-javascript-integer string :start %s :end %e)))

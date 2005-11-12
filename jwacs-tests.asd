@@ -11,8 +11,12 @@
   :version "0.1"
   :author "James Wright <chumsley@gmail.com>"
   :license "BSD License <http://www.opensource.org/licenses/bsd-license.php>"
+  :serial t
   :components
-  ((:module "tests"
+  ((:module "external"
+            :components
+            ((:file "rt")))
+   (:module "tests"
             :serial t
             :components
             ((:file "package")
@@ -20,7 +24,5 @@
              (:file "test-parser")
              (:file "test-pretty-print")
              (:file "test-source-transformations"))))
-  :depends-on (jwacs rt))
+  :depends-on (jwacs))
 
-            
-  
