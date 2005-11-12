@@ -23,7 +23,7 @@
 (asdf:defsystem jwacs 
   :version "0.1"
   :author "James Wright <chumsley@gmail.com>"
-  :license "BSD License <http://www.opensource.org/licenses/bsd-license.php>"
+;  :license "BSD License <http://www.opensource.org/licenses/bsd-license.php>"
   :serial t
   :components ((:module "external"
                         :components

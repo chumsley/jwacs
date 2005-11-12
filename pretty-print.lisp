@@ -126,7 +126,7 @@
     ((null (new-expr-args elm))
      (format s "new ~A" (new-expr-object-name elm)))
     (t
-     (format s "new ~A (")
+     (format s "new ~A (" (new-expr-object-name elm))
      (pretty-print-separated-list (new-expr-args elm) s))))
 
 (defmethod pretty-print ((elm fn-call) s)

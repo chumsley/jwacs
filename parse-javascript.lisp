@@ -349,7 +349,7 @@
   "Parse a string as a Javascript script, returning a list of statements."
   #+use-yacc (yacc:parse-with-lexer (make-javascript-lexer str) javascript-script)
   #-use-yacc (javascript-script (make-javascript-lexer str)))
-
+#|
 ;;TODO Move this to test-parser (along with the rest of the tests)
 (defun structure-to-plist (maybe-structure)
   "Convert a structure to a list (for easier equality checks).
@@ -464,4 +464,4 @@
             '((:function-decl "make_adder" ("n") ((:return (:function-expression nil ("x") ((:return (:add (:identifier "x") (:identifier "n"))))))))
               (:call (:identifier "make_adder") ((:number 20)))))
      )))
-
+|#
