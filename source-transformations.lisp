@@ -65,15 +65,13 @@
 ;;; As the name suggests, this transformation collapses adjacent variable declaration statements
 ;;; into a single statment.
 
-;;HERE
-
-;;;;; Unit tests
+;;;; Unit tests
 (defmethod transform ((xform (eql 'hello)) (elm string))
     "hello there!")
 
 (defun test-transform ()
   (and
-   (equal (continue-label (transform 'hello (make-continue :label "go away!")))
+   (equal (continue-statement-label (transform 'hello (make-continue-statement :label "go away!")))
           "hello there!")
    (equal (transform 'hello '("string 1" symbol ("string 2")))
                      '("hello there!" symbol ("hello there!")))))

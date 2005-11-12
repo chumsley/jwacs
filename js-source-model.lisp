@@ -55,22 +55,22 @@
 (defstruct (comma-expr (:include source-element))
   exprs)
 
-(defstruct (var-decl-stmt (:include source-element))
+(defstruct (var-decl-statement (:include source-element))
   var-decls)
 
 (defstruct (var-decl (:include source-element))
   name
   initializer)
 
-(defstruct (block (:include source-element))
+(defstruct (statement-block (:include source-element))
   statements)
 
-(defstruct (if (:include source-element))
+(defstruct (if-statement (:include source-element))
   condition
   then-statement
   else-statement)
 
-(defstruct (do (:include source-element))
+(defstruct (do-statement (:include source-element))
   condition
   body)
 
@@ -89,13 +89,13 @@
   collection
   body)
 
-(defstruct (continue (:include source-element))
+(defstruct (continue-statement (:include source-element))
   label)
 
-(defstruct (break (:include source-element))
+(defstruct (break-statement (:include source-element))
   label)
 
-(defstruct (return (:include source-element))
+(defstruct (return-statement (:include source-element))
   arg)
 
 (defstruct (with (:include source-element))
@@ -106,18 +106,18 @@
   value
   clauses)
 
-(defstruct (case (:include source-element))
+(defstruct (case-clause (:include source-element))
   label
   body)
 
-(defstruct (default (:include source-element))
+(defstruct (default-clause (:include source-element))
   body)
 
 (defstruct (label (:include source-element))
   name
   statement)
 
-(defstruct (throw (:include source-element))
+(defstruct (throw-statement (:include source-element))
   value)
 
 (defstruct (try (:include source-element))

@@ -60,7 +60,7 @@
    "pretty-print source element ELM to stream STREAM as a 'subordinate statement'.
     This has differing indentation implications depending upon whether or not ELM is a BLOCK."))
 
-(defmethod pretty-print-subordinate ((elm block) s &key semicolon)
+(defmethod pretty-print-subordinate ((elm statement-block) s &key semicolon)
   (declare (ignore semicolon))
   (pretty-print elm s))
 
@@ -71,7 +71,7 @@
     (if semicolon
       (format s ";"))))
 
-;;;;; General helpers
+;;;; General helpers
 (defun pretty-print-separated-list (elm-list s &optional (sep-string ", "))
   "Pretty print the elements of ELM-LIST to S separated by SEP-STRING."
   (loop
@@ -82,7 +82,7 @@
         (format s sep-string))
       (pretty-print elm s)))
 
-;;;;; The pretty-print generic function
+;;;; The pretty-print generic function
 
 (defgeneric pretty-print (elm stream)
   (:documentation
@@ -191,9 +191,9 @@
 (defmethod pretty-print ((elm comma-expr) s)
   (pretty-print-separated-list (comma-expr-exprs elm) s))
 
-(defmethod pretty-print ((elm var-decl-stmt) s)
+(defmethod pretty-print ((elm var-decl-statement) s)
   (format s "var ")
-  (pretty-print-separated-list (var-decl-stmt-var-decls elm) s))
+  (pretty-print-separated-list (var-decl-statement-var-decls elm) s))
 
 (defmethod pretty-print ((elm var-decl) s)
   (format s (var-decl-name elm))
@@ -203,38 +203,38 @@
 
 ;; Pretty-print a list of source elements
 (defmethod pretty-print ((elm list) s)
-  (loop for stmt in elm
+  (loop for statement in elm
         do
         (fresh-line-indented s)
-        (pretty-print stmt s)
+        (pretty-print statement s)
         (format s ";")))
   
-(defmethod pretty-print ((elm block) s)
+(defmethod pretty-print ((elm statement-block) s)
   (fresh-line-indented s)
   (format s "{")
   (with-indent
-    (pretty-print (block-statements elm) s))
+    (pretty-print (statement-block-statements elm) s))
   (fresh-line-indented s)
   (format s "}"))
 
-(defmethod pretty-print ((elm if) s)
+(defmethod pretty-print ((elm if-statement) s)
   (format s "if(")
-  (pretty-print (if-condition elm) s)
+  (pretty-print (if-statement-condition elm) s)
   (format s ")")
-  (pretty-print-subordinate (if-then-statement elm) s)
-  (when (if-else-statement elm)
-    (unless (block-p (if-then-statement elm))
+  (pretty-print-subordinate (if-statement-then-statement elm) s)
+  (when (if-statement-else-statement elm)
+    (unless (statement-block-p (if-statement-then-statement elm))
       (format s ";"))
     (fresh-line-indented s)
     (format s "else")
-    (pretty-print-subordinate (if-else-statement elm) s)))
+    (pretty-print-subordinate (if-statement-else-statement elm) s)))
 
-(defmethod pretty-print ((elm do) s)
+(defmethod pretty-print ((elm do-statement) s)
   (format s "do")
-  (pretty-print-subordinate (do-body elm) s :semicolon t)
+  (pretty-print-subordinate (do-statement-body elm) s :semicolon t)
   (fresh-line-indented s)
   (format s "while(")
-  (pretty-print (do-condition elm) s)
+  (pretty-print (do-statement-condition elm) s)
   (format s ")"))
 
 (defmethod pretty-print ((elm while) s)
@@ -268,27 +268,27 @@
   (pretty-print-subordinate (for-in-body elm) s))
 
 ;; TODO Consolidate break/return/continue/throw into a single struct type?
-(defmethod pretty-print ((elm continue) s)
+(defmethod pretty-print ((elm continue-statement) s)
   (format s "continue")
-  (when (continue-label elm)
+  (when (continue-statement-label elm)
     (format s " ")
-    (pretty-print (continue-label elm) s)))
+    (pretty-print (continue-statement-label elm) s)))
 
-(defmethod pretty-print ((elm break) s)
+(defmethod pretty-print ((elm break-statement) s)
   (format s "break")
-  (when (break-label elm)
+  (when (break-statement-label elm)
     (format s " ")
-    (pretty-print (break-label elm) s)))
+    (pretty-print (break-statement-label elm) s)))
 
-(defmethod pretty-print ((elm return) s)
+(defmethod pretty-print ((elm return-statement) s)
   (format s "return")
-  (when (return-arg elm)
+  (when (return-statement-arg elm)
     (format s " ")
-    (pretty-print (return-arg elm) s)))
+    (pretty-print (return-statement-arg elm) s)))
 
-(defmethod pretty-print ((elm throw) s)
+(defmethod pretty-print ((elm throw-statement) s)
   (format s "throw ")
-  (pretty-print (throw-value elm) s))
+  (pretty-print (throw-statement-value elm) s))
 
 (defmethod pretty-print ((elm switch) s)
   (format s "switch(")
@@ -301,19 +301,19 @@
   (fresh-line-indented s)
   (format s "}"))
 
-(defmethod pretty-print ((elm case) s)
+(defmethod pretty-print ((elm case-clause) s)
   (fresh-line-indented s)
   (format s "case ")
-  (pretty-print (case-label elm) s)
+  (pretty-print (case-clause-label elm) s)
   (format s ":")
   (with-indent
-    (pretty-print (case-body elm) s)))
+    (pretty-print (case-clause-body elm) s)))
 
-(defmethod pretty-print ((elm default) s)
+(defmethod pretty-print ((elm default-clause) s)
   (fresh-line-indented s)
   (format s "default:")
   (with-indent
-    (pretty-print (default-body elm) s)))
+    (pretty-print (default-clause-body elm) s)))
 
 (defmethod pretty-print ((elm with) s)
   (format s "with(")

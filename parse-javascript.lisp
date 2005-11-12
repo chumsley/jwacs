@@ -234,14 +234,14 @@
   
 
   ;; Pg 73
-  ((block :left-curly statement-list :right-curly) (make-block :statements $2))
-  ((block :left-curly :right-curly) (make-block :statements nil))
+  ((block :left-curly statement-list :right-curly) (make-statement-block :statements $2))
+  ((block :left-curly :right-curly) (make-statement-block :statements nil))
 
   ((statement-list statement) (list $1))
   ((statement-list statement-list statement) (append $1 (list $2)))
 
   ;; Pg 74
-  ((variable-statement :var variable-decl-list :semicolon) (make-var-decl-stmt :var-decls $2))
+  ((variable-statement :var variable-decl-list :semicolon) (make-var-decl-statement :var-decls $2))
 
   ((variable-decl-list variable-decl) (list $1))
   ((variable-decl-list variable-decl-list :comma variable-decl) (append $1 (list $3)))
@@ -260,31 +260,31 @@
 
   ((expression-statement expression :semicolon) $1) ;TODO lookahead != function or {
 
-  ((if-statement :if :left-paren expression :right-paren statement :else statement) (make-if :condition $3 :then-statement $5 :else-statement $7))
-  ((if-statement :if :left-paren expression :right-paren statement) (make-if :condition $3 :then-statement $5))
+  ((if-statement :if :left-paren expression :right-paren statement :else statement) (make-if-statement :condition $3 :then-statement $5 :else-statement $7))
+  ((if-statement :if :left-paren expression :right-paren statement) (make-if-statement :condition $3 :then-statement $5))
   
   ;; Pg 76
-  ((iteration-statement :do statement :while :left-paren expression :right-paren :semicolon) (make-do :condition $5 :body $2))
+  ((iteration-statement :do statement :while :left-paren expression :right-paren :semicolon) (make-do-statement :condition $5 :body $2))
   ((iteration-statement :while :left-paren expression :right-paren statement) (make-while :condition $3 :body $5))
 
   ;;TODO Almost every expression in a for statement should be optional; add that (probably by writing a utility to calculate it for us)
   ((iteration-statement :for :left-paren expression-no-in :semicolon expression :semicolon expression :right-paren statement)
    (make-for :initializer $3 :condition $5 :step $7 :body $9))
   ((iteration-statement :for :left-paren :var variable-decl-list-no-in :semicolon expression :semicolon expression :right-paren statement)
-   (make-for :initializer (make-var-decl-stmt :var-decls $4) :condition $6 :step $8 :body $10))
+   (make-for :initializer (make-var-decl-statement :var-decls $4) :condition $6 :step $8 :body $10))
   ((iteration-statement :for :left-paren left-hand-side-expression :in expression :right-paren statement)
    (make-for-in :binding $3 :collection $5 :body $7))
   ((iteration-statement :for :left-paren :var variable-decl-no-in :in expression :right-paren statement)
-   (make-for-in :binding (make-var-decl-stmt :var-decls (list $4)) :collection $6 :body $8))
+   (make-for-in :binding (make-var-decl-statement :var-decls (list $4)) :collection $6 :body $8))
 
-  ((continue-statement :continue :identifier :semicolon) (make-continue :label $2))
-  ((continue-statement :continue :semicolon) (make-continue))
+  ((continue-statement :continue :identifier :semicolon) (make-continue-statement :label $2))
+  ((continue-statement :continue :semicolon) (make-continue-statement))
 
-  ((break-statement :break :identifier :semicolon) (make-break :label $2))
-  ((break-statement :break :semicolon) (make-break))
+  ((break-statement :break :identifier :semicolon) (make-break-statement :label $2))
+  ((break-statement :break :semicolon) (make-break-statement))
 
-  ((return-statement :return expression :semicolon) (make-return :arg $2))
-  ((return-statement :return :semicolon) (make-return))
+  ((return-statement :return expression :semicolon) (make-return-statement :arg $2))
+  ((return-statement :return :semicolon) (make-return-statement))
 
   ((with-statement :with :left-paren expression :right-paren statement) (make-with :scope-object $3 :body $5))
 
@@ -301,15 +301,15 @@
   ((case-clauses case-clause) (list $1))
   ((case-clauses case-clauses case-clause) (append $1 (list $2)))
 
-  ((case-clause :case expression :colon statement-list) (make-case :label $2 :body $4))
-  ((case-clause :case expression :colon) (make-case :label $2))
-  ((case-clause :default :colon statement-list) (make-default :body $3))
-  ((case-clause :default :colon) (make-default))
+  ((case-clause :case expression :colon statement-list) (make-case-clause :label $2 :body $4))
+  ((case-clause :case expression :colon) (make-case-clause :label $2))
+  ((case-clause :default :colon statement-list) (make-default-clause :body $3))
+  ((case-clause :default :colon) (make-default-clause))
 
   ;; Pg 81
   ((labelled-statement :identifier :colon statement) (make-label :name $1 :statement $3))
 
-  ((throw-statement :throw expression :semicolon) (make-throw :value $2))
+  ((throw-statement :throw expression :semicolon) (make-throw-statement :value $2))
 
   ((try-statement :try block catch) (make-try :body $2 :catch-clause $3))
   ((try-statement :try block finally) (make-try :body $2 :finally-clause $3))

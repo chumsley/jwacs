@@ -3,46 +3,47 @@
 ;;; Tests for the pretty-printer.
 
 (in-package :jwacs-tests)
-(import '(jwacs::make-source-element
-          jwacs::make-special-value
-          jwacs::make-identifier
-          jwacs::make-numeric-literal
-          jwacs::make-string-literal
-          jwacs::make-array-literal
-          jwacs::make-object-literal
-          jwacs::make-new-expr
-          jwacs::make-fn-call
-          jwacs::make-property-access
-          jwacs::make-unary-operator
-          jwacs::make-binary-operator
-          jwacs::make-conditional
-          jwacs::make-comma-expr
-          jwacs::make-var-decl-stmt
-          jwacs::make-var-decl
-          jwacs::make-block
-          jwacs::make-if
-          jwacs::make-do
-          jwacs::make-while
-          jwacs::make-for
-          jwacs::make-for-in
-          jwacs::make-continue
-          jwacs::make-break
-          jwacs::make-return
-          jwacs::make-with
-          jwacs::make-switch
-          jwacs::make-case
-          jwacs::make-default
-          jwacs::make-label
-          jwacs::make-throw
-          jwacs::make-try
-          jwacs::make-catch-clause
-          jwacs::make-finally-clause
-          jwacs::make-function-decl
-          jwacs::make-function-expression
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (import '(jwacs::make-source-element
+            jwacs::make-special-value
+            jwacs::make-identifier
+            jwacs::make-numeric-literal
+            jwacs::make-string-literal
+            jwacs::make-array-literal
+            jwacs::make-object-literal
+            jwacs::make-new-expr
+            jwacs::make-fn-call
+            jwacs::make-property-access
+            jwacs::make-unary-operator
+            jwacs::make-binary-operator
+            jwacs::make-conditional
+            jwacs::make-comma-expr
+            jwacs::make-var-decl-statement
+            jwacs::make-var-decl
+            jwacs::make-statement-block
+            jwacs::make-if-statement
+            jwacs::make-do-statement
+            jwacs::make-while
+            jwacs::make-for
+            jwacs::make-for-in
+            jwacs::make-continue-statement
+            jwacs::make-break-statement
+            jwacs::make-return-statement
+            jwacs::make-with
+            jwacs::make-switch
+            jwacs::make-case-clause
+            jwacs::make-default-clause
+            jwacs::make-label
+            jwacs::make-throw-statement
+            jwacs::make-try
+            jwacs::make-catch-clause
+            jwacs::make-finally-clause
+            jwacs::make-function-decl
+            jwacs::make-function-expression
 
-          jwacs::pretty-print
-          jwacs::with-indent
-          jwacs::*indent*))
+            jwacs::pretty-print
+            jwacs::with-indent
+            jwacs::*indent*)))
 
 ;;;; Helper functions
 (defun pretty-string (elm)
@@ -134,17 +135,17 @@
   (pretty-string (make-numeric-literal :value 50))
   "50")
 
-(deftest pretty-print-var-decl-stmt/1 :notes pretty-print
+(deftest pretty-print-var-decl-statement/1 :notes pretty-print
   (pretty-string
-   (make-var-decl-stmt :var-decls 
+   (make-var-decl-statement :var-decls 
                        (list (make-var-decl :name "x")
                              (make-var-decl :name "y" :initializer (make-numeric-literal :value 50)))))
   "var x, y = 50")
 
 (deftest pretty-print-block/1 :notes pretty-print
   (pretty-string
-   (make-block :statements
-               (list (make-var-decl-stmt :var-decls (list (make-var-decl :name "x" :initializer (make-numeric-literal :value 55))))
+   (make-statement-block :statements
+               (list (make-var-decl-statement :var-decls (list (make-var-decl :name "x" :initializer (make-numeric-literal :value 55))))
                      (make-binary-operator :op-symbol :times-equals :left-arg (make-identifier :name "x") :right-arg foo-id))))
   "{
   var x = 55;
@@ -154,8 +155,8 @@
 (deftest pretty-print-block/2 :notes pretty-print
   (with-indent
     (pretty-string
-     (make-block :statements
-                 (list (make-var-decl-stmt :var-decls (list (make-var-decl :name "x" :initializer (make-numeric-literal :value 55))))
+     (make-statement-block :statements
+                 (list (make-var-decl-statement :var-decls (list (make-var-decl :name "x" :initializer (make-numeric-literal :value 55))))
                        (make-binary-operator :op-symbol :times-equals :left-arg (make-identifier :name "x") :right-arg foo-id)))))
   "  {
     var x = 55;
@@ -163,19 +164,19 @@
   }")
 
 (deftest pretty-print-if/1 :notes pretty-print
-  (pretty-string (make-if :condition foo-id :then-statement bar-id))
+  (pretty-string (make-if-statement :condition foo-id :then-statement bar-id))
   "if(foo)
   bar")
 
 (deftest pretty-print-if/2 :notes pretty-print
-  (pretty-string (make-if :condition foo-id :then-statement bar-id :else-statement baz-id))
+  (pretty-string (make-if-statement :condition foo-id :then-statement bar-id :else-statement baz-id))
   "if(foo)
   bar;
 else
   baz")
 
 (deftest pretty-print-if/3 :notes pretty-print
-  (pretty-string (make-if :condition foo-id :then-statement (make-block :statements (list bar-id))))
+  (pretty-string (make-if-statement :condition foo-id :then-statement (make-statement-block :statements (list bar-id))))
   "if(foo)
 {
   bar;
@@ -183,7 +184,7 @@ else
 
 (deftest pretty-print-if/4 :notes pretty-print
   (pretty-string
-   (make-if :condition foo-id :then-statement (make-block :statements (list bar-id)) :else-statement baz-id))
+   (make-if-statement :condition foo-id :then-statement (make-statement-block :statements (list bar-id)) :else-statement baz-id))
   "if(foo)
 {
   bar;
@@ -193,8 +194,8 @@ else
 
 (deftest pretty-print-if/5 :notes pretty-print
   (pretty-string
-   (make-if :condition foo-id :then-statement bar-id
-            :else-statement (make-block :statements (list baz-id))))
+   (make-if-statement :condition foo-id :then-statement bar-id
+            :else-statement (make-statement-block :statements (list baz-id))))
    "if(foo)
   bar;
 else
@@ -204,10 +205,10 @@ else
 
 
 (deftest pretty-print-do/1 :notes pretty-print
-  (pretty-string (make-do :condition (make-binary-operator :op-symbol :greater-than
+  (pretty-string (make-do-statement :condition (make-binary-operator :op-symbol :greater-than
                                                         :left-arg foo-id
                                                         :right-arg (make-numeric-literal :value 55.0))
-                       :body (make-block :statements
+                       :body (make-statement-block :statements
                                          (list (make-unary-operator :op-symbol :post-incr :arg foo-id)))))
   "do
 {
@@ -223,30 +224,30 @@ while(foo > 55.0)")
 
 (deftest pretty-print-while/2 :notes pretty-print
   (pretty-string (make-while :condition (make-unary-operator :op-symbol :typeof :arg foo-id)
-                             :body (make-block :statements (list (make-unary-operator :op-symbol :delete :arg foo-id)))))
+                             :body (make-statement-block :statements (list (make-unary-operator :op-symbol :delete :arg foo-id)))))
   "while(typeof foo)
 {
   delete foo;
 }")
 
 (deftest pretty-print-for/1 :notes pretty-print
-  (pretty-string (make-for :body (make-block)))
+  (pretty-string (make-for :body (make-statement-block)))
   "for(; ; )
 {
 }")
 
 (deftest pretty-print-for/2 :notes pretty-print
-  (pretty-string (make-for :initializer (make-var-decl-stmt :var-decls (list (make-var-decl :name "foo" :initializer bar-id)))
+  (pretty-string (make-for :initializer (make-var-decl-statement :var-decls (list (make-var-decl :name "foo" :initializer bar-id)))
                         :condition (make-binary-operator :op-symbol :not-equals :left-arg foo-id :right-arg baz-id)
                         :step (make-unary-operator :op-symbol :pre-incr :arg foo-id)
-                        :body (make-block :statements (list (make-unary-operator :op-symbol :post-decr :arg foo-id)))))
+                        :body (make-statement-block :statements (list (make-unary-operator :op-symbol :post-decr :arg foo-id)))))
   "for(var foo = bar; foo != baz; ++foo)
 {
   foo--;
 }")
 
 (deftest pretty-print-for-in/1 :notes pretty-print
-  (pretty-string (make-for-in :binding (make-var-decl-stmt :var-decls (list (make-var-decl :name "foo")))
+  (pretty-string (make-for-in :binding (make-var-decl-statement :var-decls (list (make-var-decl :name "foo")))
                            :collection bar-id
                            :body (make-fn-call :fn baz-id :args (list foo-id bar-id))))
   "for(var foo in bar)
@@ -262,17 +263,17 @@ while(foo > 55.0)")
 (deftest pretty-print-switch/1 :notes pretty-print
   (pretty-string (make-switch :value foo-id :clauses
                  (list
-                  (make-case :label (make-numeric-literal :value 10)
+                  (make-case-clause :label (make-numeric-literal :value 10)
                              :body (list
                                     (make-fn-call :fn bar-id :args (list (make-numeric-literal :value 1)))
                                     (make-fn-call :fn baz-id :args (list foo-id))
-                                    (make-break)))
-                  (make-case :label (make-numeric-literal :value 20))
-                  (make-case :label (make-numeric-literal :value 30)
+                                    (make-break-statement)))
+                  (make-case-clause :label (make-numeric-literal :value 20))
+                  (make-case-clause :label (make-numeric-literal :value 30)
                              :body (list
                                     (make-fn-call :fn bar-id :args (list (make-numeric-literal :value 3)))))
-                  (make-default :body (list
-                                       (make-return :arg foo-id))))))
+                  (make-default-clause :body (list
+                                       (make-return-statement :arg foo-id))))))
   "switch(foo)
 {
 case 10:
@@ -287,7 +288,7 @@ default:
 }")
 
 (deftest pretty-print-with/1 :notes pretty-print
-  (pretty-string (make-with :scope-object foo-id :body (make-block :statements (list bar-id))))
+  (pretty-string (make-with :scope-object foo-id :body (make-statement-block :statements (list bar-id))))
   "with(foo)
 {
   bar;
@@ -299,9 +300,9 @@ default:
 foo(bar, baz)")
 
 (deftest pretty-print-try/1 :notes pretty-print
-  (pretty-string (make-try :body (make-block :statements (list (make-fn-call :fn foo-id :args (list bar-id))))
-                        :catch-clause (make-catch-clause :binding "e" :body (make-block :statements (list (make-fn-call :fn foo-id :args (list (make-identifier :name "e"))))))
-                        :finally-clause (make-finally-clause :body (make-block :statements (list (make-fn-call :fn baz-id) (make-unary-operator :op-symbol :delete :arg foo-id))))))
+  (pretty-string (make-try :body (make-statement-block :statements (list (make-fn-call :fn foo-id :args (list bar-id))))
+                        :catch-clause (make-catch-clause :binding "e" :body (make-statement-block :statements (list (make-fn-call :fn foo-id :args (list (make-identifier :name "e"))))))
+                        :finally-clause (make-finally-clause :body (make-statement-block :statements (list (make-fn-call :fn baz-id) (make-unary-operator :op-symbol :delete :arg foo-id))))))
   "try
 {
   foo(bar);
