@@ -21,6 +21,7 @@
   (let* ((starting-point (first starting-production))
          (starting-symbol (first starting-point))
          (header `(yacc:define-parser ,parser-name
+                   (:muffle-conflicts ,jwacs-system::*muffle-conflicts*)
                    (:start-symbol ,starting-symbol)
                    (:terminals ,(expand-hashtable-to-values *tokens-to-symbols* ))
                    (:precedence nil)

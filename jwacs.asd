@@ -20,6 +20,18 @@
 #-use-yacc
 (require "parsergen")
 
+#+use-yacc
+(defparameter *muffle-conflicts* t
+  "When T, yacc warnings about Shift/Reduce and Reduce/Reduce conflicts will be muffled.
+   When NIL, all such conflicts will be reported.
+   When non-NIL, non-T, a single summary warning will be reported when conflicts exist.
+
+   This value should be set to NIL or non-T during grammar
+   development/debugging (so that we find out about the conflicts), but T
+   at all other times (so that SBCL won't drop into the debugger when
+   we're trying to load parse-javascript.lisp).")
+
+;;;; System definition
 (asdf:defsystem jwacs 
   :version "0.1"
   :author "James Wright <chumsley@gmail.com>, Greg Smolyn <greg@smolyn.org>"

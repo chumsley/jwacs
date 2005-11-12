@@ -18,8 +18,8 @@
 
 ;;;; Parser
 (defparser-generic javascript-script
-    ;; Starting production
-    ((program source-elements) $1)
+    
+    ((program source-elements) $1) ; Starting production
 
   ;; Expressions
   ((primary-expression :this) (make-special-value :symbol :this))
