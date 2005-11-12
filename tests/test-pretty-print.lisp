@@ -54,10 +54,15 @@
 ;;;; Test categories
 (defnote pretty-print "tests for the pretty-printer")
 
-;;; Helpful constants
-(defconstant foo-id (make-identifier :name "foo"))
-(defconstant bar-id (make-identifier :name "bar"))
-(defconstant baz-id (make-identifier :name "baz"))
+;;;; Helpful constants
+;;; We define these as parameters even though they're really constants in order to get
+;;; SBCL to SHUT UP.  Defconstant under SBCL complains unless the old value is EQL to
+;;; the new one.  Sadly, there is no way for two structure values to be EQL (unless they
+;;; are EQ).  We could write some sort of crazy macro to do this right, but for now
+;;; let's just not worry about it.
+(defparameter foo-id (make-identifier :name "foo"))
+(defparameter bar-id (make-identifier :name "bar"))
+(defparameter baz-id (make-identifier :name "baz"))
 
 ;;;; Tests
 (deftest pretty-print-special-value/1 :notes pretty-print
