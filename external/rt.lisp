@@ -341,44 +341,45 @@
   (format s "~&Doing ~A pending test~:P ~
              of ~A tests total.~%"
           (count t (the list (cdr *entries*)) :key #'pend)
-	  (length (cdr *entries*)))
+          (length (cdr *entries*)))
   (finish-output s)
   (dolist (entry (cdr *entries*))
     (when (and (pend entry)
-	       (not (has-disabled-note entry)))
+               (not (has-disabled-note entry)))
       (format s "~@[~<~%~:; ~:@(~S~)~>~]"
-	      (do-entry entry s))
+              (do-entry entry s))
       (finish-output s)
       ))
   (let ((pending (pending-tests))
-	(expected-table (make-hash-table :test #'equal)))
+        (expected-table (make-hash-table :test #'equal)))
     (dolist (ex *expected-failures*)
       (setf (gethash ex expected-table) t))
     (let ((new-failures
-	   (loop for pend in pending
-		 unless (gethash pend expected-table)
-		 collect pend)))
+           (loop for pend in pending
+                 unless (gethash pend expected-table)
+                 collect pend)))
       (if (null pending)
-	  (format s "~&No tests failed.")
-	(progn
-	  (format s "~&~A out of ~A ~
+        (format s "~&No tests failed.")
+        (progn
+          (format s "~&~A out of ~A ~
                    total tests failed: ~
                    ~:@(~{~<~%   ~1:;~S~>~
                          ~^, ~}~)."
-		  (length pending)
-		  (length (cdr *entries*))
-		  pending)
-	  (if (null new-failures)
-	      (format s "~&No unexpected failures.")
-	    (when *expected-failures*
-	      (format s "~&~A unexpected failures: ~
+                  (length pending)
+                  (length (cdr *entries*))
+                  pending)
+          (if (null new-failures)
+            (format s "~&No unexpected failures.")
+            (when *expected-failures*
+              (format s "~&~A unexpected failures: ~
                    ~:@(~{~<~%   ~1:;~S~>~
                          ~^, ~}~)."
-		    (length new-failures)
-		    new-failures)))
-	  ))
+                      (length new-failures)
+                      new-failures)))
+          ))
       (finish-output s)
-      (null pending))))
+      (values (null pending)
+              (null new-failures)))))
 
 (defun do-entries (s)
   #-sbcl (do-entries* s)
