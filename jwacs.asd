@@ -10,7 +10,9 @@
 (in-package :jwacs-system)
 
 ;;;; Compilation configuration
-(defparameter *use-yacc* t
+(defparameter *use-yacc*
+  #+lispworks nil
+  #-lispworks t
   "When t, use cl-yacc to generate a parser.  Otherwise, use the Lispworks parsergen.")
 
 (if *use-yacc*
