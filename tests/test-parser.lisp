@@ -14,10 +14,6 @@
           
           
 ;;;; Helper functions
-(defun flag-expected-failure (test-name)
-  "Add a test to the list of expected failures"
-  (pushnew test-name rtest::*expected-failures*))
-
 (defgeneric structure-to-plist (maybe-structure)
   (:documentation
    "Convert structures to lists of the form (struct-name slot-name slot-value ...).

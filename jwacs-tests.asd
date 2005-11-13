@@ -20,6 +20,7 @@
             :serial t
             :components
             ((:file "package")
+             (:file "test-utils")
              (:file "test-lexer")
              (:file "test-parser")
              (:file "test-pretty-print")
