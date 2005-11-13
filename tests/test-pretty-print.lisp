@@ -129,6 +129,39 @@
   (pretty-string (make-binary-operator :op-symbol :instanceof :left-arg foo-id :right-arg bar-id))
   "foo instanceof bar")
 
+;;; Operator precedence handling hasn't been implemented in the pretty-printer yet,
+;;; so the pretty-print-operator-precedence/? tests are currently expected to fail.
+
+(flag-expected-failure 'pretty-print-operator-precedence/1) 
+(deftest pretty-print-operator-precedence/1 :notes pretty-print
+  (pretty-string
+   (make-binary-operator :op-symbol :multiply
+                         :left-arg (make-binary-operator :op-symbol :add
+                                                         :left-arg (make-numeric-literal :value 1)
+                                                         :right-arg (make-numeric-literal :value 2))
+                         :right-arg (make-binary-operator :op-symbol :add
+                                                          :left-arg (make-numeric-literal :value 3)
+                                                          :right-arg (make-numeric-literal :value 4))))
+  "(1 + 2) * (3 + 4)")
+
+(flag-expected-failure 'pretty-print-operator-precedence/2) 
+(deftest pretty-print-operator-precedence/2 :notes pretty-print
+  (pretty-string
+   (make-unary-operator :op-symbol :post-incr
+                        :arg (make-binary-operator :op-symbol :minus
+                                                   :left-arg foo-id
+                                                   :right-arg (make-numeric-literal :value 10))))
+  "(foo - 5)++")
+
+(flag-expected-failure 'pretty-print-operator-precedence/3) 
+(deftest pretty-print-operator-precedence/3 :notes pretty-print
+  (pretty-string
+   (make-unary-operator :op-symbol :delete
+                        :arg (make-binary-operator :op-symbol :logical-or
+                                                   :left-arg foo-id
+                                                   :right-arg bar-id)))
+  "delete (foo || bar)")
+
 (deftest pretty-print-conditional/1 :notes pretty-print
   (pretty-string
    (make-conditional :condition foo-id
