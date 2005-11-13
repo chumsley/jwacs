@@ -75,6 +75,8 @@
 
 (defun replace-dollar-sign-in-symbol (sym)
   "Replace $n in a symbol with (nth n-1 expr)"
-  (if (not (eq (char (symbol-name sym) 0) #\$))
-      sym
-      `(nth ,(- (char-int (char (symbol-name sym) 1)) (char-int #\1))expr)))
+  (let* ((symname (symbol-name sym)))
+    (if (not (eq (char symname 0) #\$))
+	sym
+	`(nth ,(1- (parse-integer (subseq symname 1))) expr))))
+
