@@ -49,3 +49,7 @@
                (:file "pretty-print")
                (:file "source-transformations"))
   :depends-on (cl-ppcre))
+
+(defmethod perform ((o test-op) (c (eql (find-system 'jwacs))))
+  (operate 'load-op 'jwacs-tests)
+  (operate 'test-op 'jwacs-tests :force t))

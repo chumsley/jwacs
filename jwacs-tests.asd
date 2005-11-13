@@ -26,3 +26,6 @@
              (:file "test-source-transformations"))))
   :depends-on (jwacs))
 
+(defmethod perform ((o test-op) (c (eql (find-system 'jwacs-tests))))
+  (operate 'load-op :jwacs)
+  (funcall (intern (symbol-name '#:do-tests) (find-package :jw-tests))))

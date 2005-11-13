@@ -14,6 +14,10 @@
           
           
 ;;;; Helper functions
+(defun flag-expected-failure (test-name)
+  "Add a test to the list of expected failures"
+  (pushnew test-name rtest::*expected-failures*))
+
 (defgeneric structure-to-plist (maybe-structure)
   (:documentation
    "Convert structures to lists of the form (struct-name slot-name slot-value ...).
@@ -286,13 +290,12 @@
 
 (deftest parse-statement-block/1 :notes parser
   (parse-to-plist "{hello: x += 20;x*=10;}")
-  ((:statement-block :statements ((:label "hello" :statement (:binary-operator :op-symbol :plus-equals
+  ((:statement-block :statements ((:label :name "hello" :statement (:binary-operator :op-symbol :plus-equals
                                                                                :left-arg (:identifier :name "x")
                                                                                :right-arg (:numeric-literal :value 20)))
                                   (:binary-operator :op-symbol :times-equals
                                                     :left-arg (:identifier :name "x")
                                                     :right-arg (:numeric-literal :value 10))))))
-(pushnew 'parse-statement-block/1 rtest::*expected-failures*)
 
 (deftest parse-throw-statement/1 :notes parser
   (parse-to-plist "throw -1;")
