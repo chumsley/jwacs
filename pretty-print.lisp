@@ -127,10 +127,14 @@
 (defmethod pretty-print ((elm new-expr) s)
   (cond
     ((null (new-expr-args elm))
-     (format s "new ~A" (new-expr-object-name elm)))
+     (format s "new ")
+     (pretty-print (new-expr-object-name elm) s))
     (t
-     (format s "new ~A (" (new-expr-object-name elm))
-     (pretty-print-separated-list (new-expr-args elm) s))))
+     (format s "new ")
+     (pretty-print (new-expr-object-name elm) s)
+     (format s "(")
+     (pretty-print-separated-list (new-expr-args elm) s)
+     (format s ")"))))
 
 (defmethod pretty-print ((elm fn-call) s)
   (pretty-print (fn-call-fn elm) s)

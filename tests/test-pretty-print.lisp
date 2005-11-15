@@ -74,6 +74,14 @@
   (pretty-string (make-re-literal :pattern "avast" :options "gi"))
   "/avast/gi")
 
+(deftest pretty-print/new-expr/1 :notes pretty-print
+  (pretty-string (make-new-expr :object-name foo-id :args nil))
+  "new foo")
+
+(deftest pretty-print/new-expr/2 :notes pretty-print
+  (pretty-string (make-new-expr :object-name foo-id :args (list bar-id baz-id)))
+  "new foo(bar, baz)")
+
 (deftest pretty-print/special-value/1 :notes pretty-print
   (pretty-string (make-special-value :symbol :this))
   "this")
