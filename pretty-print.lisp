@@ -107,6 +107,9 @@
   (pretty-print-separated-list (array-literal-elements elm) s)
   (format s "]"))
 
+(defmethod pretty-print ((elm re-literal) s)
+  (format s "/~A/~A" (re-literal-pattern elm) (re-literal-options elm)))
+
 ;; TODO May want some extra smarts here for things like class defns
 ;; ie, add newlines after each property if any of the properties are of type function-expression
 (defmethod pretty-print ((elm object-literal) s)

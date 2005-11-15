@@ -9,3 +9,4 @@
   "Add a test to the list of expected failures"
   (pushnew test-name rtest::*expected-failures*))
 
+;;TODO Automated benchmarks?

@@ -6,6 +6,8 @@
 ;;; parse-to-plist, which returns a list-based representation of the source-element
 ;;; structures.
 
+;;TODO Round-trip test (eg, parse -> pretty-print -> parse)
+
 (in-package :jwacs-tests)
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (import '(jwacs::structure-slots
@@ -63,31 +65,39 @@
   (parse-to-plist "this;")
   ((:special-value :symbol :this)))
 
-(deftest parse-object-literal/1 :notes parser
+(deftest parser/object-literal/1 :notes parser
   (parse-to-plist "{a:10};")
   ((:object-literal :properties (((:identifier :name "a") . (:numeric-literal :value 10))))))
 
-(deftest parse-property-access/1 :notes parser
+(deftest parser/re-literal/1 :notes parser
+  (parse-to-plist "/hello/;")
+  ((:re-literal :pattern "hello" :options "")))
+
+(deftest parser/re-literal/2 :notes parser
+  (parse-to-plist "/hello/ig;")
+  ((:re-literal :pattern "hello" :options "ig")))
+
+(deftest parser/property-access/1 :notes parser
   (parse-to-plist "var x = y[44];" )
   ((:var-decl-statement :var-decls
                         ((:var-decl :name "x"
                                     :initializer (:property-access :target (:identifier :name "y")
                                                                    :field (:numeric-literal :value 44)))))))
 
-(deftest parse-property-access/2 :notes parser
+(deftest parser/property-access/2 :notes parser
   (parse-to-plist "var x = y.z;")
   ((:var-decl-statement :var-decls
                         ((:var-decl :name "x"
                                     :initializer (:property-access :target (:identifier :name "y")
                                                                    :field (:string-literal :value "z")))))))
-(deftest parse-new-expr/1 :notes parser
+(deftest parser/new-expr/1 :notes parser
   (parse-to-plist "var x = new ObjectName(10, 20);")
   ((:var-decl-statement :var-decls
                         ((:var-decl :name "x"
                                     :initializer (:new-expr :object-name (:identifier :name "ObjectName")
                                                             :args ((:numeric-literal :value 10)
                                                                    (:numeric-literal :value 20))))))))
-(deftest parse-new-expr/2 :notes parser
+(deftest parser/new-expr/2 :notes parser
   (parse-to-plist "var x = new 'strtype';")
   ((:var-decl-statement :var-decls
                         ((:var-decl :name "x"
@@ -95,19 +105,19 @@
                                                   :object-name (:string-literal :value "strtype")
                                                   :args nil))))))
 
-(deftest parse-new-expr/3 :notes parser
+(deftest parser/new-expr/3 :notes parser
   (parse-to-plist "new fcn;")
   ((:new-expr :object-name (:identifier :name "fcn")
               :args nil)))
 
-(deftest parse-new-expr/4 :notes parser
+(deftest parser/new-expr/4 :notes parser
   (parse-to-plist "new fcn (ahoy1, ahoy2);")
   ((:new-expr :object-name (:identifier :name "fcn")
               :args ((:identifier :name "ahoy1")
                      (:identifier :name "ahoy2")))))
 
 
-(deftest parse-new-expr-and-nested-property-access/1 :notes parser
+(deftest parser/new-expr-and-nested-property-access/1 :notes parser
   (parse-to-plist "var x = (new 'strtype').field[20];")
   ((:var-decl-statement :var-decls
                         ((:var-decl :name "x" 
@@ -120,18 +130,18 @@
                                               :field (:string-literal :value "field"))
                                      :field (:numeric-literal :value 20)))))))
 
-(deftest parse-fn-call/1 :notes parser
+(deftest parser/fn-call/1 :notes parser
   (parse-to-plist "var/*x*/varName=func(0x8);")
   ((:var-decl-statement :var-decls
                         ((:var-decl :name "varName"
                                     :initializer (:fn-call :fn (:identifier :name "func")
                                                           :args ((:numeric-literal :value 8))))))))
-(deftest parse-fn-call/2 :notes parser
+(deftest parser/fn-call/2 :notes parser
   (parse-to-plist "fcn ( arg );")
   ((:fn-call :fn (:identifier :name "fcn")
              :args ((:identifier :name "arg")))))
 
-(deftest parse-fn-call-and-nested-property-access/1 :notes parser
+(deftest parser/fn-call-and-nested-property-access/1 :notes parser
   (parse-to-plist "var varName=func(0x8, 'str')['sam'].a;")
   ((:var-decl-statement :var-decls
                         ((:var-decl :name "varName"
@@ -145,7 +155,7 @@
                                       :field (:string-literal :value "sam"))
                                      :field (:string-literal :value "a")))))))
 
-(deftest parse-binary-operator/1 :notes parser
+(deftest parser/binary-operator/1 :notes parser
   (parse-to-plist "var x = 10 * 10 / 20;")
   ((:var-decl-statement :var-decls
                         ((:var-decl :name "x"
@@ -155,7 +165,7 @@
                                                                                   :left-arg (:numeric-literal :value 10)
                                                                                   :right-arg (:numeric-literal :value 10))
                                                       :right-arg (:numeric-literal :value 20)))))))
-(deftest parse-binary-operator/2 :notes parser
+(deftest parser/binary-operator/2 :notes parser
      (parse-to-plist "var x = 10 * 2 + 3;")
      ((:var-decl-statement :var-decls
                            ((:var-decl :name "x"
@@ -165,7 +175,7 @@
                                                                                      :left-arg (:numeric-literal :value 10)
                                                                                      :right-arg (:numeric-literal :value 2))
                                                          :right-arg (:numeric-literal :value 3)))))))
-(deftest parse-binary-operator/3 :notes parser
+(deftest parser/binary-operator/3 :notes parser
   (parse-to-plist "var x = 3+10 * 2 ;")
   ((:var-decl-statement :var-decls
                         ((:var-decl :name "x"
@@ -176,7 +186,7 @@
                                                                                    :left-arg (:numeric-literal :value 10)
                                                                                    :right-arg (:numeric-literal :value 2))))))))
 
-(deftest parse-binary-operator/4 :notes parser
+(deftest parser/binary-operator/4 :notes parser
   (parse-to-plist "var x = 10 << (99 - 50) * 10;")
   ((:var-decl-statement :var-decls
                         ((:var-decl :name "x"
@@ -188,7 +198,7 @@
                                                                                                                :left-arg (:numeric-literal :value 99)
                                                                                                                :right-arg (:numeric-literal :value 50))
                                                                                    :right-arg (:numeric-literal :value 10))))))))
-(deftest parse-binary-operator/5 :notes parser
+(deftest parser/binary-operator/5 :notes parser
   (parse-to-plist "var x = a & b | c ^ d;")
   ((:var-decl-statement :var-decls
                         ((:var-decl :name "x"
@@ -201,7 +211,7 @@
                                                                                    :left-arg (:identifier :name "c")
                                                                                    :right-arg(:identifier :name "d"))))))))
 
-(deftest parse-binary-operator/6 :notes parser
+(deftest parser/binary-operator/6 :notes parser
   (parse-to-plist "var x = a && b || c && d;")
   ((:var-decl-statement :var-decls
                         ((:var-decl :name "x"
@@ -213,54 +223,54 @@
                                                                                                 :left-arg (:identifier :name "c")
                                                                                                 :right-arg (:identifier :name "d"))))))))
     
-(deftest parse-binary-operator/7 :notes parser
+(deftest parser/binary-operator/7 :notes parser
   (parse-to-plist "x == y;")
   ((:binary-operator :op-symbol :equals
                      :left-arg (:identifier :name "x")
                      :right-arg (:identifier :name "y"))))
 
-(deftest parse-binary-operator/8 :notes parser
+(deftest parser/binary-operator/8 :notes parser
   (parse-to-plist "x = y;")
   ((:binary-operator :op-symbol :assign
                      :left-arg (:identifier :name "x")
                      :right-arg(:identifier :name "y"))))
 
 
-(deftest parse-binary-operator/9 :notes parser
+(deftest parser/binary-operator/9 :notes parser
   (parse-to-plist "x += 50;")
   ((:binary-operator :op-symbol :plus-equals
                      :left-arg (:identifier :name "x")
                      :right-arg (:numeric-literal :value 50))))
 
-(deftest parse-unary-operator/1 :notes parser
+(deftest parser/unary-operator/1 :notes parser
   (parse-to-plist "delete x++;")
   ((:unary-operator :op-symbol :delete
                     :arg (:unary-operator :op-symbol :post-incr
                                           :arg (:identifier :name "x")))))
 
-(deftest parse-return-statement/1 :notes parser
+(deftest parser/return-statement/1 :notes parser
   (parse-to-plist "return;")
   ((:return-statement :arg nil)))
      
-(deftest parse-return-statement/2 :notes parser
+(deftest parser/return-statement/2 :notes parser
   (parse-to-plist "return 8 >> 2;")
   ((:return-statement :arg (:binary-operator :op-symbol :rshift
                                              :left-arg (:numeric-literal :value 8)
                                              :right-arg (:numeric-literal :value 2)))))
 
-(deftest parse-continue-statement/1 :notes parser
+(deftest parser/continue-statement/1 :notes parser
   (parse-to-plist "continue;")
   ((:continue-statement :label nil)))
 
-(deftest parse-continue-statement/2 :notes parser
+(deftest parser/continue-statement/2 :notes parser
   (parse-to-plist "continue blockName;")
   ((:continue-statement :label "blockName")))
 
-(deftest parse-break-statement/1 :notes parser
+(deftest parser/break-statement/1 :notes parser
   (parse-to-plist "break blockName;")
   ((:break-statement :label "blockName")))
 
-(deftest parse-with/1 :notes parser
+(deftest parser/with/1 :notes parser
   (parse-to-plist "with(x.y) { z -= 10; }")
   ((:with :scope-object (:property-access :target (:identifier :name "x")
                                           :field (:string-literal :value "y"))
@@ -269,7 +279,7 @@
                                                      :left-arg (:identifier :name "z")
                                                      :right-arg (:numeric-literal :value 10)))))))
 
-(deftest parse-switch/1 :notes parser
+(deftest parser/switch/1 :notes parser
   (parse-to-plist "switch(x[y]) { case 10:case 20:return x << 1;default:case 88:break; }")
   ((:switch :value (:property-access :target (:identifier :name "x")
                                      :field (:identifier :name "y"))
@@ -284,7 +294,7 @@
              (:case-clause :label (:numeric-literal :value 88)
                            :body ((:break-statement :label nil)))))))
 
-(deftest parse-statement-block/1 :notes parser
+(deftest parser/statement-block/1 :notes parser
   (parse-to-plist "{hello: x += 20;x*=10;}")
   ((:statement-block :statements ((:label :name "hello" :statement (:binary-operator :op-symbol :plus-equals
                                                                                :left-arg (:identifier :name "x")
@@ -293,12 +303,12 @@
                                                     :left-arg (:identifier :name "x")
                                                     :right-arg (:numeric-literal :value 10))))))
 
-(deftest parse-throw-statement/1 :notes parser
+(deftest parser/throw-statement/1 :notes parser
   (parse-to-plist "throw -1;")
   ((:throw-statement :value (:unary-operator :op-symbol :unary-minus
                                              :arg (:numeric-literal :value 1)))))
 
-(deftest parse-try/1 :notes parser
+(deftest parser/try/1 :notes parser
   (parse-to-plist "try { throw x++; } catch(y) {return y;}")
   ((:try
     :body (:statement-block :statements
@@ -309,7 +319,7 @@
                                                         ((:return-statement :arg (:identifier :name "y")))))
     :finally-clause nil)))
 
-(deftest parse-try/2 :notes parser
+(deftest parser/try/2 :notes parser
   (parse-to-plist "try {throw 10;} finally {delete x;delete y;}")
   ((:try
     :body (:statement-block :statements
@@ -321,7 +331,7 @@
                                                               (:unary-operator :op-symbol :delete
                                                                                :arg (:identifier :name "y"))))))))
 
-(deftest parse-try/3 :notes parser
+(deftest parser/try/3 :notes parser
   (parse-to-plist "try {func(x);} catch(e) {} finally {delete x;}")
   ((:try
     :body (:statement-block :statements
@@ -333,7 +343,7 @@
                                                                               :arg (:identifier :name "x"))))))))
   
   
-(deftest parse-if/1 :notes parser
+(deftest parser/if/1 :notes parser
   (parse-to-plist "if(x == 10) {y=100;} else {y = null;}")
   ((:if-statement :condition (:binary-operator :op-symbol :equals
                                                :left-arg (:identifier :name "x")
@@ -347,7 +357,7 @@
                                                                        :left-arg (:identifier :name "y")
                                                                        :right-arg (:special-value :symbol :null)))))))
 
-(deftest parse-function-decl/1 :notes parser
+(deftest parser/function-decl/1 :notes parser
   (parse-to-plist "function foo(x) { if(x == 20) return 10; return 55;}")
   ((:function-decl :name "foo"
                    :parameters ("x")
@@ -361,7 +371,7 @@
                                           nil)
                            (:return-statement :arg (:numeric-literal :value 55))))))
 
-(deftest parse-function-decl-and-toplevel-call/1 :notes parser
+(deftest parser/function-decl-and-toplevel-call/1 :notes parser
   (parse-to-plist "function make_adder(n) { return function(x) { return x + n;};} make_adder(20);")
   ((:function-decl :name "make_adder"
                    :parameters ("n")
@@ -374,7 +384,7 @@
    (:fn-call :fn (:identifier :name "make_adder")
              :args ((:numeric-literal :value 20)))))
 
-(deftest parse-function-expression/1 :notes parser
+(deftest parser/function-expression/1 :notes parser
   (parse-to-plist "var x = function f(n) { if(n > 0) return n*f(n-1); else return 1;};")
   ((:var-decl-statement :var-decls
                         ((:var-decl :name "x"
@@ -396,7 +406,7 @@
                                                           :else-statement
                                                           (:return-statement :arg (:numeric-literal :value 1))))))))))
 
-(deftest parse-function-expression/2 :notes parser
+(deftest parser/function-expression/2 :notes parser
   (parse-to-plist "function(n) { if(n > 0) return n*f(n-1); else return 1;};")
   ((:function-expression :name nil
                          :parameters ("n")

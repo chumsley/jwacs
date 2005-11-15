@@ -33,6 +33,7 @@
   ((literal boolean-literal) $1)
   ((literal :number) (make-numeric-literal :value $1))
   ((literal :string-literal) (make-string-literal :value $1))
+  ((literal :re-literal) (make-re-literal :pattern (car $1) :options (cdr $1)))
   
   ((boolean-literal :true) (make-special-value :symbol :true))
   ((boolean-literal :false) (make-special-value :symbol :false))

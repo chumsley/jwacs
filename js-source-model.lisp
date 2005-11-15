@@ -3,6 +3,8 @@
 ;;; Defines the data structures that are used for the internal representation
 ;;; of parsed Javascript source files.
 
+;;TODO Type declarations on slots (for documentation as much as efficiency)
+
 (in-package :jwacs)
 
 (defstruct source-element
@@ -25,6 +27,10 @@
 
 (defstruct (object-literal (:include source-element))
   properties)  ; List of (PROPERTY-NAME . PROPERTY-VALUE)
+
+(defstruct (re-literal (:include source-element))
+  pattern
+  options)
 
 (defstruct (new-expr (:include source-element))
   object-name
