@@ -157,7 +157,7 @@
 (deftoken :else         "else"   :keyword)
 (deftoken :enum         "enum"   :keyword) ;???
 (deftoken :false        "false"  :keyword)
-(deftoken :finally      "finally" :keyword) ;???
+(deftoken :finally      "finally" :keyword)
 (deftoken :for          "for"    :keyword)
 (deftoken :function     "function" :keyword)
 (deftoken :if           "if"     :keyword)
@@ -172,7 +172,6 @@
 (deftoken :true         "true"   :keyword)
 (deftoken :try          "try"    :keyword)
 (deftoken :typeof       "typeof" :keyword)
-(deftoken :undefined    "undefined" :keyword) ;???
 (deftoken :var          "var"    :keyword)
 (deftoken :void         "void"   :keyword) ;???
 (deftoken :while        "while"  :keyword)

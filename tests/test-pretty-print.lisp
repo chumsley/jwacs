@@ -90,9 +90,17 @@
   (pretty-string (make-special-value :symbol :null))
   "null")
 
-(deftest pretty-print/special-value/5 :notes pretty-print
-  (pretty-string (make-special-value :symbol :undefined))
-  "undefined")
+(deftest pretty-print/property-access/1 :notes pretty-print
+  (pretty-string (make-property-access :target foo-id :field (make-string-literal :value "bar")))
+  "foo.bar")
+
+(deftest pretty-print/property-access/2 :notes pretty-print
+  (pretty-string (make-property-access :target foo-id :field bar-id))
+  "foo[bar]")
+
+(deftest pretty-print/property-access/3 :notes pretty-print
+  (pretty-string (make-property-access :target foo-id :field (make-string-literal :value "space out")))
+  "foo[\"space out\"]")
 
 (deftest pretty-print/unary-operator/1 :notes pretty-print
   (pretty-string (make-unary-operator :op-symbol :void :arg foo-id))

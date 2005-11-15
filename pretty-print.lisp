@@ -138,13 +138,21 @@
   (pretty-print-separated-list (fn-call-args elm) s)
   (format s ")"))
 
-(defun printable-as-dot (string-literal-elm)
-  "Return true if STRING-LITERAL-ELM is a valid identifier, and therefore can be used
-   in dotted form for accessing properties in Javascript.
+(defgeneric printable-as-dot (literal-elm)
+  (:documentation
+   "Return true if LITERAL-ELM is a string that could be printed as a valid identifier,
+    and therefore can be used in dotted form for accessing properties in Javascript.
    Eg: (printable-as-dot #S(string-literal :value \"value\")) ==> T
-       (printable-as-dot #s(string-literal :value \"has spaces\")) ==> NIL
-       (printable-as-dot #s(string-literal :value \"has/punctuation\")) ==> NIL"
-  (not (null (scan "^\\w+$" (string-literal-value string-literal-elm)))))
+       (printable-as-dot #S(numeric-literal :value 80)) ==> NIL
+       (printable-as-dot #S(string-literal :value \"has spaces\")) ==> NIL
+       (printable-as-dot #S(string-literal :value \"has/punctuation\")) ==> NIL"))
+
+(defmethod printable-as-dot ((literal-elm string-literal))
+  (not (null (scan "^\\w+$" (string-literal-value literal-elm)))))
+
+;; Only string literals are dot candidates
+(defmethod printable-as-dot (literal-elm)
+  nil)
 
 (defmethod pretty-print ((elm property-access) s)
   (pretty-print (property-access-target elm) s)
