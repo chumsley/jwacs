@@ -22,6 +22,11 @@
          (starting-symbol (first starting-point))
          (header `(yacc:define-parser ,parser-name
                    (:muffle-conflicts ,jwacs-system::*muffle-conflicts*)
+;		   (:print-derives-epsilon t)
+;		   (:print-first-terminals t)
+;		   (:print-states t)
+;		   (:print-goto-graph t)
+;		   (:print-lookaheads )
                    (:start-symbol ,starting-symbol)
                    (:terminals ,(expand-hashtable-to-values *tokens-to-symbols* ))
                    (:precedence nil)
@@ -57,9 +62,9 @@
                           (gethash rule-name production-map)))))
     (let* ((output '()))
       (maphash #'(lambda (k v) 
-                   (setf output (cons (append (list k) v) output)))
+                   (setf output (cons (append (list k) (reverse v)) output)))
                production-map)
-      output)))
+      (reverse output))))
 
 
 ; go through every symbol
