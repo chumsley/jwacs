@@ -1,6 +1,7 @@
 ;;;; source-transformations.lisp
 ;;;
 ;;; Implements source transformations.  The interface is through the TRANSFORM generic function.
+;;; Unit tests are in tests/test-source-transformations.lisp.
 
 (in-package :jwacs)
 
@@ -61,6 +62,63 @@
   (mapcar (lambda (arg)
             (transform xform arg))
           elm))
+
+;;;;= Explicitize transformation =
+;;; The explicitize transformation gives each intermediate value a
+;;; name.
+
+(defun expose-intermediate (elm)
+  "Return a cons cell whose CAR is the name of the result of this element,
+   and whose CDR is a list of statements that need to be added before the element"
+  (cond
+    ((fn-call-p elm)
+     (let ((new-var (genvar)))
+       (list new-var
+             (make-var-decl-statement
+              :var-decls (list (make-var-decl :name new-var :initializer elm))))))
+    ((listp elm)
+     (let ((new-var (genvar))
+           (final-stmt (car (last elm))))
+       (assert (not (var-decl-statement-p final-stmt)))
+       (cons new-var
+             (substitute (make-var-decl-statement
+                          :var-decls (list (make-var-decl :name new-var :initializer final-stmt)))
+                         final-stmt
+                         elm
+                         :from-end t
+                         :count 1))))
+    (t (list elm))))
+
+(defmethod transform ((xform (eql 'explicitize)) (elm fn-call))
+  (let ((transformed-args (mapcar (lambda (x) (transform 'explicitize x))
+                                  (fn-call-args elm))))
+    (loop for tx-arg in transformed-args
+          for factored-arg = (expose-intermediate tx-arg)
+          collect (car factored-arg) into new-args
+          nconc (cdr factored-arg) into new-stmts
+          finally
+          (let ((new-elm (make-fn-call :fn (fn-call-fn elm)
+                                       :args new-args)))
+            (if new-stmts
+              (return (nconc new-stmts (list new-elm)))
+              (return new-elm))))))
+  
+(defmethod transform ((xform (eql 'explicitize)) (elm binary-operator))
+  (let* ((tx-left (transform 'explicitize (binary-operator-left-arg elm)))
+         (tx-right (transform 'explicitize (binary-operator-right-arg elm)))
+         (factored-left (expose-intermediate tx-left))
+         (factored-right (expose-intermediate tx-right))
+         (new-elm (make-binary-operator :op-symbol (binary-operator-op-symbol elm)
+                                        :left-arg (car factored-left)
+                                        :right-arg (car factored-right))))
+    (if (or (cdr factored-left) (cdr factored-right))
+      (nconc (cdr factored-left)
+             (cdr factored-right)
+             (list new-elm))
+      new-elm)))
+             
+       
+    
 
 ;;;;= CPS transformation =
 ;;; Initial, naive version does the following:
@@ -173,18 +231,22 @@
 
 (defmethod transform ((xform (eql 'cps)) (elm fn-call))
   (if (null *statement-tail*)
-    (make-cps-fn-call :fn (fn-call-fn elm)
+    (make-cps-return :arg
+                     (make-cps-fn-call
+                      :fn (fn-call-fn elm)
                       :args (cons *cont-id*
                                   (mapcar (lambda (item)
-                                              (transform 'cps item))
-                                          (fn-call-args elm))))
-    (make-cps-fn-call :fn (fn-call-fn elm)
+                                            (transform 'cps item))
+                                          (fn-call-args elm)))))
+    (make-cps-return :arg
+                     (make-cps-fn-call
+                      :fn (fn-call-fn elm)
                       :args (consume-statement-tail (statement-tail)
                               (cons (make-function-expression :parameters (list (genvar))
                                                               :body (transform 'cps statement-tail))
                                     (mapcar (lambda (item)
                                               (transform 'cps item))
-                                            (fn-call-args elm)))))))
+                                            (fn-call-args elm))))))))
 
 (defmethod transform ((xform (eql 'cps)) (elm-list list))
   (unless (null elm-list)
@@ -217,9 +279,7 @@
                                                  (make-function-expression :parameters (list name)
                                                                            :body (transform 'cps statement-tail))
                                                  (fn-call-args initializer)))))
-             (if (return-statement-p (car (last statement-tail)))
-               (make-return-statement :arg new-call)
-               new-call))))
+             (make-cps-return :arg new-call))))
         (t
          (make-var-decl-statement :var-decls
                                   (mapcar (lambda (item) (transform 'cps item))
@@ -227,14 +287,13 @@
   
 (defmethod transform ((xform (eql 'cps)) (elm if-statement))
   (let ((saved-statement-tail *statement-tail*)
-        condition post-condition-tail
+        condition
         then-statement post-then-tail
         else-statement)
     
     ;; TODO There must be a nicer way to do this.  Think about refactoring
     ;; after we've done switch statements.
     (setf condition (transform 'cps (if-statement-condition elm)))
-    (setf post-condition-tail *statement-tail*)
 
     (setf *statement-tail* saved-statement-tail)
     (setf then-statement (transform 'cps (if-statement-then-statement elm)))
@@ -243,22 +302,9 @@
     (setf *statement-tail* saved-statement-tail)
     (setf else-statement (transform 'cps (if-statement-else-statement elm)))
 
-    (setf *statement-tail* (and post-condition-tail post-then-tail *statement-tail*))
+    (setf *statement-tail* (or post-then-tail *statement-tail*))
     (make-if-statement :condition condition
                        :then-statement then-statement
                        :else-statement else-statement)))
-       
-        
 
 ;;TODO Still more to do here
-      
-;;;;= Unit tests =
-(defmethod transform ((xform (eql 'hello)) (elm string))
-    "hello there!")
-
-(defun test-transform ()
-  (and
-   (equal (continue-statement-label (transform 'hello (make-continue-statement :label "go away!")))
-          "hello there!")
-   (equal (transform 'hello '("string 1" symbol ("string 2")))
-                     '("hello there!" symbol ("hello there!")))))

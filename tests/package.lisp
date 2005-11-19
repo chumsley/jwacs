@@ -48,9 +48,9 @@
                 finally-clause
                 function-decl
                 function-expression
-                make-label
-                make-identifier
-
+                cps-return
+                cps-fn-call
+                
                 ;; constructors for source-model structures
                 make-source-element
                 make-special-value
@@ -89,12 +89,19 @@
                 make-finally-clause
                 make-function-decl
                 make-function-expression
+                make-cps-return
+                make-cps-fn-call
                 
                 ;; structure management
                 structure-slots
 
-                ;; items under test
+                ;; pretty-printer-specific symbols
                 pretty-print
                 with-indent
-                *indent*))
+                *indent*
+
+                ;; source-transformation-specific symbols
+                transform
+                cps
+                ))
                 

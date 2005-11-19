@@ -152,8 +152,12 @@
 
 ;;;;= JWACS extensions =
 (defstruct (cps-fn-call (:include source-element))
+  "A function call that has been inserted by the CPS transformation and therefore
+   ought not to be transformed further"
   fn
   args)
 
 (defstruct (cps-return (:include source-element))
+  "A return statement that has been inserted by the CPS transformation and therefore
+   ought not to be transformed further"
   arg)
