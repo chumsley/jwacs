@@ -25,13 +25,29 @@
   (:nicknames #:rtest #-lispworks #:rt) 
   (:use #:cl)
   (:export #:*do-tests-when-defined* #:*test* #:continue-testing
-	   #:deftest #:do-test #:do-tests #:get-test #:pending-tests
-	   #:rem-all-tests #:rem-test
-     #:defnote #:enable-note #:disable-note)
-  (:documentation "The MIT regression tester with pfdietz's modifications"))
+           #:deftest #:do-test #:do-tests #:get-test #:pending-tests
+           #:rem-all-tests #:rem-test
+           #:defnote #:enable-note #:disable-note)
+  (:documentation "The MIT regression tester with pfdietz's modifications & later JWACS modifications"))
 
 ;;This was the December 19, 1990 version of the regression tester, but
 ;;has since been modified.
+
+;;;; Additional changes since being added to jwacs project:
+
+;;; James Wright Nov 11/2005:
+;;;   - Added rt.lisp to external/
+;;;   - Converted rt.lisp from CR/LF to LF-only
+;;;   - Added DEFNOTE, ENABLE-NOTE, DISABLE-NOTE to list of exported symbols
+
+;;; James Wright Nov 13/2005:
+;;;   - DO-TESTS now returns 2 values.  First value is T if no tests fail,
+;;;     second value is T if no tests unexpectedly fail.
+
+;;; James Wright Nov 19/2005:
+;;;   - We now take account of the :EQUALP-FN parameter to DEFTEST for specifying
+;;;     the equality test to use (synonyms :EQUAL-FN and :TEST also work)
+;;;   - EQUALP-WITH-CASE now works properly for structure values
 
 (in-package :regression-test)
 
@@ -45,7 +61,7 @@
 (defvar *entries* '(nil) "Test database.  Has a leading dummy cell that does not contain an entry.")
 (defvar *entries-tail* *entries* "Tail of the *entries* list")
 (defvar *entries-table* (make-hash-table :test #'equal)
-    "Map the names of entries to the cons cell in *entries* that precedes the one whose car is the entry.")
+  "Map the names of entries to the cons cell in *entries* that precedes the one whose car is the entry.")
 (defvar *in-test* nil "Used by TEST")
 (defvar *debug* nil "For debugging")
 (defvar *catch-errors* t "When true, causes errors in a test to be caught.")
@@ -81,26 +97,33 @@
 (defmacro defn (entry)
   (let ((var (gensym)))
     `(let ((,var ,entry))
-       (list* (name ,var) (form ,var) (vals ,var)))))
+      (list* (name ,var) (form ,var) (vals ,var)))))
 
 (defun entry-notes (entry)
   (let* ((props (props entry))
-	 (notes (getf props :notes)))
+         (notes (getf props :notes)))
     (if (listp notes)
-	notes
+      notes
       (list notes))))
 
 (defun has-disabled-note (entry)
   (let ((notes (entry-notes entry)))
     (loop for n in notes
-	  for note = (if (note-p n) n
-		       (gethash n *notes*))
-	  thereis (and note (note-disabled note)))))
+          for note = (if (note-p n) n
+                       (gethash n *notes*))
+          thereis (and note (note-disabled note)))))
+
+(defun equalp-fn (entry)
+  (let ((props (props entry)))
+    (or
+     (getf props :test)
+     (getf props :equal-fn)
+     (getf props :equalp-fn 'equalp-with-case))))
 
 (defun pending-tests ()
   (loop for entry in (cdr *entries*)
-	when (and (pend entry) (not (has-disabled-note entry)))
-	collect (name entry)))
+        when (and (pend entry) (not (has-disabled-note entry)))
+        collect (name entry)))
 
 (defun rem-all-tests ()
   (setq *entries* (list nil))
@@ -112,8 +135,8 @@
   (let ((pred (gethash name *entries-table*)))
     (when pred
       (if (null (cddr pred))
-	  (setq *entries-tail* pred)
-	(setf (gethash (name (caddr pred)) *entries-table*) pred))
+        (setq *entries-tail* pred)
+        (setf (gethash (name (caddr pred)) *entries-table*) pred))
       (setf (cdr pred) (cddr pred))
       (remhash name *entries-table*)
       name)))
@@ -122,14 +145,14 @@
   (defn (get-entry name)))
 
 (defun get-entry (name)
-  (let ((entry ;; (find name (the list (cdr *entries*))
+  (let ((entry;; (find name (the list (cdr *entries*))
 	       ;;     :key #'name :test #'equal)
-	 (cadr (gethash name *entries-table*))
-	 ))
+         (cadr (gethash name *entries-table*))
+          ))
     (when (null entry)
       (report-error t
-        "~%No test with name ~:@(~S~)."
-	name))
+                    "~%No test with name ~:@(~S~)."
+                    name))
     entry))
 
 (defmacro deftest (name &rest body)
@@ -152,26 +175,26 @@
   (setq entry (copy-entry entry))
   (let* ((pred (gethash (name entry) *entries-table*)))
     (cond
-     (pred
-      (setf (cadr pred) entry)
-      (report-error nil
-        "Redefining test ~:@(~S~)"
-        (name entry)))
-     (t
-      (setf (gethash (name entry) *entries-table*) *entries-tail*)
-      (setf (cdr *entries-tail*) (cons entry nil))
-      (setf *entries-tail* (cdr *entries-tail*))
-      )))
+      (pred
+       (setf (cadr pred) entry)
+       (report-error nil
+                     "Redefining test ~:@(~S~)"
+                     (name entry)))
+      (t
+       (setf (gethash (name entry) *entries-table*) *entries-tail*)
+       (setf (cdr *entries-tail*) (cons entry nil))
+       (setf *entries-tail* (cdr *entries-tail*))
+       )))
   (when *do-tests-when-defined*
     (do-entry entry))
   (setq *test* (name entry)))
 
 (defun report-error (error? &rest args)
   (cond (*debug* 
-	 (apply #'format t args)
-	 (if error? (throw '*debug* nil)))
-	(error? (apply #'error args))
-	(t (apply #'warn args)))
+         (apply #'format t args)
+         (if error? (throw '*debug* nil)))
+        (error? (apply #'error args))
+        (t (apply #'warn args)))
   nil)
 
 (defun do-test (&optional (name *test*))
@@ -185,42 +208,69 @@
 (defun my-row-major-aref (a index)
   (row-major-aref a index))
 
+(defun structure-slots (object)
+  "Returns a list of the slot-names of the provided structure object"
+  #+openmcl
+  (let* ((sd (gethash (class-name (class-of object)) ccl::%defstructs%))
+	 (slots (if sd (ccl::sd-slots sd))))
+    (mapcar #'car (if (symbolp (caar slots)) slots (cdr slots))))
+  #+cmu
+  (mapcar #'pcl:slot-definition-name (pcl:class-slots (class-of object)))
+  #+lispworks
+  (structure:structure-class-slot-names (class-of object))
+  #+sbcl
+  (mapcar #'sb-mop:slot-definition-name (sb-mop:class-slots (class-of object)))
+  #+allegro
+  (mapcar #'mop:slot-definition-name (mop:class-slots (class-of object))))
+
 (defun equalp-with-case (x y)
   "Like EQUALP, but doesn't do case conversion of characters.
    Currently doesn't work on arrays of dimension > 2."
   (cond
-   ((eq x y) t)
-   ((consp x)
-    (and (consp y)
-	 (equalp-with-case (car x) (car y))
-	 (equalp-with-case (cdr x) (cdr y))))
-   ((and (typep x 'array)
-	 (= (array-rank x) 0))
-    (equalp-with-case (my-aref x) (my-aref y)))
-   ((typep x 'vector)
-    (and (typep y 'vector)
-	 (let ((x-len (length x))
-	       (y-len (length y)))
-	   (and (eql x-len y-len)
-		(loop
-		 for i from 0 below x-len
-		 for e1 = (my-aref x i)
-		 for e2 = (my-aref y i)
-		 always (equalp-with-case e1 e2))))))
-   ((and (typep x 'array)
-	 (typep y 'array)
-	 (not (equal (array-dimensions x)
-		     (array-dimensions y))))
-    nil)
+    ((eq x y) t)
+    ((consp x)
+     (and (consp y)
+          (equalp-with-case (car x) (car y))
+          (equalp-with-case (cdr x) (cdr y))))
+    ((and (typep x 'array)
+          (= (array-rank x) 0))
+     (equalp-with-case (my-aref x) (my-aref y)))
+    ((typep x 'vector)
+     (and (typep y 'vector)
+          (let ((x-len (length x))
+                (y-len (length y)))
+            (and (eql x-len y-len)
+                 (loop
+                     for i from 0 below x-len
+                     for e1 = (my-aref x i)
+                     for e2 = (my-aref y i)
+                     always (equalp-with-case e1 e2))))))
+    ((and (typep x 'array)
+          (typep y 'array)
+          (not (equal (array-dimensions x)
+                      (array-dimensions y))))
+     nil)
 
-   ((typep x 'array)
-    (and (typep y 'array)
-	 (let ((size (array-total-size x)))
-	   (loop for i from 0 below size
-		 always (equalp-with-case (my-row-major-aref x i)
-					  (my-row-major-aref y i))))))
+    ((typep x 'array)
+     (and (typep y 'array)
+          (let ((size (array-total-size x)))
+            (loop for i from 0 below size
+                  always (equalp-with-case (my-row-major-aref x i)
+                                           (my-row-major-aref y i))))))
 
-   (t (eql x y))))
+    ((typep x 'structure)
+     (and (typep y 'structure)
+          (reduce (lambda (a b) (and a b))
+                  (mapcar #'equalp-with-case
+                          (structure-slots x)
+                          (structure-slots y))
+                  :initial-value t)
+          (reduce (lambda (a b) (and a b))
+                  (structure-slots x)
+                  :key (lambda (slot)
+                         (equalp-with-case (slot-value x slot) (slot-value y slot))))))
+                          
+    (t (eql x y))))
 
 (defun do-entry (entry &optional
                        (s *standard-output*))
@@ -264,7 +314,7 @@
 
       (setf (pend entry)
             (or aborted
-                (not (equalp-with-case r (vals entry)))))
+                (not (funcall (equalp-fn entry) r (vals entry)))))
       
       (when (pend entry)
         (let ((*print-circle* *print-circle-on-failure*))
@@ -290,52 +340,52 @@
   "Split off top level of a form and eval separately.  This reduces the chance that
    compiler optimizations will fold away runtime computation."
   (if (not (consp form))
-      (eval form)
-   (let ((op (car form)))
-     (cond
-      ((eq op 'let)
-       (let* ((bindings (loop for b in (cadr form)
-			      collect (if (consp b) b (list b nil))))
-	      (vars (mapcar #'car bindings))
-	      (binding-forms (mapcar #'cadr bindings)))
-	 (apply
-	  (the function
-	    (eval `(lambda ,vars ,@(cddr form))))
-	  (mapcar #'eval binding-forms))))
-      ((and (eq op 'let*) (cadr form))
-       (let* ((bindings (loop for b in (cadr form)
-			      collect (if (consp b) b (list b nil))))
-	      (vars (mapcar #'car bindings))
-	      (binding-forms (mapcar #'cadr bindings)))
-	 (funcall
-	  (the function
-	    (eval `(lambda (,(car vars) &aux ,@(cdr bindings)) ,@(cddr form))))
-	  (eval (car binding-forms)))))
-      ((eq op 'progn)
-       (loop for e on (cdr form)
-	     do (if (null (cdr e)) (return (eval (car e)))
-		  (eval (car e)))))
-      ((and (symbolp op) (fboundp op)
-	    (not (macro-function op))
-	    (not (special-operator-p op)))
-       (apply (symbol-function op)
-	      (mapcar #'eval (cdr form))))
-      (t (eval form))))))
+    (eval form)
+    (let ((op (car form)))
+      (cond
+        ((eq op 'let)
+         (let* ((bindings (loop for b in (cadr form)
+                                collect (if (consp b) b (list b nil))))
+                (vars (mapcar #'car bindings))
+                (binding-forms (mapcar #'cadr bindings)))
+           (apply
+            (the function
+              (eval `(lambda ,vars ,@(cddr form))))
+            (mapcar #'eval binding-forms))))
+        ((and (eq op 'let*) (cadr form))
+         (let* ((bindings (loop for b in (cadr form)
+                                collect (if (consp b) b (list b nil))))
+                (vars (mapcar #'car bindings))
+                (binding-forms (mapcar #'cadr bindings)))
+           (funcall
+            (the function
+              (eval `(lambda (,(car vars) &aux ,@(cdr bindings)) ,@(cddr form))))
+            (eval (car binding-forms)))))
+        ((eq op 'progn)
+         (loop for e on (cdr form)
+               do (if (null (cdr e)) (return (eval (car e)))
+                    (eval (car e)))))
+        ((and (symbolp op) (fboundp op)
+              (not (macro-function op))
+              (not (special-operator-p op)))
+         (apply (symbol-function op)
+                (mapcar #'eval (cdr form))))
+        (t (eval form))))))
 
 (defun continue-testing ()
   (if *in-test*
-      (throw '*in-test* nil)
-      (do-entries *standard-output*)))
+    (throw '*in-test* nil)
+    (do-entries *standard-output*)))
 
 (defun do-tests (&optional
-		 (out *standard-output*))
+                 (out *standard-output*))
   (dolist (entry (cdr *entries*))
     (setf (pend entry) t))
   (if (streamp out)
-      (do-entries out)
-      (with-open-file 
-	  (stream out :direction :output)
-	(do-entries stream))))
+    (do-entries out)
+    (with-open-file 
+        (stream out :direction :output)
+      (do-entries stream))))
 
 (defun do-entries* (s)
   (format s "~&Doing ~A pending test~:P ~
@@ -390,22 +440,22 @@
 
 (defmacro defnote (name contents &optional disabled)
   `(eval-when (:load-toplevel :execute)
-     (let ((note (make-note :name ',name
-			    :contents ',contents
-			    :disabled ',disabled)))
-       (setf (gethash (note-name note) *notes*) note)
-       note)))
+    (let ((note (make-note :name ',name
+                           :contents ',contents
+                           :disabled ',disabled)))
+      (setf (gethash (note-name note) *notes*) note)
+      note)))
 
 (defun disable-note (n)
   (let ((note (if (note-p n) n
-		(setf n (gethash n *notes*)))))
+                (setf n (gethash n *notes*)))))
     (unless note (error "~A is not a note or note name." n))
     (setf (note-disabled note) t)
     note))
 
 (defun enable-note (n)
   (let ((note (if (note-p n) n
-		(setf n (gethash n *notes*)))))
+                (setf n (gethash n *notes*)))))
     (unless note (error "~A is not a note or note name." n))
     (setf (note-disabled note) nil)
     note))

@@ -2,10 +2,6 @@
 ;;;
 ;;; Unit tests for the Javascript lexer.
 (in-package :jwacs-tests)
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (import '(jwacs::regexp-re
-            jwacs::make-javascript-lexer
-            jwacs::eoi)))
 
 ;;;; Helper functions
 (defun non-null (x)

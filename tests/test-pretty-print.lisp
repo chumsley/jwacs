@@ -3,48 +3,6 @@
 ;;; Tests for the pretty-printer.
 
 (in-package :jwacs-tests)
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (import '(jwacs::make-source-element
-            jwacs::make-special-value
-            jwacs::make-identifier
-            jwacs::make-numeric-literal
-            jwacs::make-string-literal
-            jwacs::make-array-literal
-            jwacs::make-object-literal
-            jwacs::make-re-literal
-            jwacs::make-new-expr
-            jwacs::make-fn-call
-            jwacs::make-property-access
-            jwacs::make-unary-operator
-            jwacs::make-binary-operator
-            jwacs::make-conditional
-            jwacs::make-comma-expr
-            jwacs::make-var-decl-statement
-            jwacs::make-var-decl
-            jwacs::make-statement-block
-            jwacs::make-if-statement
-            jwacs::make-do-statement
-            jwacs::make-while
-            jwacs::make-for
-            jwacs::make-for-in
-            jwacs::make-continue-statement
-            jwacs::make-break-statement
-            jwacs::make-return-statement
-            jwacs::make-with
-            jwacs::make-switch
-            jwacs::make-case-clause
-            jwacs::make-default-clause
-            jwacs::make-label
-            jwacs::make-throw-statement
-            jwacs::make-try
-            jwacs::make-catch-clause
-            jwacs::make-finally-clause
-            jwacs::make-function-decl
-            jwacs::make-function-expression
-
-            jwacs::pretty-print
-            jwacs::with-indent
-            jwacs::*indent*)))
 
 ;;;; Helper functions
 (defun pretty-string (elm)

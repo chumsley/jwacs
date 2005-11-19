@@ -7,6 +7,7 @@
 ;;;;= Utility functions =
 ;;TODO Structure-slots and friends may want to go into a separate "structure-helpers" file
 (defun structure-slots (object)
+  "Returns a list of the slot-names of the provided structure object"
   #+openmcl
   (let* ((sd (gethash (class-name (class-of object)) ccl::%defstructs%))
 	 (slots (if sd (ccl::sd-slots sd))))
