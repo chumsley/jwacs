@@ -10,3 +10,5 @@
   (pushnew test-name rtest::*expected-failures*))
 
 ;;TODO Automated benchmarks?
+;;TODO Randomized testing?  (a la Quickcheck)
+;;TODO Coverage checks?

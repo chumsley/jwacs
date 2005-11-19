@@ -6,9 +6,9 @@
 
 (in-package :jwacs)
 
-;;;; Rules for semicolon-termination
+;;;;= Rules for semicolon-termination =
 ;;;
-;;; === The ideal situation ===
+;;;;== The ideal situation ==
 ;;;
 ;;; There are two basic rules:
 ;;; 1. Calling `pretty-print` on a statement should always result in a semicolon-terminated statement
@@ -26,13 +26,13 @@
 ;;; grammar.  These omissions may have led to some extra ambiguity; certainly there is an awful lot of
 ;;; complaining when Lispworks is compiling the grammar.
 ;;;
-;;; === The actual situation ===
+;;;;== The actual situation ==
 ;;;
 ;;; For now, we assume that neither statements nor any other source element self-semicolon-terminates.
 ;;; The pretty-printer for blocks (and lists of statement) will just slap a semicolon after each
 ;;; statement minus some exceptions (if, while, for, function declarations, etc.).
 
-;;;; Indentation helpers
+;;;;= Indentation helpers =
 (defparameter *indent-step* 2
   "Number of spaces per indentation step")
 
@@ -71,7 +71,7 @@
     (if semicolon
       (format s ";"))))
 
-;;;; General helpers
+;;;;= General helpers =
 (defun pretty-print-separated-list (elm-list s &optional (sep-string ", "))
   "Pretty print the elements of ELM-LIST to S separated by SEP-STRING."
   (loop
@@ -82,11 +82,13 @@
         (format s sep-string))
       (pretty-print elm s)))
 
-;;;; The pretty-print generic function
+;;;;= The pretty-print generic function =
 
 (defgeneric pretty-print (elm stream)
   (:documentation
    "Print source element ELM to stream STREAM as parseable and human-readable text."))
+
+;;;;== Standard Javascript ==
 
 (defmethod pretty-print ((elm special-value) s)
   (if (find (special-value-symbol elm) *keyword-symbols*)
@@ -391,3 +393,17 @@
        (pretty-print (function-expression-body elm) s))
      (fresh-line-indented s)
      (format s "}"))))
+
+;;;;== JWACS extensions ==
+
+(defmethod pretty-print ((elm cps-return) s)
+    (format s "return")
+  (when (cps-return-arg elm)
+    (format s " ")
+    (pretty-print (cps-return-arg elm) s)))
+
+(defmethod pretty-print ((elm cps-fn-call) s)
+  (pretty-print (cps-fn-call-fn elm) s)
+  (format s "(")
+  (pretty-print-separated-list (cps-fn-call-args elm) s)
+  (format s ")"))

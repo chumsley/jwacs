@@ -7,6 +7,8 @@
 
 (in-package :jwacs)
 
+;;;;= Standard Javascript =
+
 (defstruct source-element
   "A common base type for all source elements")
 
@@ -147,3 +149,11 @@
   name
   parameters
   body)
+
+;;;;= JWACS extensions =
+(defstruct (cps-fn-call (:include source-element))
+  fn
+  args)
+
+(defstruct (cps-return (:include source-element))
+  arg)
