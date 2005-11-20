@@ -4,10 +4,14 @@
 
 (in-package :jwacs-tests)
 
-;;;; Test categories
+;;;;= Test categories =
 (defnote source-transformations "tests for the source-transformations")
+(defnote cps "tests for the cps transformation")
+(defnote explicitization "tests for the explicitization transformation")
+    
+;;;;= Tests =
 
-;;;; Tests
+;;;;== General traversal behaviour ==
 (defmethod transform ((xform (eql 'hello)) (elm string))
     "hello there!")
 
@@ -18,3 +22,7 @@
 (deftest source-transformations/general-behaviour/2 :notes source-transformations
   (transform 'hello '("string 1" symbol ("string 2")))
   ("hello there!" symbol ("hello there!")))
+
+;;;;== CPS transformation ==
+
+;;;;== Explicitization transformation ==

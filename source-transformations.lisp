@@ -22,17 +22,18 @@
   #+allegro
   (mapcar #'mop:slot-definition-name (mop:class-slots (class-of object))))
 
-(defparameter *copy-functions* (make-hash-table :test 'eq)
+(defparameter *constructor-cache* (make-hash-table :test 'eq)
   "Map from structure-type symbol to copy-function symbol")
 
-(defun get-copier (struct-object)
-  "Accept a structure object and return the (likely) name of its copy-function.
-   CAVEAT: Assumes that the structure was defined in the current package."
+(defun get-constructor (struct-object)
+  "Accept a structure object and return the (likely) name of its constructor.
+   CAVEAT: Assumes that the structure was defined in the same package as its name."
   (let* ((name (type-of struct-object))
-         (copy-fn (gethash name *copy-functions*)))
-    (if (null copy-fn)
-      (setf (gethash name *copy-functions*) (intern (format nil "COPY-~A" name)))
-      copy-fn)))
+         (make-fn (gethash name *constructor-cache*)))
+    (if (null make-fn)
+      (setf (gethash name *constructor-cache*) (intern (format nil "MAKE-~A" name)
+                                                       (symbol-package name)))
+      make-fn)))
 
 ;;;;= Default transformation behaviour =
 
@@ -52,11 +53,11 @@
 ;; The default behaviour for any transformation on a source-element that has children
 ;; is to return a new source-element whose children have been transformed.
 (defmethod transform (xform (elm source-element))
-  (let ((fresh-elm (funcall (get-copier elm) elm)))
+  (let ((fresh-elm (funcall (get-constructor elm))))
     (dolist (slot (structure-slots elm))
       (setf (slot-value fresh-elm slot)
             (transform xform (slot-value elm slot))))
-    fresh-elm))        
+    fresh-elm))
 
 (defmethod transform (xform (elm list))
   (mapcar (lambda (arg)
@@ -65,7 +66,12 @@
 
 ;;;;= Explicitize transformation =
 ;;; The explicitize transformation gives each intermediate value a
-;;; name.
+;;; name.  After the transformation is done, the result of every
+;;; function call will be assigned to a variable.
+;;;
+;;; As a convenience, variable statements that contain declarations for
+;;; multiple variables will also be converted to series of single
+;;; variable declarations (eg `var x, y=10;` ---> `var x; var y = 10;`)
 
 (defun expose-intermediate (elm)
   "Return a cons cell whose CAR is the name of the result of this element,
@@ -73,29 +79,41 @@
   (cond
     ((fn-call-p elm)
      (let ((new-var (genvar)))
-       (list new-var
+       (list (make-identifier :name new-var)
              (make-var-decl-statement
               :var-decls (list (make-var-decl :name new-var :initializer elm))))))
     ((listp elm)
      (let ((new-var (genvar))
            (final-stmt (car (last elm))))
        (assert (not (var-decl-statement-p final-stmt)))
-       (cons new-var
-             (substitute (make-var-decl-statement
-                          :var-decls (list (make-var-decl :name new-var :initializer final-stmt)))
-                         final-stmt
-                         elm
-                         :from-end t
-                         :count 1))))
+
+       ;; The last statement in a statement list is a version of the original that contains no nested
+       ;; intermediate expressions.  If it is a function call, then we convert it to a var decl and
+       ;; return the var name as the expression to reference.  Otherwise, we remove it and return it
+       ;; as the expression to reference.  This helps to avoid redundant code like
+       ;;       `var r3 = r1 + r2; foo(r3);`
+       ;; In the above expression, it is safe to eliminate `r3` and call `foo(r1 + r2)` directly, since
+       ;; operator calls never need to be converted to CPS.
+       (if (fn-call-p final-stmt)
+         (cons (make-identifier :name new-var)
+               (substitute (make-var-decl-statement
+                            :var-decls (list (make-var-decl :name new-var :initializer final-stmt)))
+                           final-stmt
+                           elm
+                           :from-end t
+                           :count 1))
+         (cons final-stmt
+               (remove final-stmt elm :from-end t :count 1)))))
+                
     (t (list elm))))
 
 (defmethod transform ((xform (eql 'explicitize)) (elm fn-call))
   (let ((transformed-args (mapcar (lambda (x) (transform 'explicitize x))
                                   (fn-call-args elm))))
     (loop for tx-arg in transformed-args
-          for factored-arg = (expose-intermediate tx-arg)
-          collect (car factored-arg) into new-args
-          nconc (cdr factored-arg) into new-stmts
+          for intermediates = (expose-intermediate tx-arg)
+          collect (car intermediates) into new-args
+          nconc (cdr intermediates) into new-stmts
           finally
           (let ((new-elm (make-fn-call :fn (fn-call-fn elm)
                                        :args new-args)))
@@ -103,22 +121,75 @@
               (return (nconc new-stmts (list new-elm)))
               (return new-elm))))))
   
-(defmethod transform ((xform (eql 'explicitize)) (elm binary-operator))
-  (let* ((tx-left (transform 'explicitize (binary-operator-left-arg elm)))
-         (tx-right (transform 'explicitize (binary-operator-right-arg elm)))
-         (factored-left (expose-intermediate tx-left))
-         (factored-right (expose-intermediate tx-right))
-         (new-elm (make-binary-operator :op-symbol (binary-operator-op-symbol elm)
-                                        :left-arg (car factored-left)
-                                        :right-arg (car factored-right))))
-    (if (or (cdr factored-left) (cdr factored-right))
-      (nconc (cdr factored-left)
-             (cdr factored-right)
-             (list new-elm))
-      new-elm)))
-             
-       
+(defun transform-rhs (elm)
+  "Helper function for transforming the right-hand-side of assignments and initializations"
+  (let ((slot-names (structure-slots elm))
+        (pre-statements nil)
+        (new-elm (funcall (get-constructor elm))))
+    (loop for slot in slot-names
+          for intermediates = (expose-intermediate (transform 'explicitize (slot-value elm slot)))
+          do (setf (slot-value new-elm slot) (car intermediates))
+          nconc (cdr intermediates) into pre-statements-l
+          finally (setf pre-statements pre-statements-l))
     
+    (if pre-statements
+      (nconc pre-statements (list new-elm))
+      new-elm)))
+
+(defmethod transform ((xform (eql 'explicitize)) (elm binary-operator))
+  (transform-rhs elm))
+
+(defmethod transform ((xform (eql 'explicitize)) (elm var-decl))
+  (transform-rhs elm))
+
+(defmethod transform ((xform (eql 'explicitize)) (elm return-statement))
+  (transform-rhs elm))
+
+(defmethod transform ((xform (eql 'explicitize)) (elm var-decl-statement))
+  (let ((pre-statements nil)
+        (new-decls nil))
+    (loop for decl in (var-decl-statement-var-decls elm)
+          for intermediates = (expose-intermediate (transform 'explicitize decl))
+          for current-decl = (car intermediates)
+          for final-pre-statement = (car (last (cdr intermediates)))
+
+          ;; Filter here to eliminate redundant "var r1 = b(a); var y = r1;" constructions
+          for filtered-pre-statements =
+            (if (and (var-decl-statement-p final-pre-statement)
+                     (identifier-p (var-decl-initializer current-decl))
+                     (equal (identifier-name (var-decl-initializer current-decl))
+                            (var-decl-name (car (var-decl-statement-var-decls final-pre-statement)))))
+              (progn
+                (setf (var-decl-initializer current-decl)
+                      (var-decl-initializer (car (var-decl-statement-var-decls final-pre-statement))))
+                (remove final-pre-statement (cdr intermediates) :count 1 :from-end t))
+              (cdr intermediates))
+
+          collect current-decl into new-decls-l
+          nconc filtered-pre-statements into pre-statements-l
+          finally
+          (setf new-decls new-decls-l)
+          (setf pre-statements pre-statements-l))
+    (cond
+      (pre-statements
+       (nconc pre-statements
+              (mapcar (lambda (x)
+                        (make-var-decl-statement :var-decls (list x)))
+                      new-decls)))
+      ((> (length new-decls) 1)
+       (mapcar (lambda (x)
+                 (make-var-decl-statement :var-decls (list x)))
+               new-decls))
+      (t
+       (make-var-decl-statement :var-decls new-decls)))))
+
+(defmethod transform ((xform (eql 'explicitize)) (elm-list list))
+  (unless (null elm-list)
+    (let ((head (transform 'explicitize (car elm-list))))
+      (if (listp head)
+        (append head (transform 'explicitize (cdr elm-list)))
+        (cons head  (transform 'explicitize (cdr elm-list)))))))
+
 
 ;;;;= CPS transformation =
 ;;; Initial, naive version does the following:

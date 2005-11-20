@@ -10,7 +10,6 @@
 
 (in-package :jwacs-tests)
           
-          
 ;;;; Helper functions
 (defun parse-only (string)
   "Call PARSE on STRING and return only the first return value.
