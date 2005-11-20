@@ -121,8 +121,10 @@
               (return (nconc new-stmts (list new-elm)))
               (return new-elm))))))
   
-(defun transform-rhs (elm)
-  "Helper function for transforming the right-hand-side of assignments and initializations"
+(defun explicitize-rhs (elm &optional assignment-slot)
+  "Helper function for transforming the right-hand-side of assignments and initializations.
+   Returns either an updated copy of ELM, or a list of statements that should go roughly
+   where ELM used to be."
   (let ((slot-names (structure-slots elm))
         (pre-statements nil)
         (new-elm (funcall (get-constructor elm))))
@@ -131,42 +133,43 @@
           do (setf (slot-value new-elm slot) (car intermediates))
           nconc (cdr intermediates) into pre-statements-l
           finally (setf pre-statements pre-statements-l))
-    
-    (if pre-statements
-      (nconc pre-statements (list new-elm))
-      new-elm)))
+
+    (cond
+      ((and pre-statements
+            assignment-slot)
+       (let ((final-pre-statement (car (last pre-statements))))
+         (assert (and ;TODO I /think/ this is guaranteed, but I need to think about it more
+                  (identifier-p (slot-value new-elm assignment-slot))
+                  (var-decl-statement-p final-pre-statement)
+                  (equal (identifier-name (slot-value new-elm assignment-slot))
+                         (var-decl-name (car (var-decl-statement-var-decls final-pre-statement))))))
+       (setf (slot-value new-elm assignment-slot)
+             (var-decl-initializer (car (var-decl-statement-var-decls final-pre-statement))))
+       (nconc (remove final-pre-statement pre-statements :from-end t :count 1)
+              (list new-elm))))
+
+      (pre-statements
+       (nconc pre-statements (list new-elm)))
+
+      (t
+       new-elm))))
 
 (defmethod transform ((xform (eql 'explicitize)) (elm binary-operator))
-  (transform-rhs elm))
+  (explicitize-rhs elm))
 
 (defmethod transform ((xform (eql 'explicitize)) (elm var-decl))
-  (transform-rhs elm))
+  (explicitize-rhs elm 'initializer))
 
 (defmethod transform ((xform (eql 'explicitize)) (elm return-statement))
-  (transform-rhs elm))
+  (explicitize-rhs elm 'arg))
 
 (defmethod transform ((xform (eql 'explicitize)) (elm var-decl-statement))
   (let ((pre-statements nil)
         (new-decls nil))
     (loop for decl in (var-decl-statement-var-decls elm)
           for intermediates = (expose-intermediate (transform 'explicitize decl))
-          for current-decl = (car intermediates)
-          for final-pre-statement = (car (last (cdr intermediates)))
-
-          ;; Filter here to eliminate redundant "var r1 = b(a); var y = r1;" constructions
-          for filtered-pre-statements =
-            (if (and (var-decl-statement-p final-pre-statement)
-                     (identifier-p (var-decl-initializer current-decl))
-                     (equal (identifier-name (var-decl-initializer current-decl))
-                            (var-decl-name (car (var-decl-statement-var-decls final-pre-statement)))))
-              (progn
-                (setf (var-decl-initializer current-decl)
-                      (var-decl-initializer (car (var-decl-statement-var-decls final-pre-statement))))
-                (remove final-pre-statement (cdr intermediates) :count 1 :from-end t))
-              (cdr intermediates))
-
-          collect current-decl into new-decls-l
-          nconc filtered-pre-statements into pre-statements-l
+          collect (car intermediates) into new-decls-l
+          nconc (cdr intermediates) into pre-statements-l
           finally
           (setf new-decls new-decls-l)
           (setf pre-statements pre-statements-l))
