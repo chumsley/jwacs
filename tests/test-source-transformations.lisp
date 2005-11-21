@@ -75,4 +75,28 @@
                                                         :left-arg #s(identifier :name "n")
                                                         :right-arg #s(numeric-literal :value 1))))))))))))
 
+(deftest cps/symmetric-dangling-tail/1 :notes cps
+  (with-fresh-genvars ("$k")
+    (transform 'cps (parse "
+      function doStuff(branch)
+      {
+        if(branch)
+          foo();
+        else
+          bar();
+        baz();
+        }")))
+  (#s(function-decl
+      :name "doStuff" :parameters ("$k" "branch")
+      :body (#s(if-statement :condition #s(identifier :name "branch")
+                             :then-statement #s(cps-return :arg #s(cps-fn-call :fn #s(identifier :name "foo")
+                                                                                :args (#s(function-expression
+                                                                                          :parameters ("JW$0")
+                                                                                          :body (#s(cps-return :arg #s(cps-fn-call :fn #s(identifier :name "baz")
+                                                                                                                               :args (#s(identifier :name "$k")))))))))
+                             :else-statement #s(cps-return :arg #s(cps-fn-call :fn #s(identifier :name "bar")
+                                                                                :args (#s(function-expression
+                                                                                          :parameters ("JW$1")
+                                                                                          :body (#s(cps-return :arg #s(cps-fn-call :fn #s(identifier :name "baz")
+                                                                                                                                   :args (#s(identifier :name "$k"))))))))))))))
 ;;;;== Explicitization transformation ==
