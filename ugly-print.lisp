@@ -17,28 +17,22 @@
 ;;;
 ;;; Currently this transformation does not support free variables.
 
-(defparameter *environment* '(nil))
+(defparameter *environment* '())
 
 (defun add-environment ()
   "Adds a new environment to the environment stack, makes it the current environment"
-  (setf *environment* (cons '() *environment*)))
-
-(defun remove-environment ()
-  "Removes the current environment from the stack. All bindings will be lost for this environment"
-  (setf *environment* (cdr *environment*)))
+  (cons '() *environment*))
 
 (defun find-binding (var-name)
   "Looks through the set of environments and finds the most recently bound variable, returns its bound value"
-  (find-binding-h var-name *environment*))
-
-(defun find-binding-h (var-name environment)
-  "Helper method for find-binding"
-  (if (null environment)
-      nil
-      (let ((var-pair (assoc var-name (car environment) :test #'equalp)))
-	(if (null var-pair)
-	    (find-binding-h var-name (cdr environment))
-	    (cdr var-pair)))))
+  (labels ((f-b-h (environment)
+	     (if (null environment)
+		 nil
+		 (let ((var-pair (assoc var-name (car environment) :test #'equalp)))
+		   (if (null var-pair)
+		       (f-b-h (cdr environment))
+		       (cdr var-pair))))))
+    (f-b-h *environment*)))
 
 (defun add-binding (var-name var-newname)
   "Add a binding to the environment. In our case, name and new name"
@@ -65,17 +59,64 @@
 ;;;
 ;;;
 
+;; A couple helper methods
+
 (defun uglify-vars (program)
   "Entry point for our source transformation. Turn all var decls and refs into ugly ones"
-  (setq *environment* '(nil))
-  (transform 'var-unique program))
+  (let ((*environment* (add-environment)))
+    (transform 'var-unique program)))
+
+(defmacro define-scoped-transform (xform type)
+  (let ((new-elm (gensym))
+	(slot (gensym)))
+  `(defmethod transform ((xform (eql ,xform)) (elm ,type))
+    (let ((*environment* (add-environment))
+	  (,new-elm (funcall (get-constructor elm))))
+      (dolist (,slot (structure-slots elm))
+	(setf (slot-value ,new-elm ,slot)
+	      (transform ,xform (slot-value elm ,slot))))
+      ,new-elm))))
+
+;;
+;; The actual methods that apply on the appropriate elements
+;; 
+;; statement-blocks, function-decls, and function-expressions wrap new environments
+;; var-decls create new bindings
+;; identifiers look up bindings
 
 (defmethod transform ((xform (eql 'var-unique)) (elm var-decl))
   "Vardecls add new ugly binding to the environment"
   (let ((new-name (add-ugly-binding (var-decl-name elm))))
-    (setf (var-decl-name elm) new-name)
-    elm))
+    (make-var-decl :name new-name 
+		   :initializer (transform xform (var-decl-initializer elm)))))
 
 
+; TODO: this currently does not throw an error when NO binding is found (ie. nil)
+(defmethod transform ((xform (eql 'var-unique)) (elm identifier))
+  (let ((new-name (find-binding (identifier-name elm))))
+    (make-identifier :name new-name)))
 
-;;; Insert more here! :)
+(define-scoped-transform 'var-unique statement-block)
+(define-scoped-transform 'var-unique function-decl)
+(define-scoped-transform 'var-unique function-expression)
+
+
+;;;
+;;;
+;;; Now that our vars are uglified, we can now just go ahead and print everything in as compressed and 
+;;; ugly a format as possible.
+;;;
+
+;; Do we even want to include newlines?? How do browsers deal with superlong strings?
+
+(defun ugly-print (elm stream)
+  (let ((*pretty-mode* nil)
+	(*opt-space* "")
+	(new-elm (uglify-vars elm)))
+    (pretty-print new-elm stream)))
+
+
+(defun ugly-string (elm)
+  "Pretty-print ELM to a string value instead of a stream."
+  (with-output-to-string (s)
+    (ugly-print elm s)))

@@ -9,6 +9,7 @@
                 regexp-re
                 make-javascript-lexer
                 eoi
+		make-load-form
 
                 ;; source-model structure types
                 source-element
@@ -92,6 +93,7 @@
                 make-cps-return
                 make-cps-fn-call
                 
+
                 ;; structure management
                 structure-slots
 

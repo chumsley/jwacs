@@ -49,7 +49,8 @@
                #+use-yacc (:file "parse-javascript-yacc")
                (:file "parse-javascript")
                (:file "pretty-print")
-               (:file "source-transformations"))
+               (:file "source-transformations")
+	       (:file "ugly-print"))
   :depends-on (cl-ppcre))
 
 (defmethod perform ((o test-op) (c (eql (find-system 'jwacs))))

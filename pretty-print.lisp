@@ -39,11 +39,16 @@
 (defvar *indent* 0
   "Current indentation level, in spaces (not steps)")
 
+(defvar *pretty-mode* t)
+(defvar *opt-space* " ")
+
 (defun fresh-line-indented (s)
   "Start a new, indented line."
-  (fresh-line s)
-  (dotimes (n *indent*)
-    (format s " ")))
+  (if *pretty-mode* 
+      (progn 
+	(fresh-line s)
+	(dotimes (n *indent*)
+	  (format s " ")))))
 
 (defmacro with-indent (&body body)
   "Execute the contained forms with *indent* set one step deeper."
@@ -72,14 +77,14 @@
       (format s ";"))))
 
 ;;;;= General helpers =
-(defun pretty-print-separated-list (elm-list s &optional (sep-string ", "))
+(defun pretty-print-separated-list (elm-list s &optional (sep-string ",~a"))
   "Pretty print the elements of ELM-LIST to S separated by SEP-STRING."
   (loop
       for idx upfrom 0
       for elm in elm-list
       do
       (unless (zerop idx)
-        (format s sep-string))
+        (format s sep-string *opt-space*))
       (pretty-print elm s)))
 
 ;;;;= The pretty-print generic function =
@@ -120,9 +125,9 @@
         for name/value in (object-literal-properties elm)
         do
         (unless (zerop idx)
-          (format s ", "))
+          (format s ",~a" *opt-space*))
         (pretty-print (car name/value) s)
-        (format s ": ")
+        (format s ":~a" *opt-space*)
         (pretty-print (cdr name/value) s))
   (format s "}"))
 
@@ -193,15 +198,15 @@
                         (if (find op-symbol *keyword-symbols*)
                           (string-downcase (symbol-name op-symbol))))))
     (pretty-print (binary-operator-left-arg elm) s)
-    (format s " ~A " op-string)
+    (format s "~a~A~a" *opt-space* op-string *opt-space*)
     (pretty-print (binary-operator-right-arg elm) s)))
 
 (defmethod pretty-print ((elm conditional) s)
   (format s "(")
   (pretty-print (conditional-condition elm) s)
-  (format s ") ? (")
+  (format s ")~a?~a (" *opt-space* *opt-space*)
   (pretty-print (conditional-true-arg elm) s)
-  (format s ") : (")
+  (format s ")~a:~a(" *opt-space* *opt-space*)
   (pretty-print (conditional-false-arg elm) s)
   (format s ")"))
 
@@ -215,7 +220,7 @@
 (defmethod pretty-print ((elm var-decl) s)
   (format s (var-decl-name elm))
   (when (var-decl-initializer elm)
-    (format s " = ")
+    (format s "~a=~a" *opt-space* *opt-space*)
     (pretty-print (var-decl-initializer elm) s)))
 
 ;; Pretty-print a list of source elements
@@ -269,9 +274,9 @@
 (defmethod pretty-print ((elm for) s)
   (format s "for(")
   (pretty-print (for-initializer elm) s)
-  (format s "; ")
+  (format s ";~a" *opt-space*)
   (pretty-print (for-condition elm) s)
-  (format s "; ")
+  (format s ";~a" *opt-space*)
   (pretty-print (for-step elm) s)
   (format s ")")
   (pretty-print-subordinate (for-body elm) s))
@@ -294,7 +299,7 @@
 (defmethod pretty-print ((elm break-statement) s)
   (format s "break")
   (when (break-statement-label elm)
-    (format s " ")
+    (format s " ") ;opt-space?
     (pretty-print (break-statement-label elm) s)))
 
 (defmethod pretty-print ((elm return-statement) s)
@@ -383,9 +388,9 @@
   (cond
     ;; If there's only one statement in the body, try to fit everything onto one line
     ((<= (length (function-expression-body elm)) 1)
-     (format s " { ")
+     (format s "~a{~a" *opt-space* *opt-space*)
      (pretty-print (first (function-expression-body elm)) s)
-     (format s "; }"))
+     (format s ";~a}" *opt-space*))
     (t
      (fresh-line-indented s)
      (format s "{")

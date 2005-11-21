@@ -7,6 +7,19 @@
 
 (in-package :jwacs)
 
+#+(or sbcl cmu)
+(eval-when (:compile-toplevel :load-toplevel :execute) 
+  (shadow 'defstruct))
+
+
+#+(or sbcl cmu)
+(defmacro defstruct (name &rest slots)
+  (let ((type (if (consp name) (first name) name)))
+    `(progn
+       (cl:defstruct ,name ,@slots)
+       (defmethod make-load-form ((self ,type) &optional environment)
+         (make-load-form-saving-slots self :environment environment)))))
+
 ;;;;= Standard Javascript =
 
 (defstruct source-element
