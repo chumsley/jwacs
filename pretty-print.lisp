@@ -204,7 +204,7 @@
 (defmethod pretty-print ((elm conditional) s)
   (format s "(")
   (pretty-print (conditional-condition elm) s)
-  (format s ")~a?~a (" *opt-space* *opt-space*)
+  (format s ")~a?~a(" *opt-space* *opt-space*)
   (pretty-print (conditional-true-arg elm) s)
   (format s ")~a:~a(" *opt-space* *opt-space*)
   (pretty-print (conditional-false-arg elm) s)

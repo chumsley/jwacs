@@ -102,7 +102,13 @@
                 with-indent
                 *indent*
 
+                ;; ugly-printer symbols
+                genvar
+                *genvar-counter*
+                
                 ;; source-transformation-specific symbols
+                *cont-name*
+                *cont-id*
                 transform
                 cps
                 ))

@@ -37,7 +37,7 @@
 (asdf:defsystem jwacs 
   :version "0.1"
   :author "James Wright <chumsley@gmail.com>, Greg Smolyn <greg@smolyn.org>"
-;  :license "BSD License <http://www.opensource.org/licenses/bsd-license.php>"
+  :licence "BSD License <http://www.opensource.org/licenses/bsd-license.php>"
   :serial t
   :components ((:module "external"
                         :components
