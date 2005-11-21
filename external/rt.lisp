@@ -49,6 +49,10 @@
 ;;;     the equality test to use (synonyms :EQUAL-FN and :TEST also work)
 ;;;   - EQUALP-WITH-CASE now works properly for structure values
 
+;;; James Wright Nov 20/2005:
+;;;   - Changed from using the STRUCTURE type to using the STRUCTURE-OBJECT type
+;;;     in EQUALP-WITH-CASE (Lispworks has both, but SBCL has only STRUCTURE-OBJECT)
+
 (in-package :regression-test)
 
 (declaim (ftype (function (t) t) get-entry expanded-eval do-entries))
@@ -258,8 +262,8 @@
                   always (equalp-with-case (my-row-major-aref x i)
                                            (my-row-major-aref y i))))))
 
-    ((typep x 'structure)
-     (and (typep y 'structure)
+    ((typep x 'structure-object)
+     (and (typep y 'structure-object)
           (reduce (lambda (a b) (and a b))
                   (mapcar #'equalp-with-case
                           (structure-slots x)
