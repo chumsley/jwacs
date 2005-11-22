@@ -137,7 +137,7 @@
   (let ((new-name (add-ugly-binding (function-decl-name elm))))
     (make-function-decl :name new-name
 			:parameters (function-decl-parameters elm)
-			:body (function-decl-body elm))))
+			:body (transform xform (function-decl-body elm)))))
 
 (defmethod transform ((xform (eql 'fun-unique)) (elm function-expression))
   (if (null (function-expression-name elm))
@@ -145,7 +145,7 @@
       (let ((new-name (add-ugly-binding (function-expression-name elm))))
 	(make-function-expression :name new-name
 				  :parameters (function-expression-parameters elm)
-				  :body (function-expression-body elm)))))
+				  :body (transform xform (function-expression-body elm))))))
 
 ; in fun-unique mode, do not recurse down statement-blocks 
 (defmethod transform ((xform (eql 'fun-unique)) (elm statement-block))
