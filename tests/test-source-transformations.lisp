@@ -54,19 +54,19 @@
                                    :left-arg #s(identifier :name "n")
                                    :right-arg #s(numeric-literal :value 0))
                 :then-statement
-                #s(cps-return :arg
+                #s(return-statement :arg
                               #s(fn-call :fn #s(identifier :name "$k")
                                          :args (#s(numeric-literal :value 1))))
                 :else-statement
                 #s(statement-block
                    :statements
-                   (#s(cps-return
+                   (#s(return-statement
                        :arg
                        #s(fn-call :fn #s(identifier :name "factorial1")
                                   :args
                                   (#s(function-expression
                                       :parameters ("r1")
-                                      :body (#s(cps-return
+                                      :body (#s(return-statement
                                                 :arg #s(fn-call :fn #s(identifier :name "$k")
                                                                 :args (#s(binary-operator :op-symbol :multiply
                                                                                           :left-arg #s(identifier :name "n")
@@ -89,14 +89,50 @@
   (#s(function-decl
       :name "doStuff" :parameters ("$k" "branch")
       :body (#s(if-statement :condition #s(identifier :name "branch")
-                             :then-statement #s(cps-return :arg #s(cps-fn-call :fn #s(identifier :name "foo")
+                             :then-statement #s(return-statement :arg #s(fn-call :fn #s(identifier :name "foo")
                                                                                 :args (#s(function-expression
-                                                                                          :parameters ("JW$0")
-                                                                                          :body (#s(cps-return :arg #s(cps-fn-call :fn #s(identifier :name "baz")
+                                                                                          :parameters ("JW0")
+                                                                                          :body (#s(return-statement :arg #s(fn-call :fn #s(identifier :name "baz")
                                                                                                                                :args (#s(identifier :name "$k")))))))))
-                             :else-statement #s(cps-return :arg #s(cps-fn-call :fn #s(identifier :name "bar")
+                             :else-statement #s(return-statement :arg #s(fn-call :fn #s(identifier :name "bar")
                                                                                 :args (#s(function-expression
-                                                                                          :parameters ("JW$1")
-                                                                                          :body (#s(cps-return :arg #s(cps-fn-call :fn #s(identifier :name "baz")
+                                                                                          :parameters ("JW1")
+                                                                                          :body (#s(return-statement :arg #s(fn-call :fn #s(identifier :name "baz")
                                                                                                                                    :args (#s(identifier :name "$k"))))))))))))))
+(deftest cps/asymmetric-dangling-tail/1 :notes cps
+  (with-fresh-genvars ("_k")
+    (transform 'cps (parse "
+      function factorial2(n)
+      {
+        var retVal;
+        if(n == 0)
+          retVal = 1;
+        else
+        {
+          var r1 = factorial2(n-1);
+          var r2 = n * r1;
+          retVal = r2;
+        }
+        return retVal;
+      }")))
+  #.(parse "
+      function factorial2(_k, n)
+      {
+        var retVal;
+        if(n == 0)
+          retVal = 1;
+        else
+        {
+          return factorial2(function (r1)
+                            {
+                              var r2 = n * r1;
+                              retVal = r2;
+                              return _k(retVal);
+                            }, n-1);
+        }
+
+        return _k(retVal);
+      }"))
+  
+
 ;;;;== Explicitization transformation ==

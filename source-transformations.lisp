@@ -196,9 +196,9 @@
 
 ;;;;= CPS transformation =
 ;;; Initial, naive version does the following:
-;;; - All function calls transformed to cps-fn-calls
+;;; - All function calls transformed to fn-calls in continuation-passing style
 ;;; - All assignments transformed to new continuations
-;;; - All returns transformed to cps-returns
+;;; - All returns transformed to returns of the arg passed to the current continuation
 ;;;
 ;;;;== Preconditions ==
 ;;; The CPS transform assumes the following:
@@ -297,7 +297,7 @@
                       :body (transform 'cps (function-decl-body elm))))
 
 (defmethod transform ((xform (eql 'cps)) (elm return-statement))
-  (make-cps-return :arg
+  (make-return-statement :arg
                    (without-statement-tail
                      (make-fn-call :fn *cont-id*
                                    :args (list
@@ -305,15 +305,15 @@
 
 (defmethod transform ((xform (eql 'cps)) (elm fn-call))
   (if (null *statement-tail*)
-    (make-cps-return :arg
-                     (make-cps-fn-call
+    (make-return-statement :arg
+                     (make-fn-call
                       :fn (fn-call-fn elm)
                       :args (cons *cont-id*
                                   (mapcar (lambda (item)
                                             (transform 'cps item))
                                           (fn-call-args elm)))))
-    (make-cps-return :arg
-                     (make-cps-fn-call
+    (make-return-statement :arg
+                     (make-fn-call
                       :fn (fn-call-fn elm)
                       :args (consume-statement-tail (statement-tail)
                               (cons (make-function-expression :parameters (list (genvar))
@@ -353,7 +353,7 @@
                                                  (make-function-expression :parameters (list name)
                                                                            :body (transform 'cps statement-tail))
                                                  (fn-call-args initializer)))))
-             (make-cps-return :arg new-call))))
+             (make-return-statement :arg new-call))))
         (t
          (make-var-decl-statement :var-decls
                                   (mapcar (lambda (item) (transform 'cps item))

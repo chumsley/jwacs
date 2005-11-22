@@ -51,7 +51,7 @@
   "Generates a unique string that will be our ugly name for variables"
   (let ((old *genvar-counter*))
     (setq *genvar-counter* (1+ old))
-    (concatenate 'string "JW$" (format nil "~a" old))))
+    (concatenate 'string "JW" (format nil "~a" old))))
 
 
 ;;;
