@@ -53,6 +53,10 @@
 ;;;   - Changed from using the STRUCTURE type to using the STRUCTURE-OBJECT type
 ;;;     in EQUALP-WITH-CASE (Lispworks has both, but SBCL has only STRUCTURE-OBJECT)
 
+;;; James Wright Nov 21/2005:
+;;;   - The STRUCTURE case for EQUALP-WITH-CASE now checks that the TYPE-OF for the
+;;;     two values are EQ as well as the set of slots.
+
 (in-package :regression-test)
 
 (declaim (ftype (function (t) t) get-entry expanded-eval do-entries))
@@ -264,6 +268,7 @@
 
     ((typep x 'structure-object)
      (and (typep y 'structure-object)
+          (eq (type-of x) (type-of y))
           (reduce (lambda (a b) (and a b))
                   (mapcar #'equalp-with-case
                           (structure-slots x)
