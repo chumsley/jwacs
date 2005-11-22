@@ -49,8 +49,6 @@
                 finally-clause
                 function-decl
                 function-expression
-                cps-return
-                cps-fn-call
                 
                 ;; constructors for source-model structures
                 make-source-element
@@ -90,9 +88,6 @@
                 make-finally-clause
                 make-function-decl
                 make-function-expression
-                make-cps-return
-                make-cps-fn-call
-                
 
                 ;; structure management
                 structure-slots

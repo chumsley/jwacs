@@ -398,17 +398,3 @@
        (pretty-print (function-expression-body elm) s))
      (fresh-line-indented s)
      (format s "}"))))
-
-;;;;== JWACS extensions ==
-
-(defmethod pretty-print ((elm cps-return) s)
-    (format s "return")
-  (when (cps-return-arg elm)
-    (format s " ")
-    (pretty-print (cps-return-arg elm) s)))
-
-(defmethod pretty-print ((elm cps-fn-call) s)
-  (pretty-print (cps-fn-call-fn elm) s)
-  (format s "(")
-  (pretty-print-separated-list (cps-fn-call-args elm) s)
-  (format s ")"))
