@@ -17,7 +17,7 @@
 ;   Please note that we're cheating somewhat-- the source
 (defun ugly-print (elm stream)
   "Outputs the AST to a stream with variables and function names converted to
-   unique identifiers (ie. JW$0) and with all formatting removed."
+   unique identifiers (ie. JW0) and with all formatting removed."
   (let ((*pretty-mode* nil)
 	(*opt-space* "")
 	(new-elm (uglify-vars elm)))
