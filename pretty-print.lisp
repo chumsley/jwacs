@@ -36,11 +36,11 @@
 (defparameter *indent-step* 2
   "Number of spaces per indentation step")
 
-(defvar *indent* 0
+(defparameter *indent* 0
   "Current indentation level, in spaces (not steps)")
 
-(defvar *pretty-mode* t)
-(defvar *opt-space* " ")
+(defparameter *pretty-mode* t)
+(defparameter *opt-space* " ")
 
 (defun fresh-line-indented (s)
   "Start a new, indented line."

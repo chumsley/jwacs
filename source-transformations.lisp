@@ -269,7 +269,7 @@
 ;;; any function calls that might be part of the return value.  The `without-statement-tail`
 ;;; macro will suppress the current statement tail (by temporarily binding it to null).
 
-(defvar *statement-tail* nil
+(defparameter *statement-tail* nil
   "Statements following the current statement in the current scope.")
 
 (defmacro with-statement-tail ((new-statements) &body body)
