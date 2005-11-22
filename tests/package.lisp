@@ -100,6 +100,7 @@
                 ;; ugly-printer symbols
                 genvar
                 *genvar-counter*
+		ugly-print
                 
                 ;; source-transformation-specific symbols
                 *cont-name*
