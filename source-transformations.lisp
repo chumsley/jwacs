@@ -35,6 +35,24 @@
                                                        (symbol-package name)))
       make-fn)))
 
+;;;;= Collector =
+
+(defun collect (element-type starting-elm)
+  "Collect all elements of a given type into a flat list, starting at the point in
+   the AST given by starting-elm"
+  (let ((collection '()))
+    (labels ((collect-h (elm)
+	       (if (eql (type-of elm) element-type)
+		   (setf collection (cons elm collection)))
+	       (if (source-element-p elm)
+		   (dolist (slot (structure-slots elm))
+		     (collect-h (slot-value elm slot)))
+		   (if (listp elm)
+		       (mapc #'collect-h elm)))))
+      (collect-h starting-elm)
+      collection)))
+
+
 ;;;;= Default transformation behaviour =
 
 ;;; The top-level TRANSFORM methods provide the default code-walking behaviour,
