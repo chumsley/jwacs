@@ -329,6 +329,15 @@
                                           nil)
                            #S(return-statement :arg #S(numeric-literal :value 55))))))
 
+(deftest parser/function-decl/2 :notes parser
+  (parse-only "function foo(x) { var x = 10; function bar() { return x; } }")
+  (#S(function-decl :name "foo"
+                    :parameters ("x")
+                    :body (#S(var-decl-statement :var-decls (#S(var-decl :name "x" :initializer #S(numeric-literal :value 10))))
+                           #S(function-decl :name "bar"
+                                            :parameters ()
+                                            :body (#S(return-statement :arg #S(identifier :name "x"))))))))
+
 (deftest parser/function-decl-and-toplevel-call/1 :notes parser
   (parse-only "function make_adder(n) { return function(x) { return x + n;};} make_adder(20);")
   (#S(function-decl :name "make_adder"
@@ -383,3 +392,23 @@
                                  :else-statement
                                  #S(return-statement :arg #S(numeric-literal :value 1)))))))
 
+(deftest parser/function-expression/3 :notes parser
+  (parse-only "
+    function foo(x)
+    {
+      var y = 10;
+      if(y)
+      {
+        function bar()
+        { return x; }
+      }
+    }")
+  (#S(function-decl :name "foo"
+                    :parameters ("x")
+                    :body (#S(var-decl-statement :var-decls (#S(var-decl :name "y" :initializer #S(numeric-literal :value 10))))
+                           #S(if-statement :condition #s(identifier :name "y")
+                                           :then-statement
+                                           #s(statement-block :statements
+                                                              (#S(function-expression :name "bar"
+                                                                                      :parameters ()
+                                                                                      :body (#S(return-statement :arg #S(identifier :name "x")))))))))))
