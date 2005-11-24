@@ -9,7 +9,7 @@
                 regexp-re
                 make-javascript-lexer
                 eoi
-		make-load-form
+                make-load-form
 
                 ;; source-model structure types
                 source-element
@@ -100,12 +100,14 @@
                 ;; ugly-printer symbols
                 genvar
                 *genvar-counter*
-		ugly-print
+                ugly-print
                 
                 ;; source-transformation-specific symbols
                 *cont-name*
                 *cont-id*
                 transform
                 cps
+                explicitize
+                shift-function-decls
                 ))
                 

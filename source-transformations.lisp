@@ -35,23 +35,46 @@
                                                        (symbol-package name)))
       make-fn)))
 
-;;;;= Collector =
+;;;;= Collection within a single scope  =
 
-(defun collect (element-type starting-elm)
-  "Collect all elements of a given type into a flat list, starting at the point in
-   the AST given by starting-elm"
-  (let ((collection '()))
-    (labels ((collect-h (elm)
-	       (if (eql (type-of elm) element-type)
-		   (setf collection (cons elm collection)))
-	       (if (source-element-p elm)
-		   (dolist (slot (structure-slots elm))
-		     (collect-h (slot-value elm slot)))
-		   (if (listp elm)
-		       (mapc #'collect-h elm)))))
-      (collect-h starting-elm)
-      collection)))
+(defgeneric collect-in-scope (elm target-type)
+  (:documentation
+   "Finds an returns a list of all elements of TARGET-TYPE in the same scope as
+    ELM.  Does not recurse into function-decl or function-expression elements.
+    So for example, searching for function-decls in this code:
 
+       var x = 10;
+       function foo(x) { function bar(y) { return 10; } return bar(x); }
+
+    FOO would be returned but BAR would not, since the decl of BAR is in
+    an innermore scope (namely, FOO's body)."))
+
+;;;;== Rules about recursing into children ==
+(defmethod collect-in-scope (elm target-type)
+  nil)
+
+(defmethod collect-in-scope ((elm-list list) target-type)
+  (loop for elm in elm-list
+        nconc (collect-in-scope elm target-type)))
+
+(defmethod collect-in-scope ((elm source-element) target-type)
+  (loop for slot in (structure-slots elm)
+        nconc (collect-in-scope (slot-value elm slot) target-type)))
+
+;; Don't recurse, because the body is a new, innermore scope.
+(defmethod collect-in-scope ((elm function-decl) target-type)
+  nil)
+
+;; Don't recurse, because the body is a new, innermore scope.
+(defmethod collect-in-scope ((elm function-expression) target-type)
+  nil)
+
+;;;;== Rule for returning matches. ==
+;; We don't recurse into matching elements
+(defmethod collect-in-scope :around (elm target-type)
+  (if (typep elm target-type)
+    (list elm)
+    (call-next-method)))
 
 ;;;;= Default transformation behaviour =
 
@@ -81,6 +104,42 @@
   (mapcar (lambda (arg)
             (transform xform arg))
           elm))
+
+;;;;= shift-function-decls transformation =
+;;;
+;;; This transformation moves function declarations to the beginning
+;;; of each scope in the provided AST.  Function decls are never moved
+;;; to a different scope, and they will always appear in the same order
+;;; as originally, so this transfomation is semantically neutral.
+;;;
+;;; NOTE: The Javascript definition of "scope" is slightly different
+;;; than you might expect.  In particular, only function-decls and
+;;; function-expressions create new scopes; statement blocks do not.
+;;;
+;;; Note also that function-expressions will /not/ be moved, since
+;;; they are values (and also their identifiers do not affect their
+;;; enclosing scope; see Pg 71 of ECMA-262)
+
+(defmethod transform ((xform (eql 'shift-function-decls)) (elm-list list))
+  (let ((fn-decls (collect-in-scope elm-list 'function-decl))
+        (other-statements (remove-if #'function-decl-p elm-list)))
+    (nconc
+     (mapcar (lambda (x)
+               (transform 'shift-function-decls x))
+             fn-decls)
+     (mapcar (lambda (x)
+               (transform 'shift-function-decls x))
+             other-statements))))
+
+(defmethod transform ((xform (eql 'shift-function-decls)) (elm source-element))
+  (let ((fresh-elm (funcall (get-constructor elm))))
+    (dolist (slot (structure-slots elm))
+      (if (function-decl-p (slot-value elm slot))
+        (setf (slot-value fresh-elm slot)
+              nil)
+        (setf (slot-value fresh-elm slot)
+              (transform 'shift-function-decls (slot-value elm slot)))))
+    fresh-elm))
 
 ;;;;= Explicitize transformation =
 ;;; The explicitize transformation gives each intermediate value a
