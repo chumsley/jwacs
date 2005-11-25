@@ -64,7 +64,7 @@
                           var y = 3;
                           bar(3); 
                          }")))
-  "function JW0(JW1){function JW2(JW3){return JW3+JW4;};var JW4=3;JW2(3);};")
+  "function JW0(JW1){function JW3(JW4){return JW4+JW2;};var JW2=3;JW3(3);};")
 
 (deftest ugly-print/function-in-function/2 :notes ugly-print
   (with-fresh-genvar
@@ -75,8 +75,31 @@
                           }
                           bar(3); 
                          }")))
-  "function JW0(JW2){var JW3=3;function JW1(JW4){return JW4+JW3;};JW1(3);};")
+  "function JW0(JW1){var JW2=3;function JW3(JW4){return JW4+JW2;};JW3(3);};")
 
+(deftest ugly-print/function-in-function-in-function/1 :notes ugly-print
+  (with-fresh-genvar
+    (ugly-string (parse "function FOO(x) {
+                          function BAR(z) {
+                            function BAZ(xz) {
+                                return 3 + y;
+                             }
+                             return z + y + BAZ(3);
+                          }
+                          var y = 3;
+                          bar(3); 
+                         }")))
+"function JW0(JW1){function JW3(JW4){function JW5(JW6){return 3+JW2;};return JW4+JW2+JW5(3);};var JW2=3;JW3(3);};")
+
+(deftest ugly-print/blocks/1 :notes ugly-print
+ (with-fresh-genvar
+   (ugly-string (parse "{ var y = 3;
+                           {
+                              var x = 1;
+                           }
+                          x + y;
+                        }")))
+   "{var JW0=3;{var JW1=1;};JW1+JW0;};")
 
 ;;; TESTS:
 ;;; ensure vardecls in blocks shadow function vars

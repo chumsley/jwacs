@@ -71,82 +71,51 @@
     (setq *genvar-counter* (1+ old))
     (concatenate 'string "JW" (format nil "~a" old))))
 
+
 ;;; ==================================================
 ;;;
-;;; Now the actual source transformation code
+;;; uniquify source transformation
 ;;;
-;;;
+;;; Converts all variable declarations and function names into indiscernable unique names such as JW0.
+;;; 
+;;; Subsequently ensures that all identifiers are unique (all scoping will have been sorted out by this point)
 
 (defun uglify-vars (program)
-  "Entry point for our source transformation. Turn all var decls and refs into ugly ones"
-  (let ((*environment* (add-environment)))    
-    (transform 'var-unique 
-	       (transform 'fun-unique program))))
+  "Entry point for our source transformation. Turn all var and function declarations and their related 
+   references s into ugly ones"
+  (let* ((*environment* (add-environment)))
+    (transform-in-scope program)))
 
-;;; ==================================================
-;;
-;; var-unique transformation generic functions
-;; 
-;; statement-blocks, function-decls, and function-expressions wrap new environments
-;; var-decls create new bindings
-;; identifiers look up bindings
+(defun transform-in-scope (elm)
+  "Transforms source elements for the current scope. Given an element, collects all
+   var-decls and fun-decls and adds them to the current environment. THEN goes through
+   and transforms identifiers + names in said environment. This calls into the main
+   uniquify transform methods, and subsequently will recurse through the tree"
+  (dolist (var-decl (collect-in-scope elm 'var-decl)) 
+    (add-ugly-binding (var-decl-name var-decl)))
+  (dolist (fun-decl (collect-in-scope elm 'function-decl))
+    (add-ugly-binding (function-decl-name fun-decl)))
+  (transform 'uniquify elm))
 
-(defmethod transform ((xform (eql 'var-unique)) (elm var-decl))
-  "Vardecls add new ugly binding to the environment"
-  (let ((new-name (add-ugly-binding (var-decl-name elm))))
-    (make-var-decl :name new-name 
-		   :initializer (transform xform (var-decl-initializer elm)))))
-
-
-; TODO: this currently does not throw an error when a binding is missing (ie. nil)
-(defmethod transform ((xform (eql 'var-unique)) (elm identifier))
+(defmethod transform ((xform (eql 'uniquify)) (elm identifier))
   (let ((new-name (find-binding (identifier-name elm))))
     (make-identifier :name new-name)))
 
-(defmethod transform ((xform (eql 'var-unique)) (elm function-decl))
+(defmethod transform ((xform (eql 'uniquify)) (elm function-decl))
   (let* ((*environment* (add-environment))
 	 (new-params (mapcar #'add-ugly-binding (function-decl-parameters elm))))
-    (make-function-decl :name (function-decl-name elm)
+    (make-function-decl :name (find-binding (function-decl-name elm))
 			:parameters new-params
-			:body (transform xform (function-decl-body elm)))))
+			:body (transform-in-scope (function-decl-body elm)))))
 
-(defmethod transform ((xform (eql 'var-unique)) (elm function-expression))
+(defmethod transform ((xform (eql 'uniquify)) (elm function-expression))
   (let* ((*environment* (add-environment))
+	 (new-name (add-ugly-binding (function-expression-name elm)))
 	 (new-params (mapcar #'add-ugly-binding (function-expression-parameters elm))))
-    (make-function-expression :name (function-expression-name elm)
+    (make-function-expression :name new-name
 			      :parameters new-params
-			      :body (transform xform (function-expression-body elm)))))
-	 
+			      :body (transform-in-scope (function-expression-body elm)))))
 
-(defmethod transform ((xform (eql 'var-unique)) (elm statement-block))
-  (let* ((*environment* (add-environment))
-	 (new-statements (transform 'fun-unique
-				    (statement-block-statements elm))))
-    (make-statement-block :statements (transform xform new-statements))))
-
-
-;;; ==================================================
-;;;
-;;; fun-unique generic functions
-;;;
-;;;
-;;;
-;;;
-
-(defmethod transform ((xform (eql 'fun-unique)) (elm function-decl))
-  (let ((new-name (add-ugly-binding (function-decl-name elm))))
-    (make-function-decl :name new-name
-			:parameters (function-decl-parameters elm)
-			:body (transform xform (function-decl-body elm)))))
-
-(defmethod transform ((xform (eql 'fun-unique)) (elm function-expression))
-  (if (null (function-expression-name elm))
-      elm
-      (let ((new-name (add-ugly-binding (function-expression-name elm))))
-	(make-function-expression :name new-name
-				  :parameters (function-expression-parameters elm)
-				  :body (transform xform (function-expression-body elm))))))
-
-; in fun-unique mode, do not recurse down statement-blocks 
-(defmethod transform ((xform (eql 'fun-unique)) (elm statement-block))
-  elm)
+(defmethod transform ((xform (eql 'uniquify)) (elm var-decl))
+  (make-var-decl :name (find-binding (var-decl-name elm))
+		 :initializer (transform xform (var-decl-initializer elm))))
