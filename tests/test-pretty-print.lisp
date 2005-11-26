@@ -115,7 +115,6 @@
 ;;; Operator precedence handling hasn't been implemented in the pretty-printer yet,
 ;;; so the pretty-print-operator-precedence/? tests are currently expected to fail.
 
-(flag-expected-failure 'pretty-print/operator-precedence/1) 
 (deftest pretty-print/operator-precedence/1 :notes pretty-print
   (pretty-string
    (make-binary-operator :op-symbol :multiply
@@ -127,16 +126,14 @@
                                                           :right-arg (make-numeric-literal :value 4))))
   "(1 + 2) * (3 + 4)")
 
-(flag-expected-failure 'pretty-print/operator-precedence/2) 
 (deftest pretty-print/operator-precedence/2 :notes pretty-print
   (pretty-string
    (make-unary-operator :op-symbol :post-incr
-                        :arg (make-binary-operator :op-symbol :minus
+                        :arg (make-binary-operator :op-symbol :subtract
                                                    :left-arg foo-id
                                                    :right-arg (make-numeric-literal :value 10))))
   "(foo - 5)++")
 
-(flag-expected-failure 'pretty-print/operator-precedence/3) 
 (deftest pretty-print/operator-precedence/3 :notes pretty-print
   (pretty-string
    (make-unary-operator :op-symbol :delete
@@ -150,7 +147,16 @@
    (make-conditional :condition foo-id
                      :true-arg bar-id
                      :false-arg (make-special-value :symbol :null)))
-  "(foo) ? (bar) : (null)")
+  "foo ? bar : null")
+
+(deftest pretty-print/conditional/2 :notes pretty-print
+  (pretty-string
+   (make-conditional :condition (make-binary-operator :op-symbol :and-equals
+                                                      :left-arg foo-id
+                                                      :right-arg bar-id)
+                     :true-arg bar-id
+                     :false-arg baz-id))
+  "(foo &= bar) ? bar : baz")
 
 (deftest pretty-print/numeric-literal/1 :notes pretty-print
   (pretty-string (make-numeric-literal :value 50))

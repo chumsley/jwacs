@@ -162,3 +162,69 @@
   name
   parameters
   body)
+
+;;;;== Operator precedence ==
+(defgeneric elm-precedence (elm)
+  (:documentation
+   "Returns an integer specifying the precedence of the source element
+    ELM.  Smaller numbers represent higher precedence.  The precedence
+    numbers have no significance except relative to each other."))
+
+(defmethod elm-precedence ((elm source-element))
+  (assert (member (type-of elm)
+                  '(special-value
+                    identifier
+                    numeric-literal
+                    string-literal
+                    array-literal
+                    object-literal
+                    re-literal)))
+  0)
+
+(defmethod elm-precedence ((elm new-expr))
+  1)
+
+(defmethod elm-precedence ((elm fn-call))
+  1)
+
+(defmethod elm-precedence ((elm property-access))
+  1)
+
+(defmethod elm-precedence ((elm unary-operator))
+  (ecase (unary-operator-op-symbol elm)
+    ((:post-incr :post-decr)
+     3)
+    ((:delete :void :typeof :pre-incr :pre-decr :unary-plus :unary-minus :logical-not :bitwise-not)
+     4)))
+
+(defmethod elm-precedence ((elm binary-operator))
+  (ecase (binary-operator-op-symbol elm)
+    ((:multiply :divide :modulo)
+     5)
+    ((:add :subtract)
+     6)
+    ((:lshift :rshift :urshift)
+     7)
+    ((:less-than :greater-than :less-than-equals :greater-than-equals :instanceof)
+     8)
+    ((:equals :not-equals :strict-equals :strict-not-equals)
+     9)
+    (:bitwise-and
+     10)
+    (:bitwise-xor
+     11)
+    (:bitwise-or
+     12)
+    (:logical-and
+     13)
+    (:logical-or
+     14)
+    ((:assign :times-equals :divide-equals :mod-equals :plus-equals :minus-equals
+      :lshift-equals :rshift-equals :urshift-equals :and-equals :xor-equals :or-equals)
+     16)))
+
+(defmethod elm-precedence ((elm conditional))
+  15)
+
+(defmethod elm-precedence ((elm comma-expr))
+  17)

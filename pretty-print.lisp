@@ -175,7 +175,17 @@
      (pretty-print (property-access-field elm) s)
      (format s "]"))))
 
-; TODO precedence handling
+(defun pretty-print-arg (arg-elm parent-elm s)
+  "Pretty print an argument subexpression, parenthesizing if the sub-expression
+   has a lower precedence than the parent expression."
+  (if (> (elm-precedence arg-elm)
+         (elm-precedence parent-elm))
+    (progn
+      (format s "(")
+      (pretty-print arg-elm s)
+      (format s ")"))
+    (pretty-print arg-elm s)))
+
 (defmethod pretty-print ((elm unary-operator) s)
   (let* ((op-symbol (unary-operator-op-symbol elm))
          (op-string (or (gethash op-symbol *symbols-to-tokens*)
@@ -183,32 +193,31 @@
                           (string-downcase (symbol-name op-symbol))))))
   (ecase op-symbol
     ((:post-decr :post-incr)
-     (pretty-print (unary-operator-arg elm) s)
+     (pretty-print-arg (unary-operator-arg elm) elm s)
      (format s "~A" op-string))
     ((:pre-decr :pre-incr :unary-minus :unary-plus :bitwise-not :logical-not)
      (format s "~A" op-string)
-     (pretty-print (unary-operator-arg elm) s))
+     (pretty-print-arg (unary-operator-arg elm) elm s))
     ((:delete :void :typeof)
      (format s "~A " op-string)
-     (pretty-print (unary-operator-arg elm) s)))))
+     (pretty-print-arg (unary-operator-arg elm) elm s)))))
 
 (defmethod pretty-print ((elm binary-operator) s)
   (let* ((op-symbol (binary-operator-op-symbol elm))
          (op-string (or (gethash op-symbol *symbols-to-tokens*)
                         (if (find op-symbol *keyword-symbols*)
                           (string-downcase (symbol-name op-symbol))))))
-    (pretty-print (binary-operator-left-arg elm) s)
+    
+    (pretty-print-arg (binary-operator-left-arg elm) elm s)
     (format s "~a~A~a" *opt-space* op-string *opt-space*)
-    (pretty-print (binary-operator-right-arg elm) s)))
+    (pretty-print-arg (binary-operator-right-arg elm) elm s)))
 
 (defmethod pretty-print ((elm conditional) s)
-  (format s "(")
-  (pretty-print (conditional-condition elm) s)
-  (format s ")~a?~a(" *opt-space* *opt-space*)
-  (pretty-print (conditional-true-arg elm) s)
-  (format s ")~a:~a(" *opt-space* *opt-space*)
-  (pretty-print (conditional-false-arg elm) s)
-  (format s ")"))
+  (pretty-print-arg (conditional-condition elm) elm s)
+  (format s "~a?~a" *opt-space* *opt-space*)
+  (pretty-print-arg (conditional-true-arg elm) elm s)
+  (format s "~a:~a" *opt-space* *opt-space*)
+  (pretty-print-arg (conditional-false-arg elm) elm s))
 
 (defmethod pretty-print ((elm comma-expr) s)
   (pretty-print-separated-list (comma-expr-exprs elm) s))
@@ -223,7 +232,6 @@
     (format s "~a=~a" *opt-space* *opt-space*)
     (pretty-print (var-decl-initializer elm) s)))
 
-;; Pretty-print a list of source elements
 (defmethod pretty-print ((elm list) s)
   (loop for statement in elm
         do
@@ -289,7 +297,6 @@
   (format s ")")
   (pretty-print-subordinate (for-in-body elm) s))
 
-;; TODO Consolidate break/return/continue/throw into a single struct type?
 (defmethod pretty-print ((elm continue-statement) s)
   (format s "continue")
   (when (continue-statement-label elm)
