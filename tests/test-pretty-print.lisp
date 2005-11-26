@@ -129,7 +129,7 @@
                         :arg (make-binary-operator :op-symbol :subtract
                                                    :left-arg foo-id
                                                    :right-arg (make-numeric-literal :value 10))))
-  "(foo - 5)++")
+  "(foo - 10)++")
 
 (deftest pretty-print/operator-precedence/3 :notes pretty-print
   (pretty-string
