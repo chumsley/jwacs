@@ -175,11 +175,19 @@
      (pretty-print (property-access-field elm) s)
      (format s "]"))))
 
-(defun pretty-print-arg (arg-elm parent-elm s)
-  "Pretty print an argument subexpression, parenthesizing if the sub-expression
-   has a lower precedence than the parent expression."
-  (if (> (elm-precedence arg-elm)
-         (elm-precedence parent-elm))
+(defun pretty-print-arg (arg-elm parent-elm s &optional associativity)
+  "Pretty print an argument subexpression, parenthesizing if:
+   1. The sub-expression has a lower precedence than the parent
+expression, or
+   2. The sub-expression and the parent expression have the same precedence
+      and this arg is on the non-associative branch."
+  (if (or (> (elm-precedence arg-elm)
+             (elm-precedence parent-elm))
+          (and associativity
+               (= (elm-precedence arg-elm)
+                  (elm-precedence parent-elm))
+               (not (eq associativity
+                        (op-associativity (binary-operator-op-symbol arg-elm))))))
     (progn
       (format s "(")
       (pretty-print arg-elm s)
@@ -208,9 +216,9 @@
                         (if (find op-symbol *keyword-symbols*)
                           (string-downcase (symbol-name op-symbol))))))
     
-    (pretty-print-arg (binary-operator-left-arg elm) elm s)
+    (pretty-print-arg (binary-operator-left-arg elm) elm s :left)
     (format s "~a~A~a" *opt-space* op-string *opt-space*)
-    (pretty-print-arg (binary-operator-right-arg elm) elm s)))
+    (pretty-print-arg (binary-operator-right-arg elm) elm s :right)))
 
 (defmethod pretty-print ((elm conditional) s)
   (pretty-print-arg (conditional-condition elm) elm s)

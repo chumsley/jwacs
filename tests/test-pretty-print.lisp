@@ -112,9 +112,6 @@
   (pretty-string (make-binary-operator :op-symbol :instanceof :left-arg foo-id :right-arg bar-id))
   "foo instanceof bar")
 
-;;; Operator precedence handling hasn't been implemented in the pretty-printer yet,
-;;; so the pretty-print-operator-precedence/? tests are currently expected to fail.
-
 (deftest pretty-print/operator-precedence/1 :notes pretty-print
   (pretty-string
    (make-binary-operator :op-symbol :multiply
@@ -141,6 +138,42 @@
                                                    :left-arg foo-id
                                                    :right-arg bar-id)))
   "delete (foo || bar)")
+
+(deftest pretty-print/operator-associativity/1 :notes pretty-print
+  (pretty-string
+   (make-binary-operator :op-symbol :add
+                         :left-arg foo-id
+                         :right-arg (make-binary-operator :op-symbol :add
+                                                          :left-arg bar-id
+                                                          :right-arg baz-id)))
+  "foo + (bar + baz)")
+
+(deftest pretty-print/operator-associativity/2 :notes pretty-print
+  (pretty-string
+   (make-binary-operator :op-symbol :add
+                         :left-arg foo-id
+                         :right-arg (make-binary-operator :op-symbol :subtract
+                                                          :left-arg bar-id
+                                                          :right-arg baz-id)))
+  "foo + (bar - baz)")
+
+(deftest pretty-print/operator-associativity/3 :notes pretty-print
+  (pretty-string
+   (make-binary-operator :op-symbol :add
+                         :left-arg (make-binary-operator :op-symbol :add
+                                                         :left-arg foo-id
+                                                         :right-arg bar-id)
+                         :right-arg baz-id))
+  "foo + bar + baz")
+
+(deftest pretty-print/operator-associativity/4 :notes pretty-print
+  (pretty-string
+   (make-binary-operator :op-symbol :add
+                         :left-arg (make-binary-operator :op-symbol :subtract
+                                                         :left-arg foo-id
+                                                         :right-arg bar-id)
+                         :right-arg baz-id))
+  "foo - bar + baz")
 
 (deftest pretty-print/conditional/1 :notes pretty-print
   (pretty-string

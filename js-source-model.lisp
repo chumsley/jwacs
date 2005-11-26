@@ -163,7 +163,7 @@
   parameters
   body)
 
-;;;;== Operator precedence ==
+;;;;== Operator precedence and associativity ==
 (defgeneric elm-precedence (elm)
   (:documentation
    "Returns an integer specifying the precedence of the source element
@@ -228,3 +228,16 @@
 
 (defmethod elm-precedence ((elm comma-expr))
   17)
+
+(defun op-associativity (op-symbol)
+  "Returns either :LEFT or :RIGHT to indicate the associativity of the binary
+   infix operation represented by OP-SYMBOL."
+  (ecase op-symbol
+    ((:multiply :divide :modulo :add :subtract :lshift :rshift :urshift
+      :less-than :greater-than :less-than-equals :greater-than-equals :instanceof
+      :equals :not-equals :strict-equals :strict-not-equals
+      :bitwise-and :bitwise-or :bitwise-xor :logical-and :logical-or)
+     :left)
+    ((:assign :times-equals :divide-equals :mod-equals :plus-equals :minus-equals
+      :lshift-equals :rshift-equals :urshift-equals :and-equals :xor-equals :or-equals)
+     :right)))
