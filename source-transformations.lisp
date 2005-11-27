@@ -162,13 +162,13 @@
     ((listp elm)
      (let ((new-var (genvar))
            (final-stmt (car (last elm))))
-       (assert (not (var-decl-statement-p final-stmt)))
 
        ;; The last statement in a statement list is a version of the original that contains no nested
        ;; intermediate expressions.  If it is a function call, then we convert it to a var decl and
        ;; return the var name as the expression to reference.  Otherwise, we remove it and return it
        ;; as the expression to reference.  This helps to avoid redundant code like
-       ;;       `var r3 = r1 + r2; foo(r3);`
+       ;;       `var r3 = r1 + r2;
+       ;;        foo(r3);`
        ;; In the above expression, it is safe to eliminate `r3` and call `foo(r1 + r2)` directly, since
        ;; operator calls never need to be converted to CPS.
        (if (fn-call-p final-stmt)
@@ -234,11 +234,48 @@
 (defmethod transform ((xform (eql 'explicitize)) (elm binary-operator))
   (explicitize-rhs elm))
 
+(defmethod transform ((xform (eql 'explicitize)) (elm unary-operator))
+  (explicitize-rhs elm))
+
 (defmethod transform ((xform (eql 'explicitize)) (elm var-decl))
   (explicitize-rhs elm 'initializer))
 
 (defmethod transform ((xform (eql 'explicitize)) (elm return-statement))
   (explicitize-rhs elm 'arg))
+
+(defmethod transform ((xform (eql 'explicitize)) (elm if-statement))
+  (flet ((maybe-block (intermediate)
+           (cond
+             ((and (cdr intermediate)
+                   (statement-block-p (car intermediate)))
+              (make-statement-block :statements (nconc (cdr intermediate)
+                                                       (statement-block-statements (car intermediate)))))
+             ((cdr intermediate)
+              (make-statement-block :statements (nconc (cdr intermediate)
+                                                       (list (car intermediate)))))
+             (t (car intermediate)))))
+    (let* ((cond-intermediate (expose-intermediate (transform 'explicitize (if-statement-condition elm))))
+           (then-intermediate (expose-intermediate (transform 'explicitize (if-statement-then-statement elm))))
+           (else-intermediate (expose-intermediate (transform 'explicitize (if-statement-else-statement elm))))
+           (new-elm (make-if-statement :condition (car cond-intermediate)
+                                       :then-statement (maybe-block then-intermediate)
+                                       :else-statement (maybe-block else-intermediate))))
+      (if (cdr cond-intermediate)
+        (nconc (cdr cond-intermediate) (list new-elm))
+        new-elm))))
+                  
+(defmethod transform ((xform (eql 'explicitize)) (elm switch))
+  (let ((val-intermediate (expose-intermediate (transform 'explicitize (switch-value elm))))
+        (new-clauses (mapcar (lambda (clause) (transform 'explicitize clause))
+                             (switch-clauses elm))))
+    (if (cdr val-intermediate)
+      (nconc (cdr val-intermediate)
+             (list (make-switch :value (car val-intermediate)
+                                :clauses new-clauses)))
+      (make-switch :value (car val-intermediate)
+                   :clauses new-clauses))))
+
+;;TODO: While/for/do loops, conditional expressions, comma expressions
 
 (defmethod transform ((xform (eql 'explicitize)) (elm var-decl-statement))
   (let ((pre-statements nil)
