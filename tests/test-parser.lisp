@@ -15,9 +15,11 @@
   "Call PARSE on STRING and return only the first return value.
    This is to deal with the fact that the Lispworks parser returns a second value
    indicating whether any errors occurred, whereas cl-yacc does not."
-  (multiple-value-bind (val1)
+  (multiple-value-bind (val1 val2)
       (parse string)
-    val1))
+    (if val2
+      (error "Parse failed; Lispworks recovered by inserting a token")
+      val1)))
 
 ;;;; Test categories
 (defnote parser "tests for the parser")
@@ -400,7 +402,7 @@
       if(y)
       {
         function bar()
-        { return x; }
+        { return x; };
       }
     }")
   (#S(function-decl :name "foo"
