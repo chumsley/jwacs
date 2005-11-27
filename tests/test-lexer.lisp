@@ -39,19 +39,24 @@
   (scan regexp-re "/\"hi\"")
   nil)
 
+(defun read-all-tokens (js-string)
+  "Return a list of cons cells representing the tokens
+   of JS-STRING.  The CAR of each cell is the type of
+   token, and the CDR is the source text."
+  (loop with l = (make-javascript-lexer js-string)
+        for x = (multiple-value-list (funcall l))
+        while (not (eq (car x) eoi))
+        collect x))
 
 (deftest lexer/1 :notes lexer
-  (let ((js-string-1 "/* test string */
-                      function (f)
-                      {
-                        // Ignore this stuff
-                        var m = 010;
-                        doStuff('stuff', \"nonsense\", 0xff, 45.0, f(m));
-                      }"))
-    (loop with l = (make-javascript-lexer js-string-1)
-          for x = (multiple-value-list (funcall l))
-          while (not (eq (car x) eoi))
-          collect x))
+  (read-all-tokens
+   "/* test string */
+    function (f)
+    {
+      // Ignore this stuff
+      var m = 010;
+      doStuff('stuff', \"nonsense\", 0xff, 45.0, f(m));
+    }")
   ((:function "function")
    (:left-paren "(")
    (:identifier "f")
@@ -81,12 +86,9 @@
    (:right-curly "}")))
     
 (deftest lexer/2 :notes lexer
-  (let ((js-string-2 "var re1 = /hello/g;
-                     var re2 = /hello\\/goodbye/ig;"))
-    (loop with l = (make-javascript-lexer js-string-2)
-          for x = (multiple-value-list (funcall l))
-          while (not (eq (car x) eoi))
-          collect x))
+  (read-all-tokens
+   "var re1 = /hello/g;
+    var re2 = /hello\\/goodbye/ig;")
   ((:var "var")
    (:identifier "re1")
    (:equals "=")
@@ -96,4 +98,20 @@
    (:identifier "re2")
    (:equals "=")
    (:re-literal ("hello/goodbye" . "ig"))
-   (:semicolon ";")))  
+   (:semicolon ";")))
+
+(deftest lexer/3 :notes lexer
+  (read-all-tokens
+   "x >= 10, y<=20, <=>=<>")
+  ((:identifier "x")
+   (:greater-than-equals ">=")
+   (:number 10)
+   (:comma ",")
+   (:identifier "y")
+   (:less-than-equals "<=")
+   (:number 20)
+   (:comma ",")
+   (:less-than-equals "<=")
+   (:greater-than-equals ">=")
+   (:less-than "<")
+   (:greater-than ">")))
