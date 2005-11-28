@@ -69,7 +69,7 @@
       if(x)
       {
         var b;
-        function functionExpression() // Doesn't move; only function decls move
+        var fex = function functionExpression() // Doesn't move; only function decls move
         {
           return inner(2);
           function inner(arg) { return arg; } // Moves up within functionExpression's body only
@@ -84,7 +84,7 @@
       if(x)
       {
         var b;
-        function functionExpression()
+        var fex = function functionExpression()
         {
           function inner(arg) { return arg; }
           return inner(2);
