@@ -26,8 +26,30 @@
 
 ;;;; Tests
 (deftest parser/object-literal/1 :notes parser
-  (parse-only "{a:10};")
-  (#S(object-literal :properties ((#S(identifier :name "a") . #S(numeric-literal :value 10))))))
+  (parse-only "foo = {a:10};")
+  (#S(binary-operator :op-symbol :assign 
+		      :left-arg #S(identifier :name "foo")
+		      :right-arg #S(object-literal :properties ((#S(identifier :name "a") . #S(numeric-literal :value 10)))))))
+
+(deftest parser/object-literal/2 :notes parser
+ (parse-only "foo = {a: 10, b: \"Ten\"};")
+ (#S(BINARY-OPERATOR
+    :OP-SYMBOL :ASSIGN
+    :LEFT-ARG #S(IDENTIFIER :NAME "foo")
+    :RIGHT-ARG #S(OBJECT-LITERAL
+                  :PROPERTIES ((#S(IDENTIFIER :NAME "a") . #S(NUMERIC-LITERAL :VALUE 10))
+                               (#S(IDENTIFIER :NAME "b") . #S(STRING-LITERAL :VALUE "Ten")))))))
+
+(deftest parser/object-literal/3 :notes parser
+  (parse-only "foo = {a: 10, b: {c: 10, d: 10}};")
+  (#S(BINARY-OPERATOR
+    :OP-SYMBOL :ASSIGN
+    :LEFT-ARG #S(IDENTIFIER :NAME "foo")
+    :RIGHT-ARG #S(OBJECT-LITERAL
+                  :PROPERTIES ((#S(IDENTIFIER :NAME "a") . #S(NUMERIC-LITERAL :VALUE 10))
+                               (#S(IDENTIFIER :NAME "b") . #S(OBJECT-LITERAL
+							      :PROPERTIES ((#S(IDENTIFIER :NAME "c") . #S(NUMERIC-LITERAL :VALUE 10))
+									   (#S(IDENTIFIER :NAME "d") . #S(NUMERIC-LITERAL :VALUE 10))))))))))
 
 (deftest parser/re-literal/1 :notes parser
   (parse-only "/hello/;")
