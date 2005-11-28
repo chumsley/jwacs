@@ -30,6 +30,12 @@
 
 (in-package #:yacc)
 
+(defparameter *debug* nil)
+
+(if *debug*
+    (pushnew :yacc-debug cl:*features*)
+    (setf cl:*features* (remove :yacc-debug cl:*features*)))
+
 #-CMU
 (defun required-argument () (error "A required argument was not supplied"))
 
@@ -1051,13 +1057,17 @@ Handle YACC-PARSE-ERROR to provide custom error reporting."
       (let ((stack (list 0)) symbol value)
         (flet ((next-symbol ()
                  (multiple-value-bind (s v) (funcall lexer)
-                   (setq symbol (or s 'eof) value v))))
+                   (setq symbol (or s 'eof) value v)
+		   #+yacc-debug (format *trace-output* "Grabbing symbol: ~a~%" symbol)
+		   )))		   
           (next-symbol)
           (loop
            (let* ((state (car stack))
                   (action (action state symbol)))
+	     #+yacc-debug (format *trace-output* "Current state: ~a, current action: ~a~%" state action)
              (etypecase action
                (shift-action
+		#+yacc-debug (format *trace-output* "Shifting: Value: ~a, Action: ~a~%" value (shift-action-state action))
                 (push value stack)
                 (push (shift-action-state action) stack)
                 (next-symbol))
@@ -1070,6 +1080,7 @@ Handle YACC-PARSE-ERROR to provide custom error reporting."
                     (push (apply (reduce-action-action action) vals) stack)
                     (push (goto s* (reduce-action-symbol action)) stack))))
                (accept-action
+		#+yacc-debug (format *trace-output* "Accepting Action: ~a~%" (cadr stack))
                 (pop stack)
                 (return (pop stack)))
                (error-action

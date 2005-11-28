@@ -28,20 +28,19 @@
   ((primary-expression array-literal) $1)
   ((primary-expression object-literal) $1)
   ((primary-expression :left-paren expression :right-paren) $2)
+
+  ((primary-expression-no-lbf :this) (make-special-value :symbol :this))
+  ((primary-expression-no-lbf :identifier) (make-identifier :name $1))
+  ((primary-expression-no-lbf literal) $1)
+  ((primary-expression-no-lbf array-literal) $1)
+  ((primary-expression-no-lbf :left-paren expression :right-paren) $2)
   
-  ((literal :null) (make-special-value :symbol :null))
-  ((literal boolean-literal) $1)
-  ((literal :number) (make-numeric-literal :value $1))
-  ((literal :string-literal) (make-string-literal :value $1))
-  ((literal :re-literal) (make-re-literal :pattern (car $1) :options (cdr $1)))
-  
-  ((boolean-literal :true) (make-special-value :symbol :true))
-  ((boolean-literal :false) (make-special-value :symbol :false))
-  
-  ((array-literal :left-bracket :right-bracket) (make-array-literal :elements nil))
+  ;((array-literal :left-bracket :right-bracket) (make-array-literal :elements nil))
   ((array-literal :left-bracket element-list :right-bracket) (make-array-literal :elements $2))
+  
   ((element-list assignment-expression) (list $1))
   ((element-list element-list :comma assignment-expression) (append $1 (list $3)))
+
   ;;TODO not currently handling elisions
 
   ((object-literal :left-curly :right-curly) (make-object-literal :properties nil))
@@ -60,14 +59,29 @@
   ((member-expression member-expression :left-bracket expression :right-bracket) (make-property-access :target $1 :field $3))
   ((member-expression member-expression :dot :identifier) (make-property-access :target $1 :field (make-string-literal :value $3)))
   ((member-expression :new member-expression arguments) (make-new-expr :object-name $2 :args $3))
-  
+
+  ((member-expression-no-lbf primary-expression-no-lbf) $1)
+  ((member-expression-no-lbf member-expression-no-lbf :left-bracket expression :right-bracket) (make-property-access :target $1 :field $3))
+  ((member-expression-no-lbf member-expression-no-lbf :dot :identifier) (make-property-access :target $1 :field (make-string-literal :value $3)))
+  ((member-expression-no-lbf :new member-expression arguments) (make-new-expr :object-name $2 :args $3))
+
   ((new-expression member-expression) $1)
   ((new-expression :new new-expression) (make-new-expr :object-name $2))
+
+  ((new-expression-no-lbf member-expression-no-lbf) $1)
+  ((new-expression-no-lbf :new new-expression) (make-new-expr :object-name $2))
+
 
   ((call-expression member-expression arguments) (make-fn-call :fn $1 :args $2))
   ((call-expression call-expression arguments) (make-fn-call :fn $1 :args $2))
   ((call-expression call-expression :left-bracket expression :right-bracket) (make-property-access :target $1 :field $3))
   ((call-expression call-expression :dot :identifier) (make-property-access :target $1 :field (make-string-literal :value $3)))
+
+  ((call-expression-no-lbf member-expression-no-lbf arguments) (make-fn-call :fn $1 :args $2))
+  ((call-expression-no-lbf call-expression-no-lbf arguments) (make-fn-call :fn $1 :args $2))
+  ((call-expression-no-lbf call-expression-no-lbf :left-bracket expression :right-bracket) (make-property-access :target $1 :field $3))
+  ((call-expression-no-lbf call-expression-no-lbf :dot :identifier) (make-property-access :target $1 :field (make-string-literal :value $3)))
+  
   
   ((arguments :left-paren :right-paren) nil)
   ((arguments :left-paren argument-list :right-paren) $2)
@@ -78,10 +92,18 @@
   ((left-hand-side-expression new-expression) $1)
   ((left-hand-side-expression call-expression) $1)
 
+  ((left-hand-side-expression-no-lbf new-expression-no-lbf) $1)
+  ((left-hand-side-expression-no-lbf call-expression-no-lbf) $1)
+
   ;; Pg 57
   ((postfix-expression left-hand-side-expression :plus2) (make-unary-operator :op-symbol :post-incr :arg $1))
   ((postfix-expression left-hand-side-expression :minus2) (make-unary-operator :op-symbol :post-decr :arg $1))
   ((postfix-expression left-hand-side-expression) $1) ; the long versions need to be first
+
+  ((postfix-expression-no-lbf left-hand-side-expression-no-lbf :plus2) (make-unary-operator :op-symbol :post-incr :arg $1))
+  ((postfix-expression-no-lbf left-hand-side-expression-no-lbf :minus2) (make-unary-operator :op-symbol :post-decr :arg $1))
+  ((postfix-expression-no-lbf left-hand-side-expression-no-lbf) $1) ; the long versions need to be first
+; TODO plus2 == incr_no_lt
 
   ;; Pg 58
   ((unary-expression postfix-expression) $1)
@@ -95,22 +117,47 @@
   ((unary-expression :tilde unary-expression) (make-unary-operator :op-symbol :bitwise-not :arg $2))
   ((unary-expression :bang unary-expression) (make-unary-operator :op-symbol :logical-not :arg $2))
 
+  ((unary-expression-no-lbf postfix-expression-no-lbf) $1)
+  ((unary-expression-no-lbf :delete unary-expression) (make-unary-operator :op-symbol :delete :arg $2))
+  ((unary-expression-no-lbf :void unary-expression) (make-unary-operator :op-symbol :void :arg $2))
+  ((unary-expression-no-lbf :typeof unary-expression) (make-unary-operator :op-symbol :typeof :arg $2))
+  ((unary-expression-no-lbf :plus2 unary-expression) (make-unary-operator :op-symbol :pre-incr :arg $2))
+  ((unary-expression-no-lbf :minus2 unary-expression) (make-unary-operator :op-symbol :pre-decr :arg $2))
+  ((unary-expression-no-lbf :plus unary-expression) (make-unary-operator :op-symbol :unary-plus :arg $2))
+  ((unary-expression-no-lbf :minus unary-expression) (make-unary-operator :op-symbol :unary-minus :arg $2))
+  ((unary-expression-no-lbf :tilde unary-expression) (make-unary-operator :op-symbol :bitwise-not :arg $2))
+  ((unary-expression-no-lbf :bang unary-expression) (make-unary-operator :op-symbol :logical-not :arg $2))
+
   ;; Pg 60
   ((multiplicative-expression unary-expression) $1)
   ((multiplicative-expression multiplicative-expression :asterisk unary-expression) (make-binary-operator :op-symbol :multiply :left-arg $1 :right-arg $3))
   ((multiplicative-expression multiplicative-expression :slash unary-expression) (make-binary-operator :op-symbol :divide :left-arg $1 :right-arg $3))
   ((multiplicative-expression multiplicative-expression :percent unary-expression) (make-binary-operator :op-symbol :modulo :left-arg $1 :right-arg $3))
-  
+
+  ((multiplicative-expression-no-lbf unary-expression-no-lbf) $1)
+  ((multiplicative-expression-no-lbf multiplicative-expression-no-lbf :asterisk unary-expression) (make-binary-operator :op-symbol :multiply :left-arg $1 :right-arg $3))
+  ((multiplicative-expression-no-lbf multiplicative-expression-no-lbf :slash unary-expression) (make-binary-operator :op-symbol :divide :left-arg $1 :right-arg $3))
+  ((multiplicative-expression-no-lbf multiplicative-expression-no-lbf :percent unary-expression) (make-binary-operator :op-symbol :modulo :left-arg $1 :right-arg $3))  
+
   ;; Pg 62
   ((additive-expression multiplicative-expression) $1)
   ((additive-expression additive-expression :plus multiplicative-expression) (make-binary-operator :op-symbol :add :left-arg $1 :right-arg $3))
   ((additive-expression additive-expression :minus multiplicative-expression) (make-binary-operator :op-symbol :subtract :left-arg $1 :right-arg $3))
+
+  ((additive-expression-no-lbf multiplicative-expression-no-lbf) $1)
+  ((additive-expression-no-lbf additive-expression-no-lbf :plus multiplicative-expression) (make-binary-operator :op-symbol :add :left-arg $1 :right-arg $3))
+  ((additive-expression-no-lbf additive-expression-no-lbf :minus multiplicative-expression) (make-binary-operator :op-symbol :subtract :left-arg $1 :right-arg $3))
   
   ;; Pg 63
   ((shift-expression additive-expression) $1)
   ((shift-expression shift-expression :lshift additive-expression) (make-binary-operator :op-symbol :lshift :left-arg $1 :right-arg $3))
   ((shift-expression shift-expression :rshift additive-expression) (make-binary-operator :op-symbol :rshift :left-arg $1 :right-arg $3))
   ((shift-expression shift-expression :urshift additive-expression) (make-binary-operator :op-symbol :urshift :left-arg $1 :right-arg $3))
+
+  ((shift-expression-no-lbf additive-expression-no-lbf) $1)
+  ((shift-expression-no-lbf shift-expression-no-lbf :lshift additive-expression) (make-binary-operator :op-symbol :lshift :left-arg $1 :right-arg $3))
+  ((shift-expression-no-lbf shift-expression-no-lbf :rshift additive-expression) (make-binary-operator :op-symbol :rshift :left-arg $1 :right-arg $3))
+  ((shift-expression-no-lbf shift-expression-no-lbf :urshift additive-expression) (make-binary-operator :op-symbol :urshift :left-arg $1 :right-arg $3))
 
   ;; Pg 64
   ((relational-expression shift-expression) $1)
@@ -120,6 +167,15 @@
   ((relational-expression relational-expression :greater-than-equals shift-expression) (make-binary-operator :op-symbol :greater-than-equals :left-arg $1 :right-arg $3))
   ((relational-expression relational-expression :instanceof shift-expression) (make-binary-operator :op-symbol :instanceof :left-arg $1 :right-arg $3))
   ((relational-expression relational-expression :in shift-expression) (make-binary-operator :op-symbol :in :left-arg $1 :right-arg $3))
+
+  ((relational-expression-no-lbf shift-expression-no-lbf) $1)
+  ((relational-expression-no-lbf relational-expression-no-lbf :less-than shift-expression) (make-binary-operator :op-symbol :less-than :left-arg $1 :right-arg $3))
+  ((relational-expression-no-lbf relational-expression-no-lbf :less-than-equals shift-expression) (make-binary-operator :op-symbol :less-than-equals :left-arg $1 :right-arg $3))
+  ((relational-expression-no-lbf relational-expression-no-lbf :greater-than shift-expression) (make-binary-operator :op-symbol :greater-than :left-arg $1 :right-arg $3))
+  ((relational-expression-no-lbf relational-expression-no-lbf :greater-than-equals shift-expression) (make-binary-operator :op-symbol :greater-than-equals :left-arg $1 :right-arg $3))
+  ((relational-expression-no-lbf relational-expression-no-lbf :instanceof shift-expression) (make-binary-operator :op-symbol :instanceof :left-arg $1 :right-arg $3))
+  ((relational-expression-no-lbf relational-expression-no-lbf :in shift-expression) (make-binary-operator :op-symbol :in :left-arg $1 :right-arg $3))
+
 
   ;; (to avoid confusing the `in` operator in for-in expressions)
   ((relational-expression-no-in shift-expression) $1)
@@ -135,6 +191,12 @@
   ((equality-expression equality-expression :not-equals relational-expression) (make-binary-operator :op-symbol :not-equals :left-arg $1 :right-arg $3))
   ((equality-expression equality-expression :equals3 relational-expression) (make-binary-operator :op-symbol :strict-equals :left-arg $1 :right-arg $3))
   ((equality-expression equality-expression :not-equals2 relational-expression) (make-binary-operator :op-symbol :strict-not-equals :left-arg $1 :right-arg $3))
+
+  ((equality-expression-no-lbf relational-expression-no-lbf) $1)
+  ((equality-expression-no-lbf equality-expression-no-lbf :equals2 relational-expression) (make-binary-operator :op-symbol :equals :left-arg $1 :right-arg $3))
+  ((equality-expression-no-lbf equality-expression-no-lbf :not-equals relational-expression) (make-binary-operator :op-symbol :not-equals :left-arg $1 :right-arg $3))
+  ((equality-expression-no-lbf equality-expression-no-lbf :equals3 relational-expression) (make-binary-operator :op-symbol :strict-equals :left-arg $1 :right-arg $3))
+  ((equality-expression-no-lbf equality-expression-no-lbf :not-equals2 relational-expression) (make-binary-operator :op-symbol :strict-not-equals :left-arg $1 :right-arg $3))
   
   ((equality-expression-no-in relational-expression-no-in) $1)
   ((equality-expression-no-in equality-expression-no-in :equals2 relational-expression-no-in) (make-binary-operator :op-symbol :equals :left-arg $1 :right-arg $3))
@@ -146,17 +208,26 @@
   ((bitwise-AND-expression equality-expression) $1)
   ((bitwise-AND-expression bitwise-AND-expression :ampersand equality-expression) (make-binary-operator :op-symbol :bitwise-AND :left-arg $1 :right-arg $3))
 
-  ((bitwise-XOR-expression bitwise-AND-expression) $1)
-  ((bitwise-XOR-expression bitwise-XOR-expression :caret bitwise-AND-expression) (make-binary-operator :op-symbol :bitwise-XOR :left-arg $1 :right-arg $3))
-
-  ((bitwise-OR-expression bitwise-XOR-expression) $1)
-  ((bitwise-OR-expression bitwise-OR-expression :bar bitwise-XOR-expression) (make-binary-operator :op-symbol :bitwise-OR :left-arg $1 :right-arg $3))
+  ((bitwise-AND-expression-no-lbf equality-expression-no-lbf) $1)
+  ((bitwise-AND-expression-no-lbf bitwise-AND-expression-no-lbf :ampersand equality-expression) (make-binary-operator :op-symbol :bitwise-AND :left-arg $1 :right-arg $3))
 
   ((bitwise-AND-expression-no-in equality-expression-no-in) $1)
   ((bitwise-AND-expression-no-in bitwise-AND-expression-no-in :ampersand equality-expression-no-in) (make-binary-operator :op-symbol :bitwise-AND :left-arg $1 :right-arg $3))
 
+  ((bitwise-XOR-expression bitwise-AND-expression) $1)
+  ((bitwise-XOR-expression bitwise-XOR-expression :caret bitwise-AND-expression) (make-binary-operator :op-symbol :bitwise-XOR :left-arg $1 :right-arg $3))
+
+  ((bitwise-XOR-expression-no-lbf bitwise-AND-expression-no-lbf) $1)
+  ((bitwise-XOR-expression-no-lbf bitwise-XOR-expression-no-lbf :caret bitwise-AND-expression) (make-binary-operator :op-symbol :bitwise-XOR :left-arg $1 :right-arg $3))
+
   ((bitwise-XOR-expression-no-in bitwise-AND-expression-no-in) $1)
   ((bitwise-XOR-expression-no-in bitwise-XOR-expression-no-in :caret bitwise-AND-expression-no-in) (make-binary-operator :op-symbol :bitwise-XOR :left-arg $1 :right-arg $3))
+
+  ((bitwise-OR-expression bitwise-XOR-expression) $1)
+  ((bitwise-OR-expression bitwise-OR-expression :bar bitwise-XOR-expression) (make-binary-operator :op-symbol :bitwise-OR :left-arg $1 :right-arg $3))
+
+  ((bitwise-OR-expression-no-lbf bitwise-XOR-expression-no-lbf) $1)
+  ((bitwise-OR-expression-no-lbf bitwise-OR-expression-no-lbf :bar bitwise-XOR-expression) (make-binary-operator :op-symbol :bitwise-OR :left-arg $1 :right-arg $3))
 
   ((bitwise-OR-expression-no-in bitwise-XOR-expression-no-in) $1)
   ((bitwise-OR-expression-no-in bitwise-OR-expression-no-in :bar bitwise-XOR-expression-no-in) (make-binary-operator :op-symbol :bitwise-OR :left-arg $1 :right-arg $3))
@@ -165,18 +236,27 @@
   ((logical-AND-expression bitwise-OR-expression) $1)
   ((logical-AND-expression logical-AND-expression :ampersand2 bitwise-OR-expression) (make-binary-operator :op-symbol :logical-AND :left-arg $1 :right-arg $3))
 
-  ((logical-OR-expression logical-AND-expression) $1)
-  ((logical-OR-expression logical-OR-expression :bar2 logical-AND-expression) (make-binary-operator :op-symbol :logical-OR :left-arg $1 :right-arg $3))
+  ((logical-AND-expression-no-lbf bitwise-OR-expression-no-lbf) $1)
+  ((logical-AND-expression-no-lbf logical-AND-expression-no-lbf :ampersand2 bitwise-OR-expression) (make-binary-operator :op-symbol :logical-AND :left-arg $1 :right-arg $3))
 
   ((logical-AND-expression-no-in bitwise-OR-expression-no-in) $1)
   ((logical-AND-expression-no-in logical-AND-expression-no-in :ampersand2 bitwise-OR-expression-no-in) (make-binary-operator :op-symbol :logical-AND :left-arg $1 :right-arg $3))
 
+  ((logical-OR-expression logical-AND-expression) $1)
+  ((logical-OR-expression logical-OR-expression :bar2 logical-AND-expression) (make-binary-operator :op-symbol :logical-OR :left-arg $1 :right-arg $3))
+
+  ((logical-OR-expression-no-lbf logical-AND-expression-no-lbf) $1)
+  ((logical-OR-expression-no-lbf logical-OR-expression-no-lbf :bar2 logical-AND-expression) (make-binary-operator :op-symbol :logical-OR :left-arg $1 :right-arg $3))
+ 
   ((logical-OR-expression-no-in logical-AND-expression-no-in) $1)
   ((logical-OR-expression-no-in logical-OR-expression-no-in :bar2 logical-AND-expression-no-in) (make-binary-operator :op-symbol :logical-OR :left-arg $1 :right-arg $3))
 
   ;; Pg 71
   ((conditional-expression logical-OR-expression) $1)
   ((conditional-expression logical-OR-expression :hook assignment-expression :colon assignment-expression) (make-conditional :condition $1 :true-arg $3 :false-arg $5))
+
+  ((conditional-expression-no-lbf logical-OR-expression-no-lbf) $1)
+  ((conditional-expression-no-lbf logical-OR-expression-no-lbf :hook assignment-expression :colon assignment-expression) (make-conditional :condition $1 :true-arg $3 :false-arg $5))
 
   ((conditional-expression-no-in logical-OR-expression-no-in) $1)
   ((conditional-expression logical-OR-expression-no-in :hook assignment-expression :colon assignment-expression-no-in) (make-conditional :condition $1 :true-arg $3 :false-arg $5))
@@ -187,6 +267,13 @@
      (if (eq op :equals)
        (make-binary-operator :op-symbol :assign :left-arg $1 :right-arg $3)
        (make-binary-operator :op-symbol op :left-arg $1 :right-arg $3))))
+
+  ((assignment-expression-no-lbf conditional-expression-no-lbf) $1)
+  ((assignment-expression-no-lbf left-hand-side-expression-no-lbf assignment-operator assignment-expression)
+   (let ((op (gethash $2 *tokens-to-symbols*)))
+     (if (eq op :equals)
+	 (make-binary-operator :op-symbol :assign :left-arg $1 :right-arg $3)
+	 (make-binary-operator :op-symbol op :left-arg $1 :right-arg $3))))
   
   ((assignment-expression-no-in conditional-expression-no-in) $1)
   ((assignment-expression-no-in left-hand-side-expression assignment-operator assignment-expression-no-in)
@@ -213,10 +300,22 @@
    (if (comma-expr-p $1)
      (make-comma-expr :exprs (append (comma-expr-exprs $1) (list $3)))
      (make-comma-expr :exprs (list $1 $3))))
-  
+
+  ((expression-no-lbf assignment-expression-no-lbf) $1)
+  ((expression-no-lbf expression-statement-no-lbf :comma assignment-expression) (list  :comma $1 $3))
+
   ((expression-no-in assignment-expression-no-in) $1)
   ((expression-no-in expression-no-in :comma assignment-expression-no-in) (list :comma $1 $3))
+
+  ((literal :null) (make-special-value :symbol :null))
+  ((literal boolean-literal) $1)
+  ((literal :number) (make-numeric-literal :value $1))
+  ((literal :string-literal) (make-string-literal :value $1))
+  ((literal :re-literal) (make-re-literal :pattern (car $1) :options (cdr $1)))
   
+  ((boolean-literal :true) (make-special-value :symbol :true))
+  ((boolean-literal :false) (make-special-value :symbol :false))  
+
   ;; Statements
   ((statement block) $1)
   ((statement variable-statement) $1)
@@ -232,7 +331,21 @@
   ((statement switch-statement) $1)
   ((statement throw-statement) $1)
   ((statement try-statement) $1)
-  
+
+  ((statement-no-if block) $1)
+  ((statement-no-if variable-statement) $1)
+  ((statement-no-if empty-statement) $1)
+  ((statement-no-if expression-statement) $1)
+  ((statement-no-if if-statement-no-if) $1)
+  ((statement-no-if iteration-statement-no-if) $1)
+  ((statement-no-if continue-statement) $1)
+  ((statement-no-if break-statement) $1)
+  ((statement-no-if return-statement) $1)
+  ((statement-no-if with-statement-no-if) $1)
+  ((statement-no-if labelled-statement-no-if) $1)
+  ((statement-no-if switch-statement) $1)
+  ((statement-no-if throw-statement) $1)
+  ((statement-no-if try-statement) $1)
 
   ;; Pg 73
   ((block :left-curly statement-list :right-curly) (make-statement-block :statements $2))
@@ -247,11 +360,11 @@
   ((variable-decl-list variable-decl) (list $1))
   ((variable-decl-list variable-decl-list :comma variable-decl) (append $1 (list $3)))
 
-  ((variable-decl :identifier) (make-var-decl :name $1))
-  ((variable-decl :identifier :equals assignment-expression) (make-var-decl :name $1 :initializer $3))
-
   ((variable-decl-list-no-in variable-decl-no-in) (list $1))
   ((variable-decl-list-no-in variable-decl-list-no-in :comma variable-decl-no-in) (append $1 (list $3)))
+
+  ((variable-decl :identifier) (make-var-decl :name $1))
+  ((variable-decl :identifier :equals assignment-expression) (make-var-decl :name $1 :initializer $3))
 
   ((variable-decl-no-in :identifier) (make-var-decl :name $1))
   ((variable-decl-no-in :identifier :equals assignment-expression-no-in) (make-var-decl :name $1 :initializer $3))
@@ -259,11 +372,15 @@
   ;; Pg 75
   ((empty-statement :semicolon) nil)
 
-  ((expression-statement expression :semicolon) $1) ;TODO lookahead != function or {
+  ((expression-statement expression-no-lbf :semicolon) $1)
 
-  ((if-statement :if :left-paren expression :right-paren statement :else statement) (make-if-statement :condition $3 :then-statement $5 :else-statement $7))
+
+  ((if-statement :if :left-paren expression :right-paren statement-no-if :else statement) (make-if-statement :condition $3 :then-statement $5 :else-statement $7))
   ((if-statement :if :left-paren expression :right-paren statement) (make-if-statement :condition $3 :then-statement $5))
+
+  ((if-statement-no-if :if :left-paren expression :right-paren statement-no-if :else statement-no-if) (make-if-statement :condition $3 :then-statement $5 :else-statement $7))
   
+
   ;; Pg 76
   ((iteration-statement :do statement :while :left-paren expression :right-paren :semicolon) (make-do-statement :condition $5 :body $2))
   ((iteration-statement :while :left-paren expression :right-paren statement) (make-while :condition $3 :body $5))
@@ -278,6 +395,19 @@
   ((iteration-statement :for :left-paren :var variable-decl-no-in :in expression :right-paren statement)
    (make-for-in :binding (make-var-decl-statement :var-decls (list $4)) :collection $6 :body $8))
 
+ ((iteration-statement-no-if :do statement :while :left-paren expression :right-paren :semicolon) (make-do-statement :condition $5 :body $2))
+  ((iteration-statement-no-if :while :left-paren expression :right-paren statement-no-if) (make-while :condition $3 :body $5))
+
+  ;;TODO Almost every expression in a for statement should be optional; add that (probably by writing a utility to calculate it for us)
+  ((iteration-statement-no-if :for :left-paren expression-no-in :semicolon expression :semicolon expression :right-paren statement-no-if)
+   (make-for :initializer $3 :condition $5 :step $7 :body $9))
+  ((iteration-statement-no-if :for :left-paren :var variable-decl-list-no-in :semicolon expression :semicolon expression :right-paren statement-no-if)
+   (make-for :initializer (make-var-decl-statement :var-decls $4) :condition $6 :step $8 :body $10))
+  ((iteration-statement-no-if :for :left-paren left-hand-side-expression :in expression :right-paren statement-no-if)
+   (make-for-in :binding $3 :collection $5 :body $7))
+  ((iteration-statement-no-if :for :left-paren :var variable-decl-no-in :in expression :right-paren statement-no-if)
+   (make-for-in :binding (make-var-decl-statement :var-decls (list $4)) :collection $6 :body $8))
+
   ((continue-statement :continue :identifier :semicolon) (make-continue-statement :label $2))
   ((continue-statement :continue :semicolon) (make-continue-statement))
 
@@ -288,6 +418,8 @@
   ((return-statement :return :semicolon) (make-return-statement))
 
   ((with-statement :with :left-paren expression :right-paren statement) (make-with :scope-object $3 :body $5))
+
+  ((with-statement-no-if :with :left-paren expression :right-paren statement-no-if) (make-with :scope-object $3 :body $5))
 
   ;; Note that by treating the default clause as just another type of case clause, as opposed
   ;; to as a distinct non-terminal, we lose the ability to guarantee at the parser level that
@@ -309,6 +441,7 @@
 
   ;; Pg 81
   ((labelled-statement :identifier :colon statement) (make-label :name $1 :statement $3))
+  ((labelled-statement-no-if :identifier :colon statement-no-if) (make-label :name $1 :statement $3))
 
   ((throw-statement :throw expression :semicolon) (make-throw-statement :value $2))
 
