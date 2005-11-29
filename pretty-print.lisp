@@ -44,11 +44,10 @@
 
 (defun fresh-line-indented (s)
   "Start a new, indented line."
-  (if *pretty-mode* 
-      (progn 
-	(fresh-line s)
-	(dotimes (n *indent*)
-	  (format s " ")))))
+  (when *pretty-mode* 
+    (fresh-line s)
+    (dotimes (n *indent*)
+        (format s " "))))
 
 (defmacro with-indent (&body body)
   "Execute the contained forms with *indent* set one step deeper."
@@ -87,8 +86,12 @@
         (format s sep-string *opt-space*))
       (pretty-print elm s)))
 
-;;;;= The pretty-print generic function =
+(defun force-space (s)
+  "Prints a space to S in ugly mode to ensure that two elements will be separated"
+  (unless *pretty-mode*
+    (format s " ")))
 
+;;;;= The pretty-print generic function =
 (defgeneric pretty-print (elm stream)
   (:documentation
    "Print source element ELM to stream STREAM as parseable and human-readable text."))
@@ -240,12 +243,13 @@ expression, or
     (format s "~a=~a" *opt-space* *opt-space*)
     (pretty-print (var-decl-initializer elm) s)))
 
-(defmethod pretty-print ((elm list) s)
-  (loop for statement in elm
+(defmethod pretty-print ((elm-list list) s)
+  (loop for elm in elm-list
         do
         (fresh-line-indented s)
-        (pretty-print statement s)
-        (format s ";")))
+        (pretty-print elm s)
+        (unless (function-decl-p elm)
+          (format s ";"))))
   
 (defmethod pretty-print ((elm statement-block) s)
   (fresh-line-indented s)
@@ -265,6 +269,8 @@ expression, or
       (format s ";"))
     (fresh-line-indented s)
     (format s "else")
+    (unless (statement-block-p (if-statement-else-statement elm))
+      (force-space s))
     (pretty-print-subordinate (if-statement-else-statement elm) s)))
 
 (defmethod pretty-print ((elm do-statement) s)

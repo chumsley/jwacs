@@ -4,7 +4,7 @@
 ;;; The key functionality provided is a source transformation to ensure ALL identifiers are made 
 ;;; unique
 ;;;
-;;; Note that we pretty-print was modified to output without formatting if *pretty-mode*
+;;; Note that pretty-print was modified to output without formatting if *pretty-mode*
 ;;; and *opt-space* are correctly set.
 ;;; Essentially all we do in this is the uniquifying transformation.
 ;;;
@@ -19,8 +19,8 @@
   "Outputs the AST to a stream with variables and function names converted to
    unique identifiers (ie. JW0) and with all formatting removed."
   (let ((*pretty-mode* nil)
-	(*opt-space* "")
-	(new-elm (uglify-vars elm)))
+        (*opt-space* "")
+        (new-elm (uglify-vars elm)))
     (pretty-print new-elm stream)))
 
 ;;; ==================================================
@@ -44,12 +44,12 @@
 (defun find-binding (var-name)
   "Looks through the set of environments and finds the most recently bound variable, returns its bound value"
   (labels ((f-b-h (environment)
-	     (if (null environment)
-		 nil
-		 (let ((var-pair (assoc var-name (car environment) :test #'equalp)))
-		   (if (null var-pair)
-		       (f-b-h (cdr environment))
-		       (cdr var-pair))))))
+             (if (null environment)
+               nil
+               (let ((var-pair (assoc var-name (car environment) :test #'equalp)))
+                 (if (null var-pair)
+                   (f-b-h (cdr environment))
+                   (cdr var-pair))))))
     (f-b-h *environment*)))
 
 (defun add-binding (var-name var-newname)
@@ -103,19 +103,19 @@
 
 (defmethod transform ((xform (eql 'uniquify)) (elm function-decl))
   (let* ((*environment* (add-environment))
-	 (new-params (mapcar #'add-ugly-binding (function-decl-parameters elm))))
+         (new-params (mapcar #'add-ugly-binding (function-decl-parameters elm))))
     (make-function-decl :name (find-binding (function-decl-name elm))
-			:parameters new-params
-			:body (transform-in-scope (function-decl-body elm)))))
+                        :parameters new-params
+                        :body (transform-in-scope (function-decl-body elm)))))
 
 (defmethod transform ((xform (eql 'uniquify)) (elm function-expression))
   (let* ((*environment* (add-environment))
-	 (new-name (add-ugly-binding (function-expression-name elm)))
-	 (new-params (mapcar #'add-ugly-binding (function-expression-parameters elm))))
+         (new-name (add-ugly-binding (function-expression-name elm)))
+         (new-params (mapcar #'add-ugly-binding (function-expression-parameters elm))))
     (make-function-expression :name new-name
-			      :parameters new-params
-			      :body (transform-in-scope (function-expression-body elm)))))
+                              :parameters new-params
+                              :body (transform-in-scope (function-expression-body elm)))))
 
 (defmethod transform ((xform (eql 'uniquify)) (elm var-decl))
   (make-var-decl :name (find-binding (var-decl-name elm))
-		 :initializer (transform xform (var-decl-initializer elm))))
+                 :initializer (transform xform (var-decl-initializer elm))))

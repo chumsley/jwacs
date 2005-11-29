@@ -27,33 +27,41 @@
 (deftest ugly-print/function-decl/1 :notes ugly-print
   (with-fresh-genvar
     (ugly-string (parse "function FOO(){;}")))
-  "function JW0(){;};")
+  "function JW0(){;}")
 
 (deftest ugly-print/function-decl/2 :notes ugly-print
   (with-fresh-genvar
     (ugly-string (parse "function FOO(x){;}")))
-  "function JW0(JW1){;};")
+  "function JW0(JW1){;}")
 
 (deftest ugly-print/function-decl/3 :notes ugly-print
   (with-fresh-genvar
     (ugly-string (parse "function FOO(x){ var y = x; }")))
-  "function JW0(JW1){var JW2=JW1;};")
+  "function JW0(JW1){var JW2=JW1;}")
 
 (deftest ugly-print/function-decl/4 :notes ugly-print
   (with-fresh-genvar
     (ugly-string (parse "function FOO(){ FOO(); }")))
-  "function JW0(){JW0();};")
+  "function JW0(){JW0();}")
 
+;; ensure vardecls in blocks shadow function vars
+;;
+;;    function foo(x) <-- this x could be JW0
+;;    {
+;;        var x = 3;  <-- this x should be JW1 not 0
+;;        bar(x);     <-- this x should be JW1
+;;    }
+;;
 (deftest ugly-print/function-decl-arg-shadow/1 :notes ugly-print
   (with-fresh-genvar
     (ugly-string (parse "function FOO(x){ var x = 3; }")))
-  "function JW0(JW1){var JW2=3;};")
+  "function JW0(JW1){var JW2=3;}")
     
 
 (deftest ugly-print/function-decl-arg-shadow/2 :notes ugly-print
   (with-fresh-genvar
     (ugly-string (parse "function FOO(x){ var x = 3; FOO(x);}")))
-  "function JW0(JW1){var JW2=3;JW0(JW2);};")
+  "function JW0(JW1){var JW2=3;JW0(JW2);}")
 
 (deftest ugly-print/function-in-function/1 :notes ugly-print
   (with-fresh-genvar
@@ -64,7 +72,7 @@
                           var y = 3;
                           bar(3); 
                          }")))
-  "function JW0(JW1){function JW3(JW4){return JW4+JW2;};var JW2=3;JW3(3);};")
+  "function JW0(JW1){function JW3(JW4){return JW4+JW2;}var JW2=3;JW3(3);}")
 
 (deftest ugly-print/function-in-function/2 :notes ugly-print
   (with-fresh-genvar
@@ -75,7 +83,7 @@
                           }
                           bar(3); 
                          }")))
-  "function JW0(JW1){var JW2=3;function JW3(JW4){return JW4+JW2;};JW3(3);};")
+  "function JW0(JW1){var JW2=3;function JW3(JW4){return JW4+JW2;}JW3(3);}")
 
 (deftest ugly-print/function-in-function-in-function/1 :notes ugly-print
   (with-fresh-genvar
@@ -89,7 +97,7 @@
                           var y = 3;
                           bar(3); 
                          }")))
-"function JW0(JW1){function JW3(JW4){function JW5(JW6){return 3+JW2;};return JW4+JW2+JW5(3);};var JW2=3;JW3(3);};")
+"function JW0(JW1){function JW3(JW4){function JW5(JW6){return 3+JW2;}return JW4+JW2+JW5(3);}var JW2=3;JW3(3);}")
 
 (deftest ugly-print/blocks/1 :notes ugly-print
  (with-fresh-genvar
