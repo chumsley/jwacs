@@ -109,12 +109,22 @@
                         }")))
    "{var JW0=3;{var JW1=1;};JW1+JW0;};")
 
-;;; TESTS:
-;;; ensure vardecls in blocks shadow function vars
-;;;
-;;;    function foo(x) <-- this x could be JW0
-;;;    {
-;;;        var x = 3;  <-- this x should be JW1 not 0
-;;;        bar(x);     <-- this x should be JW1
-;;;    }
-;;;
+(deftest ugly-print/free-variables/1 :notes ugly-print
+  (with-fresh-genvar
+    (ugly-string (parse "var x = 10;
+                         var y = x + z;")))
+    "var JW0=10;var JW1=JW0+z;")
+
+(deftest ugly-print/free-variables/2 :notes ugly-print
+  (with-fresh-genvar
+    (ugly-string (parse "var x = foo;
+                         function bar(m)
+                         {
+                           var y=m*2;
+                           if(y > x)
+                             return bar(m--);
+                           else
+                             return m;
+                         }")))
+  "var JW0=foo;function JW1(JW2){var JW3=JW2*2;if(JW3>JW0)return JW1(JW2--);else return JW2;}")
+

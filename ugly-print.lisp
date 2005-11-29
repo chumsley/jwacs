@@ -99,7 +99,11 @@
 
 (defmethod transform ((xform (eql 'uniquify)) (elm identifier))
   (let ((new-name (find-binding (identifier-name elm))))
-    (make-identifier :name new-name)))
+    ;; If the identifier is defined in this script, use its unique name.
+    ;; Otherwise, return it unmodified (to account for system globals like document or XmlHttpRequest)
+    (if new-name
+      (make-identifier :name new-name)
+      elm)))
 
 (defmethod transform ((xform (eql 'uniquify)) (elm function-decl))
   (let* ((*environment* (add-environment))
