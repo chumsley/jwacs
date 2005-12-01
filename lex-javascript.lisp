@@ -325,7 +325,7 @@
        (integer-re
         (incf cursor (- %e %s))
         (values :number (parse-javascript-integer string :start %s :end %e)))
-       ("^\\w+"
+       ("^(\\$|\\w)+"
         (incf cursor (- %e %s))
         (let ((token (subseq string %s %e)))
           (if (gethash token *tokens-to-symbols*)

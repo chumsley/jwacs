@@ -115,3 +115,13 @@
    (:greater-than-equals ">=")
    (:less-than "<")
    (:greater-than ">")))
+
+(deftest lexer/4 :notes lexer
+  (read-all-tokens
+   "foo _foo $foo foo1 foo$ foo_")
+  ((:identifier "foo")
+   (:identifier "_foo")
+   (:identifier "$foo")
+   (:identifier "foo1")
+   (:identifier "foo$")
+   (:identifier "foo_")))
