@@ -28,38 +28,40 @@
 
 (defmethod transform ((xform (eql 'loop-to-function)) (elm while))
   (let ((function-var (genvar))
-	(function-name (genvar)))
+        (function-name (genvar)))
     (make-statement-block 
      :statements
      (list 
       (make-var-decl-statement 
        :var-decls 
        (list
-	(make-var-decl 
-	 :name function-var
-	 :initializer (make-function-expression 
-		       :name function-name
-		       :parameters nil
-		       :body (list (make-if-statement 
-				    :condition (while-condition elm)
-				    :then-statement (make-statement-block 
-						     :statements (append (transform-body xform #'while-body elm)
-									 (list (make-fn-call 
-										:fn (make-identifier :name function-name)
-										:args nil))))
-				    :else-statement nil))))))
+        (make-var-decl 
+         :name function-var
+         :initializer (make-function-expression 
+                       :name function-name
+                       :parameters nil
+                       :body (list (make-if-statement 
+                                    :condition (while-condition elm)
+                                    :then-statement (make-statement-block 
+                                                     :statements (append (transform-body xform #'while-body elm)
+                                                                         (list (make-fn-call 
+                                                                                :fn (make-identifier :name function-name)
+                                                                                :args nil))))
+                                    :else-statement nil))))))
       (make-fn-call :fn (make-identifier :name function-var) :args nil)))))
 
 		      
 
 (defun transform-body (xform body-fn elm)
+  "Performs the XFORM transformation on the 'body' of ELM (extracted using
+  BODY-FN).  The return value is guaranteed to be a list of statements."
   (let* ((transformed-body (transform xform (funcall body-fn elm)))
-	 (transformed-stmts (if (statement-block-p transformed-body)
-				(statement-block-statements transformed-body)
-				transformed-body)))
+         (transformed-stmts (if (statement-block-p transformed-body)
+                                (statement-block-statements transformed-body)
+                                transformed-body)))
     (if (listp transformed-stmts)
-	transformed-stmts
-	(list transformed-stmts))))
+        transformed-stmts
+        (list transformed-stmts))))
 
 ;; =====================
 ;; === DO-WHILE LOOP ===
@@ -83,25 +85,25 @@
 
 (defmethod transform ((xform (eql 'loop-to-function)) (elm do-statement))
   (let ((function-var (genvar))
-	(function-name (genvar)))
+        (function-name (genvar)))
     (make-statement-block 
      :statements 
      (list 
       (make-var-decl-statement 
        :var-decls (list 
-		   (make-var-decl 
-		    :name function-var
-		    :initializer (make-function-expression 
-				 :name function-name
-				 :parameters nil			       
-				 :body  (append (transform-body xform #'do-statement-body elm)
-						(list (make-if-statement :condition (do-statement-condition elm)
-									 :then-statement (make-statement-block
-											  :statements (list 
-												       (make-fn-call 
-													:fn (make-identifier :name function-name) 
-													:args nil)))
-									 :else-statement nil)))))))
+                   (make-var-decl 
+                    :name function-var
+                    :initializer (make-function-expression 
+                                  :name function-name
+                                  :parameters nil			       
+                                  :body  (append (transform-body xform #'do-statement-body elm)
+                                                 (list (make-if-statement :condition (do-statement-condition elm)
+                                                                          :then-statement (make-statement-block
+                                                                                           :statements (list 
+                                                                                                        (make-fn-call 
+                                                                                                         :fn (make-identifier :name function-name) 
+                                                                                                         :args nil)))
+                                                                          :else-statement nil)))))))
       (make-fn-call :fn (make-identifier :name function-var) :args nil)))))
 
 							
@@ -186,64 +188,64 @@
 
 (defmethod transform ((xform (eql 'loop-to-function)) (elm for-in))
   (let ((new-array (genvar))
-	(new-count (genvar))
-	(new-prop (genvar))
-	(function-var (genvar))
-	(function-name (genvar))
-	(new-count-rec (genvar)))
+        (new-count (genvar))
+        (new-prop (genvar))
+        (function-var (genvar))
+        (function-name (genvar))
+        (new-count-rec (genvar)))
     (make-statement-block
      :statements
      (list (make-var-decl-statement 
-	    :var-decls (list 
-			(make-var-decl 
-			 :name new-array
-			 :initializer (make-new-expr 
-				       :object-name (make-identifier :name "Array") 
-				       :args nil))))
-	   (make-var-decl-statement
-	    :var-decls (list 
-			(make-var-decl 
-			 :name new-count
-			 :initializer (make-numeric-literal :value 0))))
-	   (make-for-in 
-	    :binding (make-var-decl-statement
-		      :var-decls (list 
-				  (make-var-decl :name new-prop :initializer nil)))
-	    :collection (for-in-collection elm)
-	    :body (make-statement-block 
-		   :statements (list (make-binary-operator 
-				      :op-symbol :assign
-				      :left-arg (make-property-access 
-						 :target (make-identifier :name new-array)
-						 :field (make-unary-operator 
-							 :op-symbol :post-incr
-							 :arg (make-identifier :name new-count)))
-				      :right-arg (make-identifier :name new-prop)))))
-	   (make-var-decl-statement
-	    :var-decls (list 
-			(make-var-decl 
-			 :name function-var 
-			 :initializer (make-function-expression
-				       :name function-name
-				       :parameters (list new-count-rec)
-				       :body (list 
-					      (make-if-statement 
-					       :condition 
-					       (make-binary-operator 
-						:op-symbol :less-than
-						:left-arg (make-identifier :name new-count-rec)
-						:right-arg (make-property-access 
-							    :target (make-identifier :name new-array)
-							    :field (make-string-literal :value "length")))
-					       :then-statement 
-					       (make-statement-block 
-						:statements (append  
-							     (list (make-forin-assign elm new-array new-count-rec))
-							     (transform-body xform #'for-in-body elm)
-							     (list (make-fn-call :fn (make-identifier :name function-name)
-										 :args (list (make-identifier :name new-count-rec))))))))))))
-	   (make-fn-call :fn (make-identifier :name function-var)
-			 :args (list (make-numeric-literal :value 0)))))))
+            :var-decls (list 
+                        (make-var-decl 
+                         :name new-array
+                         :initializer (make-new-expr 
+                                       :object-name (make-identifier :name "Array") 
+                                       :args nil))))
+           (make-var-decl-statement
+            :var-decls (list 
+                        (make-var-decl 
+                         :name new-count
+                         :initializer (make-numeric-literal :value 0))))
+           (make-for-in 
+            :binding (make-var-decl-statement
+                      :var-decls (list 
+                                  (make-var-decl :name new-prop :initializer nil)))
+            :collection (for-in-collection elm)
+            :body (make-statement-block 
+                   :statements (list (make-binary-operator 
+                                      :op-symbol :assign
+                                      :left-arg (make-property-access 
+                                                 :target (make-identifier :name new-array)
+                                                 :field (make-unary-operator 
+                                                         :op-symbol :post-incr
+                                                         :arg (make-identifier :name new-count)))
+                                      :right-arg (make-identifier :name new-prop)))))
+           (make-var-decl-statement
+            :var-decls (list 
+                        (make-var-decl 
+                         :name function-var 
+                         :initializer (make-function-expression
+                                       :name function-name
+                                       :parameters (list new-count-rec)
+                                       :body (list 
+                                              (make-if-statement 
+                                               :condition 
+                                               (make-binary-operator 
+                                                :op-symbol :less-than
+                                                :left-arg (make-identifier :name new-count-rec)
+                                                :right-arg (make-property-access 
+                                                            :target (make-identifier :name new-array)
+                                                            :field (make-string-literal :value "length")))
+                                               :then-statement 
+                                               (make-statement-block 
+                                                :statements (append  
+                                                             (list (make-forin-assign elm new-array new-count-rec))
+                                                             (transform-body xform #'for-in-body elm)
+                                                             (list (make-fn-call :fn (make-identifier :name function-name)
+                                                                                 :args (list (make-identifier :name new-count-rec))))))))))))
+           (make-fn-call :fn (make-identifier :name function-var)
+                         :args (list (make-numeric-literal :value 0)))))))
 
 
 											  
