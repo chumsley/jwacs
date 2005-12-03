@@ -113,5 +113,6 @@
                 cps
                 explicitize
                 shift-function-decls
+		loop-to-function
                 ))
                 

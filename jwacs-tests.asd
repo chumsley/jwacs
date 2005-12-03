@@ -25,7 +25,8 @@
              (:file "test-parser")
              (:file "test-pretty-print")
 	     (:file "test-ugly-print")
-             (:file "test-source-transformations"))))
+             (:file "test-source-transformations")
+	     (:file "test-loop-transformation"))))
   :depends-on (jwacs))
 
 (defmethod perform ((o test-op) (c (eql (find-system 'jwacs-tests))))
