@@ -8,26 +8,29 @@
 (in-package :jwacs-tests-system)
 
 (asdf:defsystem jwacs-tests
-  :version "0.1"
-  :author "James Wright <chumsley@gmail.com>, Greg Smolyn <greg@smolyn.org>"
-  :licence "BSD License <http://www.opensource.org/licenses/bsd-license.php>"
-  :serial t
-  :components
-  ((:module "external"
-            :components
-            ((:file "rt")))
-   (:module "tests"
-            :serial t
-            :components
-            ((:file "package")
-             (:file "test-utils")
-             (:file "test-lexer")
-             (:file "test-parser")
-             (:file "test-pretty-print")
-	     (:file "test-ugly-print")
-             (:file "test-source-transformations")
-	     (:file "test-loop-transformation"))))
-  :depends-on (jwacs))
+    :version "0.1"
+    :author "James Wright <chumsley@gmail.com>, Greg Smolyn <greg@smolyn.org>"
+    :licence "BSD License <http://www.opensource.org/licenses/bsd-license.php>"
+    :serial t
+    :components
+    ((:module "external"
+              :components
+              ((:file "rt")))
+     (:module "tests"
+              :serial t
+              :components
+              ((:file "package")
+               (:file "test-utils")
+               (:file "test-lexer")
+               (:file "test-parser")
+               (:file "test-pretty-print")
+               (:file "test-ugly-print")
+               (:file "test-source-transformations")
+               (:file "test-shift-function-decls")
+               (:file "test-explicitize")
+               (:file "test-cps-transformation")
+               (:file "test-loop-transformation"))))
+    :depends-on (jwacs))
 
 (defmethod perform ((o test-op) (c (eql (find-system 'jwacs-tests))))
   (operate 'load-op :jwacs)

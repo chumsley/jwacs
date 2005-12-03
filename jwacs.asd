@@ -50,8 +50,11 @@
                (:file "parse-javascript")
                (:file "pretty-print")
                (:file "source-transformations")
-	       (:file "ugly-print")
-	       (:file "loop-transformation"))
+               (:file "shift-function-decls-transformation")
+               (:file "explicitize-transformation")
+               (:file "cps-transformation")
+               (:file "ugly-print")
+               (:file "loop-transformation"))
   :depends-on (cl-ppcre))
 
 (defmethod perform ((o test-op) (c (eql (find-system 'jwacs))))
