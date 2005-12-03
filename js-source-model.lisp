@@ -67,7 +67,7 @@
   op-symbol
   left-arg
   right-arg)
-    
+
 (defstruct (conditional (:include source-element))
   condition
   true-arg
@@ -162,6 +162,13 @@
   name
   parameters
   body)
+
+;;;;== JWACS extended syntax  ==
+(defstruct (suspend-statement (:include source-element))
+  arg)
+
+(defstruct (resume-statement (:include source-element))
+  arg)
 
 ;;;;== Operator precedence and associativity ==
 (defgeneric elm-precedence (elm)

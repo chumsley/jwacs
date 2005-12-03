@@ -454,7 +454,7 @@
         (cons head (transform 'cps (cdr elm-list)))))))
 
 (defmethod transform ((xform (eql 'cps)) (elm var-decl-statement))
-  ;;TODO Assuming one decl per statment because that is one of the results of explicitization
+  ;; Note: Assuming one decl per statment because that is one of the results of explicitization
   (with-slots (var-decls) elm
     (assert (<= (length var-decls) 1))
     (let ((name (var-decl-name (car var-decls)))
@@ -495,4 +495,24 @@
                        :then-statement then-statement
                        :else-statement else-statement)))
 
-;;TODO Still more to do here
+;;TODO Still more to do here (while, for, etc.)
+
+;;; The CPS transformation is where we convert `suspend` and `resume` statements
+;;; into standard Javascript (because `suspend` needs to capture statement-tails).
+(defmethod transform ((xform (eql 'cps)) (elm suspend-statement))
+  (consume-statement-tail (statement-tail)
+    (let* ((k-name (genvar))
+           (k-id (make-identifier :name k-name))
+           (k-expr (make-function-expression :body (transform 'cps statement-tail))))
+      (make-statement-block
+       :statements (list
+                    (make-var-decl-statement :var-decls
+                                             (list (make-var-decl :name k-name
+                                                                  :initializer k-expr)))
+                    (make-binary-operator :op-symbol :assign
+                                          :left-arg (suspend-statement-arg elm)
+                                          :right-arg k-id)
+                    (make-fn-call :fn k-id))))))
+
+(defmethod transform ((xform (eql 'cps)) (elm resume-statement))
+  (make-return-statement :arg (make-fn-call :fn (transform 'cps (resume-statement-arg elm)))))

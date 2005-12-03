@@ -165,7 +165,9 @@
 (deftoken :instanceof   "instanceof" :keyword) ;???
 (deftoken :new          "new"    :keyword)
 (deftoken :null         "null"   :keyword)
+(deftoken :resume       "resume" :keyword) ; JWACS-only syntax
 (deftoken :return       "return" :keyword)
+(deftoken :suspend      "suspend" :keywork) ; JWACS-only syntax
 (deftoken :switch       "switch" :keyword)
 (deftoken :this         "this"   :keyword)
 (deftoken :throw        "throw"  :keyword)

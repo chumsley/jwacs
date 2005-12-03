@@ -388,3 +388,14 @@ finally
 }")
 
 ;;  TODO Add test case(s) for function expressions (at least one for single-line and one for multi-line)
+
+(deftest pretty-print/suspend-statement/1 :note pretty-print
+  (pretty-string
+   (make-suspend-statement :arg (make-property-access :target foo-id
+                                                      :field (make-string-literal :value "bar"))))
+  "suspend foo.bar")
+
+(deftest pretty-print/resume-statement/1 :note pretty-print
+  (pretty-string
+   (make-resume-statement :arg (make-fn-call :fn foo-id :args (list bar-id))))
+  "resume foo(bar)")

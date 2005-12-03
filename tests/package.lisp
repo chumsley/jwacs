@@ -49,6 +49,8 @@
                 finally-clause
                 function-decl
                 function-expression
+                suspend-statement
+                resume-statement
                 
                 ;; constructors for source-model structures
                 make-source-element
@@ -88,7 +90,9 @@
                 make-finally-clause
                 make-function-decl
                 make-function-expression
-
+                make-suspend-statement
+                make-resume-statement
+                
                 ;; structure management
                 structure-slots
 

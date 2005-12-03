@@ -419,3 +419,12 @@ expression, or
        (pretty-print (function-expression-body elm) s))
      (fresh-line-indented s)
      (format s "}"))))
+
+;;;;== JWACS-only extensions ==
+(defmethod pretty-print ((elm suspend-statement) s)
+  (format s "suspend ")
+  (pretty-print (suspend-statement-arg elm) s))
+
+(defmethod pretty-print ((elm resume-statement) s)
+  (format s "resume ")
+  (pretty-print (resume-statement-arg elm) s))

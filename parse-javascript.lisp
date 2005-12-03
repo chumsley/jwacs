@@ -331,7 +331,9 @@
   ((statement switch-statement) $1)
   ((statement throw-statement) $1)
   ((statement try-statement) $1)
-
+  ((statement suspend-statement) $1)    ; JWACS-only extensions
+  ((statement resume-statement) $1)
+  
   ((statement-no-if block) $1)
   ((statement-no-if variable-statement) $1)
   ((statement-no-if empty-statement) $1)
@@ -346,6 +348,8 @@
   ((statement-no-if switch-statement) $1)
   ((statement-no-if throw-statement) $1)
   ((statement-no-if try-statement) $1)
+  ((statement-no-if suspend-statement) $1)    ; JWACS-only extensions
+  ((statement-no-if resume-statement) $1)
 
   ;; Pg 73
   ((block :left-curly statement-list :right-curly) (make-statement-block :statements $2))
@@ -451,6 +455,10 @@
 
   ((catch :catch :left-paren :identifier :right-paren block) (make-catch-clause :binding $3 :body $5))
   ((finally :finally block) (make-finally-clause :body $2))
+
+  ;; JWACS extended syntax
+  ((suspend-statement :suspend left-hand-side-expression-no-lbf :semicolon) (make-suspend-statement :arg $2))
+  ((resume-statement :resume left-hand-side-expression-no-lbf :semicolon) (make-resume-statement :arg $2))
 
   ;; Functions (Pg 83)
   ((function-decl :function :identifier :left-paren formal-parameter-list :right-paren :left-curly function-body :right-curly)

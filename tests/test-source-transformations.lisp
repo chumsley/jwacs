@@ -4,15 +4,6 @@
 
 (in-package :jwacs-tests)
 
-;;;;= Helper functions =
-(defmacro with-fresh-genvars ((&optional (cont-name *cont-name*)) &body body)
-  "Make sure that GENVAR variable names will start from 0 and that
-   continuation arguments will have a known value"
-  `(let* ((*genvar-counter* 0)
-          (*cont-name* ,cont-name)
-          (*cont-id* (make-identifier :name *cont-name*)))
-    ,@body))
-
 ;;;;= Test categories =
 (defnote source-transformations "tests for the source-transformations")
 (defnote cps "tests for the cps transformation")
@@ -96,7 +87,7 @@
 
 ;;;;== CPS transformation ==
 (deftest cps/factorial/1 :notes cps
-  (with-fresh-genvars ("$k")
+  (with-fresh-genvar
     (transform 'cps (parse "
        function factorial1(n)
        {
@@ -138,7 +129,7 @@
                                                         :right-arg #s(numeric-literal :value 1))))))))))))
 
 (deftest cps/symmetric-dangling-tail/1 :notes cps
-  (with-fresh-genvars ("$k")
+  (with-fresh-genvar
     (transform 'cps (parse "
       function doStuff(branch)
       {
@@ -162,7 +153,7 @@
                                                                                           :body (#s(return-statement :arg #s(fn-call :fn #s(identifier :name "baz")
                                                                                                                                    :args (#s(identifier :name "$k"))))))))))))))
 (deftest cps/asymmetric-dangling-tail/1 :notes cps
-  (with-fresh-genvars ("_k")
+  (with-fresh-genvar
     (transform 'cps (parse "
       function factorial2(n)
       {
@@ -178,7 +169,7 @@
         return retVal;
       }")))
   #.(parse "
-      function factorial2(_k, n)
+      function factorial2($k, n)
       {
         var retVal;
         if(n == 0)
@@ -189,17 +180,34 @@
                             {
                               var r2 = n * r1;
                               retVal = r2;
-                              return _k(retVal);
+                              return $k(retVal);
                             }, n-1);
         }
 
-        return _k(retVal);
+        return $k(retVal);
       }"))
   
+(deftest cps/suspend-transformation/1 :notes cps
+  (with-fresh-genvar
+    (transform 'cps (parse "
+      suspend foo.bar;
+      var baz = 10 + 12;")))
+    #.(parse "
+    {
+      var JW0 = function() {var baz = 10 + 12;};
+      foo.bar = JW0;
+      JW0();
+    }"))
 
+(deftest cps/resume-transformation/1 :notes cps
+  (transform 'cps (parse "
+      resume foo[bar];"))
+  #.(parse "
+      return foo[bar]();"))
+  
 ;;;;== Explicitization transformation ==
 (deftest explicitize/var-decl/1 :notes explicitize
-  (with-fresh-genvars ()
+  (with-fresh-genvar
     (transform 'explicitize (parse "
       var x = foo(bar(baz(50 + 20)));")))
   #.(parse "
@@ -208,7 +216,7 @@
       var x = foo(JW1);"))
 
 (deftest explicitize/var-decl/2 :notes explicitize
-  (with-fresh-genvars ()
+  (with-fresh-genvar
     (transform 'explicitize (parse "
       var x = foo(bar(baz(50 + quux(10))));")))
   #.(parse "
@@ -218,7 +226,7 @@
       var x = foo(JW3);"))
 
 (deftest explicitize/var-decl/3 :notes explicitize
-  (with-fresh-genvars ()
+  (with-fresh-genvar
     (transform 'explicitize (parse "
       return foo(bar(y));")))
   #.(parse "
@@ -226,7 +234,7 @@
       return foo(JW0);"))
 
 (deftest explicitize/unary/1 :notes explicitize
-  (with-fresh-genvars ()
+  (with-fresh-genvar
     (transform 'explicitize (parse "
       delete foo(bar(x));")))
   #.(parse "
@@ -235,7 +243,7 @@
       delete JW1;"))
 
 (deftest explicitize/if-condition/1 :notes explicitize
-  (with-fresh-genvars ()
+  (with-fresh-genvar
     (transform 'explicitize (parse "
       if(foo()) { var x = bar(); }")))
   #.(parse "
@@ -243,7 +251,7 @@
       if(JW0) { var x = bar(); }"))
 
 (deftest explicitize/if-condition/2 :notes explicitize
-  (with-fresh-genvars ()
+  (with-fresh-genvar
     (transform 'explicitize (parse "
       if(x > 10)
       {
@@ -257,7 +265,7 @@
       }"))
 
 (deftest explicitize/if-condition/3 :notes explicitize
-  (with-fresh-genvars ()
+  (with-fresh-genvar
     (transform 'explicitize (parse "
       if(x > 10)
          var y = foo(bar(10));")))
@@ -269,7 +277,7 @@
       }"))
 
 (deftest explicitize/if-condition/4 :notes explicitize
-  (with-fresh-genvars ()
+  (with-fresh-genvar
     (transform 'explicitize (parse "
       if(foo(10))
         return 1;
@@ -294,7 +302,7 @@
       }"))
 
 (deftest explicitize/switch/1 :notes explicitize
-  (with-fresh-genvars ()
+  (with-fresh-genvar
     (transform 'explicitize (parse "
       switch(foo(bar(100)))
       {
@@ -325,3 +333,4 @@
           var JW6 = quuux(null);
           return quux(JW6);
       }"))
+

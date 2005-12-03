@@ -396,3 +396,12 @@
                                                                                                                                                   :right-arg #S(numeric-literal :value 1))))))
                                                           :else-statement
                                                           #S(return-statement :arg #S(numeric-literal :value 1))))))))))
+
+(deftest parser/suspend-statement/1 :notes parser
+  (parse-only "suspend obj[x];")
+  (#S(suspend-statement :arg #S(property-access :target #S(identifier :name "obj")
+                                                :field #S(identifier :name "x")))))
+
+(deftest parser/resume-statement/1 :notes parser
+  (parse-only "resume getContinuation();")
+  (#S(resume-statement :arg #S(fn-call :fn #S(identifier :name "getContinuation")))))
