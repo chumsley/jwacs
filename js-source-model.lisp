@@ -25,16 +25,24 @@
 (defstruct source-element
   "A common base type for all source elements")
 
-(defstruct (special-value (:include source-element))
+(defstruct (primitive-value-element (:include source-element))
+  "A common base type for all source elements that are guaranteed to
+   represent primitive values.
+   A primitive value is one that contains no nested function calls.
+   So for example, `foo` is a primitive value, as is `1 + 2` or
+   `function(x) { foo(bar(baz(y))); }`, but `foo(x)` is not, nor
+   is `x + foo(1)`.")
+
+(defstruct (special-value (:include primitive-value-element))
   symbol)
 
-(defstruct (identifier (:include source-element))
+(defstruct (identifier (:include primitive-value-element))
   name)
 
-(defstruct (numeric-literal (:include source-element))
+(defstruct (numeric-literal (:include primitive-value-element))
   value)
 
-(defstruct (string-literal (:include source-element))
+(defstruct (string-literal (:include primitive-value-element))
   value)
 
 (defstruct (array-literal (:include source-element))
@@ -43,7 +51,7 @@
 (defstruct (object-literal (:include source-element))
   properties)  ; List of (PROPERTY-NAME . PROPERTY-VALUE)
 
-(defstruct (re-literal (:include source-element))
+(defstruct (re-literal (:include primitive-value-element))
   pattern
   options)
 
@@ -158,7 +166,7 @@
   parameters
   body)
 
-(defstruct (function-expression (:include source-element))
+(defstruct (function-expression (:include primitive-value-element))
   name
   parameters
   body)
@@ -169,6 +177,54 @@
 
 (defstruct (resume-statement (:include source-element))
   arg)
+
+;;;;== Primitive value handling ==
+(defgeneric primitive-value-p (elm)
+   (:documentation
+    "Returns T if ELM is a 'primitive' value, or NIL otherwise.
+     See the PRIMITIVE-VALUE-ELEMENT structure for a description of
+     primitive values."))
+
+(defmethod primitive-value-p (elm)
+  nil)
+
+(defmethod primitive-value-p ((elm primitive-value-element))
+  t)
+
+(defmethod primitive-value-p ((elm unary-operator))
+  (primitive-value-p (unary-operator-arg elm)))
+
+(defmethod primitive-value-p ((elm binary-operator))
+  (and (primitive-value-p (binary-operator-left-arg elm))
+       (primitive-value-p (binary-operator-right-arg elm))))
+
+(defmethod primitive-value-p ((elm property-access))
+  (and (primitive-value-p (property-access-target elm))
+       (primitive-value-p (property-access-field elm))))
+
+;; TODO Array literals and object literals?
+
+(defgeneric primitive-value-references-p (elm identifier-name)
+  (:documentation
+   "Returns T if the primitive value ELM references an identifier
+    whose name is IDENTIFIER-NAME."))
+
+(defmethod primitive-value-references-p ((elm primitive-value-element) identifier-name)
+  nil)
+
+(defmethod primitive-value-references-p ((elm identifier) identifier-name)
+  (equal (identifier-name elm) identifier-name))
+
+(defmethod primitive-value-references-p ((elm binary-operator) identifier-name)
+  (or (primitive-value-references (binary-operator-left-arg elm) identifier-name)
+      (primitive-value-references (binary-operator-right-arg elm) identifier-name)))
+
+(defmethod primitive-value-references-p ((elm unary-operator) identifier-name)
+  (primitive-value-references (unary-operator-arg elm) identifier-name))
+
+(defmethod primitive-value-references-p ((elm property-access) identifier-name)
+  (or (primitive-value-references (property-access-target elm) identifier-name)
+      (primitive-value-references (property-access-field elm) identifier-name)))
 
 ;;;;== Operator precedence and associativity ==
 (defgeneric elm-precedence (elm)

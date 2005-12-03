@@ -215,11 +215,11 @@
       ((and pre-statements
             assignment-slot)
        (let ((final-pre-statement (car (last pre-statements))))
-         (assert (and ;TODO I /think/ this is guaranteed, but I need to think about it more
-                  (identifier-p (slot-value new-elm assignment-slot))
+         (assert (and
+                  (primitive-value-p (slot-value new-elm assignment-slot))
                   (var-decl-statement-p final-pre-statement)
-                  (equal (identifier-name (slot-value new-elm assignment-slot))
-                         (var-decl-name (car (var-decl-statement-var-decls final-pre-statement))))))
+                  (primitive-value-references-p (slot-value new-elm assignment-slot)
+                                                (var-decl-name (car (var-decl-statement-var-decls final-pre-statement))))))
        (setf (slot-value new-elm assignment-slot)
              (var-decl-initializer (car (var-decl-statement-var-decls final-pre-statement))))
        (nconc (remove final-pre-statement pre-statements :from-end t :count 1)

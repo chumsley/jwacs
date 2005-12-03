@@ -334,3 +334,25 @@
           return quux(JW6);
       }"))
 
+(deftest explicitize/factorial/1 :notes explicitize
+  (with-fresh-genvar
+    (transform 'explicitize (parse "
+      function factorial(n)
+      {
+        if(n == 0)
+          return 1;
+        else
+          return n * factorial(n - 1);
+      }")))
+  #.(parse "
+      function factorial(n)
+      {
+        if(n == 0)
+          return 1;
+        else
+        {
+          var JW0 = factorial(n - 1);
+          return n * JW0;
+        }
+      }"))
+
