@@ -7,7 +7,7 @@
 ;;; own source files.
 (in-package :jwacs)
 
-;;;;= Utility functions =
+;;;;= Utilities =
 (defun structure-slots (object)
   "Returns a list of the slot-names of the provided structure object"
   #+openmcl
@@ -35,6 +35,16 @@
       (setf (gethash name *constructor-cache*) (intern (format nil "MAKE-~A" name)
                                                        (symbol-package name)))
       make-fn)))
+
+(defmacro forbid-transformation-elements (xform elm-type-list)
+  "Generate DEFMETHOD forms that throw an error if the transformation
+   specified in XFORM is applied to any of the element types in
+   ELM-TYPE-LIST"
+  `(progn
+    ,@(loop for elm-type in elm-type-list
+            collect `(defmethod transform ((xform (eql ',xform)) (elm ,elm-type))
+                      (error "~A source-element encountered during ~A transformation!" ',elm-type ',xform)))))
+                   
 
 ;;;;= Collection within a single scope  =
 (defgeneric collect-in-scope (elm target-type)

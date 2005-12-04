@@ -14,6 +14,9 @@
 ;;; 1. Scope analysis transformation has been performed (and therefore all identifiers are unique)
 ;;; 2. Explicitization transformation has been performed (and therefore all result values are unique)
 
+;; These elements should have been removed by LOOP-TO-FUNCTION
+(forbid-transformation-elements cps (while do-statement for for-in))
+
 (defun assignment-operator-p (elm)
   "Returns non-NIL if ELM represents an operation with an assignment side-effect"
   (and
@@ -189,8 +192,6 @@
     (make-if-statement :condition condition
                        :then-statement then-statement
                        :else-statement else-statement)))
-
-;;TODO Still more to do here (while, for, etc.)
 
 ;;; The CPS transformation is where we convert `suspend` and `resume` statements
 ;;; into standard Javascript (because `suspend` needs to capture statement-tails).

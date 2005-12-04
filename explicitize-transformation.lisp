@@ -13,6 +13,9 @@
 ;;; multiple variables will also be converted to series of single
 ;;; variable declarations (eg `var x, y=10;` ---> `var x; var y = 10;`)
 
+;; These elements should have been removed by LOOP-TO-FUNCTION
+(forbid-transformation-elements explicitize (while do-statement for for-in))
+
 ;;TODO It is difficult to express in a single sentence exactly what EXPOSE-INTERMEDIATE
 ;; and EXPLICITIZE-RHS actually do.  These functions need to be refactored.
 (defun expose-intermediate (elm)
@@ -178,5 +181,3 @@
       (if (listp head)
         (append head (transform 'explicitize (cdr elm-list)))
         (cons head  (transform 'explicitize (cdr elm-list)))))))
-
-
