@@ -13,9 +13,13 @@
 ;;; multiple variables will also be converted to series of single
 ;;; variable declarations (eg `var x, y=10;` ---> `var x; var y = 10;`)
 
+;;TODO It is difficult to express in a single sentence exactly what EXPOSE-INTERMEDIATE
+;; and EXPLICITIZE-RHS actually do.  These functions need to be refactored.
 (defun expose-intermediate (elm)
   "Return a cons cell whose CAR is the name of the result of this element,
-   and whose CDR is a list of statements that need to be added before the element"
+   and whose CDR is a list of statements that need to be added before the element.
+   ELM should be the output of an explicitization transformation.  This function
+   exists purely to make it easier to deal with the pre-statements issue."
   (cond
     ((fn-call-p elm)
      (let ((new-var (genvar)))
@@ -73,26 +77,31 @@
           do (setf (slot-value new-elm slot) (car intermediates))
           nconc (cdr intermediates) into pre-statements-l
           finally (setf pre-statements pre-statements-l))
+    
+    (let ((final-pre-statement (car (last pre-statements))))
+      (cond
+        ;; This case "compresses" out extraneous variables.
+        ;; (ie, "var JW0 = <something>; var JW1 = JW0;" is a pointless sequence)
+        ;; The condition is:
+        ;; There are pre-statements, and we have an assignment-slot, and the last
+        ;; pre-statement is a variable declaration, and the assignment-slot is just
+        ;; a reference to that final variable declaration.
+        ((and pre-statements
+              assignment-slot
+              (var-decl-statement-p final-pre-statement)
+              (identifier-p (slot-value new-elm assignment-slot))
+              (equal (identifier-name (slot-value new-elm assignment-slot))
+                     (var-decl-name (car (var-decl-statement-var-decls final-pre-statement)))))
+         (setf (slot-value new-elm assignment-slot)
+               (var-decl-initializer (car (var-decl-statement-var-decls final-pre-statement))))
+         (nconc (remove final-pre-statement pre-statements :from-end t :count 1)
+                (list new-elm)))
 
-    (cond
-      ((and pre-statements
-            assignment-slot)
-       (let ((final-pre-statement (car (last pre-statements))))
-         (assert (and
-                  (primitive-value-p (slot-value new-elm assignment-slot))
-                  (var-decl-statement-p final-pre-statement)
-                  (primitive-value-references-p (slot-value new-elm assignment-slot)
-                                                (var-decl-name (car (var-decl-statement-var-decls final-pre-statement))))))
-       (setf (slot-value new-elm assignment-slot)
-             (var-decl-initializer (car (var-decl-statement-var-decls final-pre-statement))))
-       (nconc (remove final-pre-statement pre-statements :from-end t :count 1)
-              (list new-elm))))
+        (pre-statements
+         (nconc pre-statements (list new-elm)))
 
-      (pre-statements
-       (nconc pre-statements (list new-elm)))
-
-      (t
-       new-elm))))
+        (t
+         new-elm)))))
 
 (defmethod transform ((xform (eql 'explicitize)) (elm binary-operator))
   (explicitize-rhs elm))
@@ -138,7 +147,7 @@
       (make-switch :value (car val-intermediate)
                    :clauses new-clauses))))
 
-;;TODO: conditional expressions, comma expressions
+;;TODO conditional expressions, comma expressions
 
 (defmethod transform ((xform (eql 'explicitize)) (elm var-decl-statement))
   (let ((pre-statements nil)
