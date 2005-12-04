@@ -109,11 +109,18 @@
                       :body (transform 'cps (function-decl-body elm))))
 
 (defmethod transform ((xform (eql 'cps)) (elm return-statement))
-  (make-return-statement :arg
-                   (without-statement-tail
-                     (make-fn-call :fn *cont-id*
-                                   :args (list
-                                          (transform 'cps (return-statement-arg elm)))))))
+  (with-slots (arg) elm
+    ;; We check for the tail-call case; in that case, the transformed
+    ;; fn-call will already include a return statement, so we should not
+    ;; add it here.
+    (if (fn-call-p arg)
+      (without-statement-tail
+        (transform 'cps arg))
+      (make-return-statement :arg
+                             (without-statement-tail
+                               (make-fn-call :fn *cont-id*
+                                             :args (list
+                                                    (transform 'cps (return-statement-arg elm)))))))))
 
 (defmethod transform ((xform (eql 'cps)) (elm fn-call))
   (if (null *statement-tail*)

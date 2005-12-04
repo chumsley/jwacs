@@ -108,6 +108,13 @@
         return $k(retVal);
       }"))
   
+(deftest cps/tail-fn-call/1 :notes cps
+  (with-fresh-genvar
+    (transform 'cps (parse "
+      return factorial(JW0);")))
+  #.(parse "
+      return factorial($k, JW0);"))
+
 (deftest cps/suspend-transformation/1 :notes cps
   (with-fresh-genvar
     (transform 'cps (parse "
