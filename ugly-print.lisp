@@ -60,7 +60,6 @@
     (add-binding var-name ugly-name)
     ugly-name))
 
-
 (defparameter *genvar-counter* 0)
 
 (defun genvar ()

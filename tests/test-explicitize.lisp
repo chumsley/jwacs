@@ -157,3 +157,30 @@
         }
       }"))
 
+(deftest explicitize/object-literal/1 :notes explicitize
+  (with-fresh-genvar
+    (transform 'explicitize (parse "
+      var obj = { field: 44,
+                  method: function() { return factorial(this.field) * 2; }};
+      function fn()
+      {
+        obj.method(obj.field + foo());
+      }")))
+  #.(parse "
+      var obj =
+      {
+        field: 44, 
+        method: function()
+        {
+          var JW0 = factorial(this.field);
+          return JW0 * 2;
+        }
+      };
+      function fn()
+      {
+        var JW2 = foo();
+        obj.method(obj.field + JW2);
+      }"))
+
+
+   

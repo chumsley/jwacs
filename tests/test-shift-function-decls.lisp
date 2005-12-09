@@ -62,3 +62,19 @@
         var c = 100;
       }
     }"))
+
+(deftest shift-function-decls/3
+  (transform 'shift-function-decls (parse "
+      var obj = { field: 44, method: function() { return this.field * 2; }};
+      function fn()
+      {
+        obj.method(obj.field);
+      }"))
+  #.(parse "
+      function fn()
+      {
+        obj.method(obj.field);
+      }
+      var obj = { field: 44, method: function() { return this.field * 2; }};"))
+
+   

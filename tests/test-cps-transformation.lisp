@@ -183,3 +183,41 @@
       resume foo[bar];"))
   #.(parse "
       return foo[bar]();"))
+
+(deftest cps/object-literal/1 :notes cps
+  (with-fresh-genvar
+    (transform 'cps (parse "
+      var obj =
+      {
+        field: 44, 
+        method: function()
+        {
+          var x = factorial(this.field);
+          return x * 2;
+        }
+      };
+      function fn()
+      {
+        var y = obj.field + 1;
+        obj.method(y);
+      }")))
+  #.(parse "
+      var obj =
+      {
+        field: 44,
+        method: $cpsLambda(function JW0($k)
+        {
+          if(typeof $k != 'function')
+            return JW0($id, $k);
+          return factorial(function(x) {
+                             return $k(x * 2);
+                           }, this.field);
+        })
+      };
+      function fn($k)
+      {
+        var y = obj.field + 1;
+        return $call(obj.method, $k, this, [y]);
+      }
+      fn.$callStyle = 'cps';"))
+  

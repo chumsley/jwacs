@@ -79,6 +79,10 @@
 (defmethod collect-in-scope ((elm function-expression) target-type)
   nil)
 
+;; Don't recurse, because the body is a new, innermore scope.
+(defmethod collect-in-scope ((elm object-literal) target-type)
+  nil)
+
 ;;;;== Rule for returning matches. ==
 ;; We don't recurse into matching elements
 (defmethod collect-in-scope :around (elm target-type)
@@ -114,3 +118,13 @@
   (mapcar (lambda (arg)
             (transform xform arg))
           elm))
+
+;; Special case for object-literals to account for the fact that object-literal-properties
+;; is an alist rather than a list of structures.
+(defmethod transform (xform (elm object-literal))
+  (make-object-literal
+   :properties
+   (loop for (prop-name . prop-value) in (object-literal-properties elm)
+         collect (cons
+                  (transform xform prop-name)
+                  (transform xform prop-value)))))

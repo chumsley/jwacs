@@ -39,3 +39,10 @@
               (transform 'shift-function-decls (slot-value elm slot)))))
     fresh-elm))
 
+(defmethod transform ((xform (eql 'shift-function-decls)) (elm object-literal))
+  (make-object-literal
+   :properties
+   (loop for (prop-name . prop-value) in (object-literal-properties elm)
+         collect (cons
+                  (transform 'shift-function-decls prop-name)
+                  (transform 'shift-function-decls prop-value)))))
