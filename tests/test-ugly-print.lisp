@@ -44,6 +44,31 @@
     (ugly-string (parse "function FOO(){ FOO(); }")))
   "function JW0(){JW0();}")
 
+(deftest ugly-print/function-decl/5 :notes ugly-print
+  (with-fresh-genvar
+    (jw::uglify-vars (parse "
+      function recursiveCount(i, n)
+      {
+        if(i > n)
+          return i - 1;
+        else
+        {
+          WScript.echo(i + '/' + n);
+          return recursiveCount(i + 1, n);
+        }
+      }")))
+  #.(parse "
+      function JW0(JW1, JW2)
+      {
+        if(JW1 > JW2)
+          return JW1 - 1;
+        else
+        {
+          WScript.echo(JW1 + '/' + JW2);
+          return JW0(JW1 + 1, JW2);
+        }
+      }"))
+
 ;; ensure vardecls in blocks shadow function vars
 ;;
 ;;    function foo(x) <-- this x could be JW0

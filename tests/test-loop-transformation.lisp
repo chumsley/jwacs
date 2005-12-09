@@ -18,27 +18,6 @@
            JW0();
            }"))
 
-(deftest loop-to-function/break/1 :notes loop-to-function
-  (with-fresh-genvar
-    (transform 'loop-to-function
-               (parse "x=0;
-                       while(x<4)
-                       {
-                         var y = foo(x++);
-                         if(y == null)
-                           break;
-                       }")))
-  #.(parse "x=0;
-            {
-              var JW0 = function JW1() {
-                if(x < 4)
-                {
-                  var y = foo(x++);
-                  if(y == null)
-                    return;
-                }
-              };
-            }"))
                   
 (deftest loop-to-function/do-while/1 :notes loop-to-function
  (with-fresh-genvar

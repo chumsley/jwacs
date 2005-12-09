@@ -35,7 +35,7 @@
   ((primary-expression-no-lbf array-literal) $1)
   ((primary-expression-no-lbf :left-paren expression :right-paren) $2)
   
-  ;((array-literal :left-bracket :right-bracket) (make-array-literal :elements nil))
+  ((array-literal :left-bracket :right-bracket) (make-array-literal :elements nil))
   ((array-literal :left-bracket element-list :right-bracket) (make-array-literal :elements $2))
   
   ((element-list assignment-expression) (list $1))

@@ -47,7 +47,11 @@
                                                                                           :right-arg #s(identifier :name "r1")))))))
                                      #s(binary-operator :op-symbol :subtract
                                                         :left-arg #s(identifier :name "n")
-                                                        :right-arg #s(numeric-literal :value 1))))))))))))
+                                                        :right-arg #s(numeric-literal :value 1))))))))))
+     #s(binary-operator :op-symbol :assign
+                        :left-arg #s(property-access :field #s(string-literal :value "$callStyle")
+                                                     :target #s(identifier :name "factorial1"))
+                        :right-arg #s(string-literal :value "cps"))))
 
 (deftest cps/symmetric-dangling-tail/1 :notes cps
   (with-fresh-genvar
@@ -60,19 +64,16 @@
           bar();
         baz();
         }")))
-  (#s(function-decl
-      :name "doStuff" :parameters ("$k" "branch")
-      :body (#s(if-statement :condition #s(identifier :name "branch")
-                             :then-statement #s(return-statement :arg #s(fn-call :fn #s(identifier :name "foo")
-                                                                                :args (#s(function-expression
-                                                                                          :parameters ("JW0")
-                                                                                          :body (#s(return-statement :arg #s(fn-call :fn #s(identifier :name "baz")
-                                                                                                                               :args (#s(identifier :name "$k")))))))))
-                             :else-statement #s(return-statement :arg #s(fn-call :fn #s(identifier :name "bar")
-                                                                                :args (#s(function-expression
-                                                                                          :parameters ("JW1")
-                                                                                          :body (#s(return-statement :arg #s(fn-call :fn #s(identifier :name "baz")
-                                                                                                                                   :args (#s(identifier :name "$k"))))))))))))))
+  #.(parse "
+      function doStuff($k, branch)
+      {
+        if(branch)
+          return $call(foo, function(JW0) { return $call(baz, $k, this, []); }, this, []);
+        else
+          return $call(bar, function(JW1) { return $call(baz, $k, this, []); }, this, []);
+      }
+      doStuff.$callStyle='cps';"))
+
 (deftest cps/asymmetric-dangling-tail/1 :notes cps
   (with-fresh-genvar
     (transform 'cps (parse "
@@ -106,14 +107,64 @@
         }
 
         return $k(retVal);
-      }"))
+      }
+      factorial2.$callStyle = 'cps';"))
   
-(deftest cps/tail-fn-call/1 :notes cps
+(deftest cps/post-function-dangling-tail/1 :notes cps
   (with-fresh-genvar
     (transform 'cps (parse "
-      return factorial(JW0);")))
+      function foo(branch)
+      {
+        if(branch)
+          return foo(false);
+        else
+        {
+          WScript.echo('hi');
+          return foo(true);
+        }
+      }
+      foo(false);")))
   #.(parse "
-      return factorial($k, JW0);"))
+      function foo($k, branch)
+      {
+        if(branch)
+          return foo($k, false);
+        else
+        {
+          return $call(WScript.echo, function(JW0) { return foo($k, true); }, this, ['hi']);
+        }
+      }
+      foo.$callStyle='cps';
+      foo($k, false);"))
+
+(deftest cps/post-function-dangling-tail/2 :notes cps
+  (with-fresh-genvar
+    (transform 'cps (parse "
+      function foo()
+      {
+        onEvent = function(e) { process(e); };
+        bar();
+      }")))
+  #.(parse "
+      function foo($k)
+      {
+        onEvent = $cpsLambda(function JW0($k, e)
+                             {
+                               if(typeof $k != 'function')
+                                 return JW0($id, $k, e);
+                               return $call(process, $k, this, [e]);
+                             });
+        return $call(bar, $k, this, []);
+      }
+      foo.$callStyle = 'cps';"))
+
+(deftest cps/tail-fn-call/1 :notes cps
+  (with-fresh-genvar
+    (in-local-scope
+      (transform 'cps (parse "
+        return factorial(JW0);"))))
+  #.(parse "
+      return $call(factorial, $k, this, [JW0]);"))
 
 (deftest cps/suspend-transformation/1 :notes cps
   (with-fresh-genvar

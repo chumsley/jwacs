@@ -185,7 +185,8 @@
                     string-literal
                     array-literal
                     object-literal
-                    re-literal)))
+                    re-literal
+                    function-expression)))
   0)
 
 (defmethod elm-precedence ((elm new-expr))

@@ -105,7 +105,7 @@
                 genvar
                 *genvar-counter*
                 ugly-print
-                
+
                 ;; source-transformation-specific symbols
                 *cont-name*
                 *cont-id*
@@ -113,6 +113,8 @@
                 cps
                 explicitize
                 shift-function-decls
-		loop-to-function
+                loop-to-function
+                uniquify
+                in-local-scope
                 ))
                 

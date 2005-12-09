@@ -32,8 +32,6 @@
 ;;;
 ;;; Everytime we enter a new lexical environment, we add a new alist to the front.
 ;;; When looking for a binding, we start at the front (innermost) and look through until we get to the back (global)
-;;;
-;;; Currently this transformation does not support free variables.
 
 (defparameter *environment* '())
 

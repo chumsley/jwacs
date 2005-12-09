@@ -162,7 +162,7 @@
        (printable-as-dot #S(string-literal :value \"has/punctuation\")) ==> NIL"))
 
 (defmethod printable-as-dot ((literal-elm string-literal))
-  (not (null (scan "^\\w+$" (string-literal-value literal-elm)))))
+  (not (null (scan "^[\\w\\$]+$" (string-literal-value literal-elm)))))
 
 ;; Only string literals are dot candidates
 (defmethod printable-as-dot (literal-elm)
