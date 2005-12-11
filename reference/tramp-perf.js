@@ -7,11 +7,11 @@
 
 ////--------------------------------------------------------------------------------
 //// Utility functions
-function say(str)
-{
-  WScript.echo(str);
-// 	print(str);
-}
+
+// function say(str)
+// {
+//   WScript.echo(str);
+// }
 
 function now()
 {
@@ -94,6 +94,16 @@ function cpsFactorial(n, k)
 		});
 	}
 }
+
+/// The accumulator-passing version of factorial transformed into CPS form
+function cpsAccFactorial(n, acc, k)
+{
+  if(n==0)
+    return k(acc);
+  else
+    return cpsAccFactorial(n-1, n*acc, k);
+}
+
 
 /// The CPS form modified to use "first-order" trampolined function calls
 /// (ie, original function calls modified to be trampolined calls, continuation
@@ -187,77 +197,121 @@ function trampolineFactorial3(n, k)
 	return globalRet;
 }
 
+/// The accumulator-passing version of factorial transformed into
+/// second-order trampolined style.
+function trampolineAccFactorial2(n, acc, k)
+{
+  var ret = new Object;
+  if(n==0)
+  {
+    ret.done = false;
+    ret.thunk = function() {
+      return k(acc);
+    };
+  }
+  else
+  {
+    ret.done = false;
+    ret.thunk = function() {
+      return trampolineAccFactorial2(n-1, n*acc, k);
+    };
+  }
+  return ret;
+}
+
+
+
+
 ////--------------------------------------------------------------------------------
 //// Demonstration calls
 
+function runDemos()
+{
+
 // Under WScript, naive factorial blows the stack at i = 469
 // Under Firefox, naive factorial blows the stack at i = 1000
-for(var i = 0; i < 469; i++)
-{
-	var nbang = factorial(i);
-	if(i % 100 == 0)
-		say("factorial("+ i +") = "+nbang);
-}
+  for(var i = 0; i < 469; i++)
+  {
+    var nbang = factorial(i);
+    if(i % 100 == 0)
+      say("factorial("+ i +") = "+nbang);
+  }
 
 // Under WScript, accFactorial blows the stack at i = 469 
 // Under Firefox, accFactorial blows the stack at i = 1000 
 // (ie, tail-recursion does not buy any additional stack efficiency)
-for(var i = 0; i < 469; i++)
-{
-	var nbang = accFactorial(i, 1);
-	if(i % 100 == 0)
-		say("accFactorial(" + i + ") = " + nbang);
-}
+  for(var i = 0; i < 469; i++)
+  {
+    var nbang = accFactorial(i, 1);
+    if(i % 100 == 0)
+      say("accFactorial(" + i + ") = " + nbang);
+  }
 
 // Under WScript, cpsFactorial blows the stack at i = 234
 // Under Firefox, cpsFactorial blows the stack at i = 996
 // (ie, CPS transformation costs an extra stack frame per recursion under
 // WScript but not (mysteriously) under Firefox)
-for(var i = 0; i < 234; i++)
-{
-	var nbang = cpsFactorial(i, id);
-	if(i % 100 == 0)
-		say("cpsFactorial(" + i + ") = "+nbang);
-}
+  for(var i = 0; i < 234; i++)
+  {
+    var nbang = cpsFactorial(i, id);
+    if(i % 100 == 0)
+      say("cpsFactorial(" + i + ") = "+nbang);
+  }
+
+  trampoline(function() { return trampolineAccFactorial2(5, 1, trampolineId); });
 
 // Under WScript, trampolineFactorial1 blows the stack at i = 466
 // Under Firefox, trampolineFactorial1 blows the stack at i = 1000
 // (ie, the maximum depth of continuation calls is still stack-limited)
-for(var i = 0; i < 466; i++)
-{
-	var nbang = trampoline(function() { return trampolineFactorial1(i, id); });
-	if(i % 100 == 0)
-		say("trampolineFactorial1(" + i + ") = " + nbang);
-}
+  for(var i = 0; i < 466; i++)
+  {
+    var nbang = trampoline(function() { return trampolineFactorial1(i, id); });
+    if(i % 100 == 0)
+      say("trampolineFactorial1(" + i + ") = " + nbang);
+  }
 
 // Under WScript, trampolineFactorial2 is limited only by your patience and
 // the size of the heap.
 // Under Firefox, trampolineFactorial2 causes Firefox to crash at i = 25000
-for(var i = 0; i < 2001; i+= 200)
-{
-	var nbang = trampoline(function() { return trampolineFactorial2(i, trampolineId); });
-	if(i % 100 == 0)
-		say("trampolineFactorial2(" + i + ") = " + nbang);
-}
+  for(var i = 0; i < 2001; i+= 200)
+  {
+    var nbang = trampoline(function() { return trampolineFactorial2(i, trampolineId); });
+    if(i % 100 == 0)
+      say("trampolineFactorial2(" + i + ") = " + nbang);
+  }
 
-var s, e, nbang;
-var sz = 18000;
-
+  var s, e, nbang;
+  var sz = 18000;
 // Under WScript:
 //     trampoline2(20000) = Infinity in 12922 msec
 //     trampoline3(20000) = Infinity in 4953 msec
+//     trampolineAccFactorial2(500000) = Infinity in 6813 msec
+//     trampolineAccFactorial2(5000000) = Infinity in 66985 msec
 // Under Firefox:
 //     trampoline2(20000) = Infinity in 1063 msec
 //     trampoline3(18000) = Infinity in 985 msec (crashes at 19000 and above)
-// (ie, reusing the result object cuts the time required by more than half under
-// WScript, but it makes no difference under Firefox (except to make it a little
-// less stable)
-var s = now();
-var nbang = trampoline(function() { return trampolineFactorial2(sz, trampolineId); });
-var e = now();
-say("trampoline2("+sz+") = " + nbang + " in " + (e-s) + " msec");
+//     trampolineAccFactorial2(500000) = Infinity in 14203 msec
+// 1. reusing the result object cuts the time required by more than half under
+//    WScript, but it makes no difference under Firefox (except to make it a little
+//    less stable)
+// 2. The stability issue in Firefox seems to be caused by the increasing heap usage
+//    of the non-accumulator version (used to save the chain of continuations that
+//    replaces the usual call stack).  We can gather that from the fact that the
+//    trampolined accumulator-passing factorial (which reuses the same continuation
+//    on each recursion) appears to be effectively unbounded in terms of its argument
+//    size (although at 500,000 it does cause "slow script" prompts to appear a couple of times).
+  var s = now();
+  var nbang = trampoline(function() { return trampolineFactorial2(sz, trampolineId); });
+  var e = now();
+  say("trampoline2("+sz+") = " + nbang + " in " + (e-s) + " msec");
 
-s = now();
-nbang = trampoline(function() { return trampolineFactorial3(sz, trampolineId); });
-e = now();
-say("trampoline3("+sz+") = " + nbang + " in " + (e-s) + " msec");
+  s = now();
+  nbang = trampoline(function() { return trampolineFactorial3(sz, trampolineId); });
+  e = now();
+  say("trampoline3("+sz+") = " + nbang + " in " + (e-s) + " msec");
+
+  s = now(); 
+  nbang = trampoline(function() { return trampolineAccFactorial2(500000, 1, trampolineId); }); 
+  e = now(); 
+  say("trampolineAccFactorial2(500000) = " + nbang + " in " + (e-s));
+}
