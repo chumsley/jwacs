@@ -33,7 +33,8 @@
 ;;; Everytime we enter a new lexical environment, we add a new alist to the front.
 ;;; When looking for a binding, we start at the front (innermost) and look through until we get to the back (global)
 
-(defparameter *environment* '())
+(defparameter *environment* '()
+  "list of assoc lists representing the current lexical environment")
 
 (defun add-environment ()
   "Adds a new environment to the environment stack, makes it the current environment"

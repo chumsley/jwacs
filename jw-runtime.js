@@ -57,3 +57,21 @@ function $trampoline(origThunk)
 	}
 	return ret.result;
 }
+
+// Returns a trampoline result object that is appropriate for
+// a function call that applies `f` to `args` in the current `this`
+// context specified by `thisObj`.
+//
+// If `f` has an `$isTrampolined` field that is set to true, then
+// this function returns a thunk result containing a call to `f`.
+// Otherwise, it calls `f` and wraps the result in a trampoline
+// result object.
+function $trampolineResult(f, thisObj, args)
+{
+  if(f.$isTrampolined)
+    return { done: false,
+             thunk: function() { return f.apply(thisObj, args); }};
+  else
+    return { done: true, 
+             result: f.apply(thisObj, args) };
+}

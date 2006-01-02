@@ -238,21 +238,21 @@
       (make-return-statement :arg new-fn-call)
       new-fn-call)))
             
-  
-
-(defmethod transform ((xform (eql 'cps)) (elm-list list))
-  (unless (null elm-list)
-
-    (let ((statements-consumed nil)
-          (head nil)
-          (*function-decls-in-scope* (append (mapcar 'function-decl-name
+(defmethod transform :around ((xform (eql 'cps)) (elm-list list))
+  (let ((*function-decls-in-scope* (append (mapcar 'function-decl-name
                                                      (collect-in-scope elm-list 'function-decl))
                                              *function-decls-in-scope*)))
+    (call-next-method)))
+  
+(defmethod transform ((xform (eql 'cps)) (elm-list list))
+  (unless (null elm-list)
+    (let ((statements-consumed nil)
+          (head nil))
 
       ;; Transform the first source element with the rest prepended to the statement tail.
       ;; We keep track of whether this new statement-tail gets consumed (by being set to NIL)
       ;; in a separate flag, because we need to propogate this consumedness (by setting our
-      ;; incoming statement-tail to NIL) /after/ the new statement tail is no longer bound.
+      ;; original statement-tail to NIL) /after/ the new statement tail is no longer bound.
       (with-statement-tail ((cdr elm-list))
         (setf head (transform 'cps (car elm-list)))
         (when (null *statement-tail*)
