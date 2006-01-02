@@ -29,7 +29,8 @@
                (:file "test-shift-function-decls")
                (:file "test-explicitize")
                (:file "test-cps-transformation")
-               (:file "test-loop-transformation"))))
+               (:file "test-loop-transformation")
+               (:file "test-trampoline-transformation"))))
     :depends-on (jwacs))
 
 (defmethod perform ((o test-op) (c (eql (find-system 'jwacs-tests))))

@@ -54,7 +54,8 @@
                (:file "explicitize-transformation")
                (:file "cps-transformation")
                (:file "ugly-print")
-               (:file "loop-transformation"))
+               (:file "loop-transformation")
+               (:file "trampoline-transformation"))
   :depends-on (cl-ppcre))
 
 (defmethod perform ((o test-op) (c (eql (find-system 'jwacs))))

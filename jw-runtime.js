@@ -4,7 +4,7 @@
 /// defined in this file should be present whenever a JWACS-compiled
 /// script is being run.
 
-//TODO Should we wrap this all into a namespace?
+//TODO Wrap this all into a namespace
 
 /// The identity function
 function $id(x)
@@ -35,4 +35,25 @@ function $cpsLambda(fn)
 {
   fn.$callStyle = 'cps';
   return fn;
+}
+
+// The identity function for trampoline-style functions.  Returns
+// a return object whose `result` field is set to `x`.
+function $trampolineId(x)
+{
+  return {done:true, result:x};
+}
+
+// "Pogo-stick" function for running a call to a trampoline-style
+// function.
+function $trampoline(origThunk)
+{
+	var ret = new Object;
+	ret.done = false;
+	ret.thunk = origThunk;
+	while(!ret.done)
+	{
+		ret = ret.thunk();
+	}
+	return ret.result;
 }

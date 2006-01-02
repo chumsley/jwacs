@@ -116,5 +116,6 @@
                 loop-to-function
                 uniquify
                 in-local-scope
+                trampoline
                 ))
                 
