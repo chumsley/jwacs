@@ -4,7 +4,7 @@
 ;;; into trampolined cps-form Javascript.
 (in-package :jwacs)
 
-;;;;= Trampoline transformation =
+;;;; Trampoline transformation 
 ;;;
 ;;; 1. Every return statement whose argument is a function call
 ;;;    to a trampoline-style function is transformed into a trampolining

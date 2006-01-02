@@ -3,10 +3,10 @@
 ;;; Tests for the explicitize transformation (and related functions)
 (in-package :jwacs-tests)
 
-;;;;= Test categories =
+;;;; Test categories 
 (defnote explicitize "tests for the explicitize transformation")
     
-;;;;= Tests =
+;;;; Tests 
 (deftest explicitize/var-decl/1 :notes explicitize
   (with-fresh-genvar
     (transform 'explicitize (parse "

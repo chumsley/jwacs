@@ -3,13 +3,13 @@
 ;;; Define the cps transformation and supporting functionality.
 (in-package :jwacs)
 
-;;;;= CPS transformation =
+;;;; CPS transformation
 ;;; Initial, naive version does the following:
 ;;; - All function calls transformed to fn-calls in continuation-passing style
 ;;; - All assignments transformed to new continuations
 ;;; - All returns transformed to returns of the arg passed to the current continuation
 ;;;
-;;;;== Preconditions ==
+;;;; Preconditions
 ;;; The CPS transform assumes the following:
 ;;; 1. Scope analysis transformation has been performed (and therefore all identifiers are unique)
 ;;; 2. Explicitization transformation has been performed (and therefore all result values are unique)
@@ -32,7 +32,7 @@
 (defparameter *cont-id* (make-identifier :name *cont-name*)
   "An identifier whose name is *cont-name*.  See SBCL-DEFPARAMETER-NOTE.")
 
-;;;;== Runtime parameters ==
+;;;; Runtime parameters 
 ;;; When we refer to runtime functions, we indirect through parameters to make it easy to
 ;;; factor the runtime (and also to save having to contantly type (MAKE-STRING-LITERAL ...))
 
@@ -49,7 +49,7 @@
   "Runtime function that accepts a function-expression and returns the same function with
    the $callStyle property set to 'cps'.")
 
-;;;;== Scope tracking ==
+;;;; Scope tracking 
 
 (defparameter *function-decls-in-scope* nil
   "A list of names of currently-visible function-decls.  We can use this to
@@ -57,14 +57,19 @@
    be 'inlined' as unchecked CPS calls.")
 
 (defparameter *in-local-scope* nil
-  "T when the lexical scope is currently the global scope, NIL otherwise.")
+  "T when the lexical scope is currently inside a function decl, NIL when the
+   lexical scope is currently the global scope")
 
 (defmacro in-local-scope (&body body)
   "Execute BODY with *IN-LOCAL-SCOPE* bound to T"
   `(let ((*in-local-scope* t))
     ,@body))
 
-;;;;== Statement tails ==
+(defun function-in-scope-p (name)
+  "Return non-NIL if a function-decl with name NAME is currently visible in scope"
+  (member name *function-decls-in-scope* :test 'equal))
+
+;;;; Statement tails 
 ;;;
 ;;; A "statement tail" is a list of the statements that follow the current
 ;;; statement in the current scope.  Note that this can include statements
@@ -98,7 +103,7 @@
 ;;; Basically, the statement-tail contains all of the statements that should go into a continuation,
 ;;; should we need to generate a continuation at this point.
 ;;;
-;;;;=== Statement tail protocol ===
+;;;; Statement tail protocol 
 ;;;
 ;;; The `*statement-tail*` special variable holds the current state of the statement-tail.
 ;;; The macro `with-statement-tail` adds new statements to the current statement-tail (eg,
@@ -133,7 +138,7 @@
   `(let ((*statement-tail* nil))
     ,@body))
 
-;;;;== CPS transform methods ==
+;;;; CPS transform methods 
 
 (defmethod transform ((xform (eql 'cps)) (elm function-decl))
   (without-statement-tail ; Each function starts with a fresh statement-tail
@@ -188,17 +193,20 @@
 (defmethod transform ((xform (eql 'cps)) (elm fn-call))
   (let ((new-fn-call
          (cond
+           ;; "Inlined" tail-call 
            ((and (null *statement-tail*)
                  (identifier-p (fn-call-fn elm))
-                 (member (identifier-name (fn-call-fn elm)) *function-decls-in-scope* :test 'equal))
+                 (function-in-scope-p (identifier-name (fn-call-fn elm))))
             (make-fn-call
              :fn (fn-call-fn elm)
              :args (cons *cont-id*
                          (mapcar (lambda (item)
                                    (transform 'cps item))
                                  (fn-call-args elm)))))
+
+           ;; "Inlined" non-tail call
            ((and (identifier-p (fn-call-fn elm))
-                 (member (identifier-name (fn-call-fn elm)) *function-decls-in-scope*))
+                 (function-in-scope-p (identifier-name (fn-call-fn elm))))
             (make-fn-call
              :fn (fn-call-fn elm)
              :args (consume-statement-tail (statement-tail)
@@ -207,12 +215,16 @@
                            (mapcar (lambda (item)
                                      (transform 'cps item))
                                    (fn-call-args elm))))))
+
+           ;; Indirected tail call
            ((null *statement-tail*)
             (make-fn-call :fn *call-fn*
                           :args (list (fn-call-fn elm)
                                       *cont-id*
                                       (make-special-value :symbol :this)
                                       (make-array-literal :elements (fn-call-args elm)))))
+
+           ;; Indirected non-tail-call
            (t
             (make-fn-call :fn *call-fn*
                           :args
@@ -222,9 +234,9 @@
                                                             :body (transform 'cps statement-tail))
                                   (make-special-value :symbol :this)
                                   (make-array-literal :elements (fn-call-args elm)))))))))
-    (if (null *in-local-scope*)
-      new-fn-call
-      (make-return-statement :arg new-fn-call))))
+    (if *in-local-scope*
+      (make-return-statement :arg new-fn-call)
+      new-fn-call)))
             
   
 
@@ -237,14 +249,21 @@
                                                      (collect-in-scope elm-list 'function-decl))
                                              *function-decls-in-scope*)))
 
+      ;; Transform the first source element with the rest prepended to the statement tail.
+      ;; We keep track of whether this new statement-tail gets consumed (by being set to NIL)
+      ;; in a separate flag, because we need to propogate this consumedness (by setting our
+      ;; incoming statement-tail to NIL) /after/ the new statement tail is no longer bound.
       (with-statement-tail ((cdr elm-list))
         (setf head (transform 'cps (car elm-list)))
         (when (null *statement-tail*)
           (setf statements-consumed t)))
       
+      ;; Guarantee that HEAD is a list
       (unless (listp head)
         (setf head (list head)))
-      
+
+      ;; If the new statement tail was consumed, then it will be incorporated into the
+      ;; transformed version of HEAD, so we shouldn't recurse.
       (if statements-consumed
         (progn
           (setf *statement-tail* nil)
@@ -279,6 +298,11 @@
     
     ;; TODO There must be a nicer way to do this.  Think about refactoring
     ;; after we've done switch statements.
+    ;; Specifically, the statement-tail that follows the if statement should
+    ;; be assigned to a named continuation function expression and referenced
+    ;; that way rather than just being slurped into the continuations for both
+    ;; branches of the if.  This isn't lambda-calculus; we don't have to put up
+    ;; with exponentially-expanding programs to get a usable CPS form.
     (setf condition (transform 'cps (if-statement-condition elm)))
 
     (setf *statement-tail* saved-statement-tail)
@@ -295,6 +319,9 @@
 
 ;;; The CPS transformation is where we convert `suspend` and `resume` statements
 ;;; into standard Javascript (because `suspend` needs to capture statement-tails).
+;;TODO We no longer capture statement-tails for `suspend`, but CPS transform is still
+;; the right place to do the transformation, so that `suspend` can be guaranteed to turn
+;; into a `return` that doesn't tail-call the current continuation.
 (defmethod transform ((xform (eql 'cps)) (elm suspend-statement))
   (consume-statement-tail (statement-tail)
     (let* ((k-name (genvar))

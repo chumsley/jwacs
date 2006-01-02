@@ -4,7 +4,7 @@
 ;;; functionality.
 (in-package :jwacs)
 
-;;;;= Explicitize transformation =
+;;;; Explicitize transformation 
 ;;; The explicitize transformation gives each intermediate value a
 ;;; name.  After the transformation is done, the result of every
 ;;; function call will be assigned to a variable.

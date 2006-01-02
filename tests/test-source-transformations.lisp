@@ -4,12 +4,12 @@
 
 (in-package :jwacs-tests)
 
-;;;;= Test categories =
+;;;; Test categories 
 (defnote source-transformations "tests for the source-transformations")
     
-;;;;= Tests =
+;;;; Tests 
 
-;;;;== General traversal behaviour ==
+;;;; General traversal behaviour 
 (defmethod transform ((xform (eql 'hello)) (elm string))
     "hello there!")
 

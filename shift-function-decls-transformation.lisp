@@ -3,7 +3,7 @@
 ;;; Define the shift-function-decls transformation.
 (in-package :jwacs)
 
-;;;;= shift-function-decls transformation =
+;;;; shift-function-decls transformation 
 ;;;
 ;;; This transformation moves function declarations to the beginning
 ;;; of each scope in the provided AST.  Function decls are never moved

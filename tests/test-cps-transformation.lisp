@@ -3,10 +3,10 @@
 ;;; Tests for the cps transformation
 (in-package :jwacs-tests)
 
-;;;;= Test categories =
+;;;; Test categories 
 (defnote cps "tests for the cps transformation")
 
-;;;;= Tests =
+;;;; Tests 
 (deftest cps/factorial/1 :notes cps
   (with-fresh-genvar
     (transform 'cps (parse "

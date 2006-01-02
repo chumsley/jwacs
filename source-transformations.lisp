@@ -7,7 +7,7 @@
 ;;; own source files.
 (in-package :jwacs)
 
-;;;;= Utilities =
+;;;; Utilities 
 (defun structure-slots (object)
   "Returns a list of the slot-names of the provided structure object"
   #+openmcl
@@ -46,7 +46,7 @@
                       (error "~A source-element encountered during ~A transformation!" ',elm-type ',xform)))))
                    
 
-;;;;= Collection within a single scope  =
+;;;; Collection within a single scope  
 (defgeneric collect-in-scope (elm target-type)
   (:documentation
    "Finds an returns a list of all elements of TARGET-TYPE in the same scope as
@@ -59,7 +59,7 @@
     FOO would be returned but BAR would not, since the decl of BAR is in
     an innermore scope (namely, FOO's body)."))
 
-;;;;== Rules about recursing into children ==
+;;;; Rules about recursing into children 
 (defmethod collect-in-scope (elm target-type)
   nil)
 
@@ -83,14 +83,14 @@
 (defmethod collect-in-scope ((elm object-literal) target-type)
   nil)
 
-;;;;== Rule for returning matches. ==
+;;;; Rule for returning matches. 
 ;; We don't recurse into matching elements
 (defmethod collect-in-scope :around (elm target-type)
   (if (typep elm target-type)
     (list elm)
     (call-next-method)))
 
-;;;;= Default transformation behaviour =
+;;;; Default transformation behaviour 
 
 ;;; The top-level TRANSFORM methods provide the default code-walking behaviour,
 ;;; so that individual transformations can override just the important parts.

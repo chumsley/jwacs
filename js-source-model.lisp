@@ -20,7 +20,7 @@
        (defmethod make-load-form ((self ,type) &optional environment)
          (make-load-form-saving-slots self :environment environment)))))
 
-;;;;= Standard Javascript =
+;;;; Standard Javascript 
 
 (defstruct source-element
   "A common base type for all source elements")
@@ -163,14 +163,14 @@
   parameters
   body)
 
-;;;;== JWACS extended syntax  ==
+;;;; JWACS extended syntax  
 (defstruct (suspend-statement (:include source-element))
   arg)
 
 (defstruct (resume-statement (:include source-element))
   arg)
 
-;;;;== Operator precedence and associativity ==
+;;;; Operator precedence and associativity 
 (defgeneric elm-precedence (elm)
   (:documentation
    "Returns an integer specifying the precedence of the source element

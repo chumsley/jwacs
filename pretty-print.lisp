@@ -6,9 +6,9 @@
 
 (in-package :jwacs)
 
-;;;;= Rules for semicolon-termination =
+;;;; Rules for semicolon-termination 
 ;;;
-;;;;== The ideal situation ==
+;;;; The ideal situation 
 ;;;
 ;;; There are two basic rules:
 ;;; 1. Calling `pretty-print` on a statement should always result in a semicolon-terminated statement
@@ -26,13 +26,13 @@
 ;;; grammar.  These omissions may have led to some extra ambiguity; certainly there is an awful lot of
 ;;; complaining when Lispworks is compiling the grammar.
 ;;;
-;;;;== The actual situation ==
+;;;; The actual situation 
 ;;;
 ;;; For now, we assume that neither statements nor any other source element self-semicolon-terminates.
 ;;; The pretty-printer for blocks (and lists of statement) will just slap a semicolon after each
 ;;; statement minus some exceptions (if, while, for, function declarations, etc.).
 
-;;;;= Indentation helpers =
+;;;; Indentation helpers 
 (defparameter *indent-step* 2
   "Number of spaces per indentation step")
 
@@ -75,7 +75,7 @@
     (if semicolon
       (format s ";"))))
 
-;;;;= General helpers =
+;;;; General helpers 
 (defun pretty-print-separated-list (elm-list s &optional (sep-string ",~a"))
   "Pretty print the elements of ELM-LIST to S separated by SEP-STRING."
   (loop
@@ -91,12 +91,12 @@
   (unless *pretty-mode*
     (format s " ")))
 
-;;;;= The pretty-print generic function =
+;;;; The pretty-print generic function 
 (defgeneric pretty-print (elm stream)
   (:documentation
    "Print source element ELM to stream STREAM as parseable and human-readable text."))
 
-;;;;== Standard Javascript ==
+;;;; Standard Javascript 
 
 (defmethod pretty-print ((elm special-value) s)
   (if (find (special-value-symbol elm) *keyword-symbols*)
@@ -420,7 +420,7 @@ expression, or
      (fresh-line-indented s)
      (format s "}"))))
 
-;;;;== JWACS-only extensions ==
+;;;; JWACS-only extensions 
 (defmethod pretty-print ((elm suspend-statement) s)
   (format s "suspend ")
   (pretty-print (suspend-statement-arg elm) s))
