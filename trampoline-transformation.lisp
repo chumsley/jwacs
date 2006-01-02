@@ -21,22 +21,13 @@
 ;;; tail calls; the above two rules are obviously not sufficient when
 ;;; this condition doesn't hold.
 
-(defconstant *thunk-name* "thunk"
-  "the name of the thunk field of a return object")
-
-(defconstant *done-name* "done"
-  "the name of the done field of a return object")
-
-(defconstant *result-name* "result"
-  "the name of the result field of a return object")
-
-(defparameter *thunk-id* (make-identifier :name *thunk-name*)
+(defparameter *thunk-id* (make-identifier :name "thunk")
   "identifier for the thunk field of a return object")
 
-(defparameter *done-id* (make-identifier :name *done-name*)
+(defparameter *done-id* (make-identifier :name "done")
   "identifier for the done field of a return object")
 
-(defparameter *result-id* (make-identifier :name *result-name*)
+(defparameter *result-id* (make-identifier :name "result")
   "identifier for the result field of a return object")
 
 ;;TODO First cut, assume all function calls are to trampolined functions
