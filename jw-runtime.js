@@ -1,7 +1,7 @@
 //// jw-rt.js
 ///
-/// This is the JWACS runtime.  All of the variables and functions
-/// defined in this file should be present whenever a JWACS-compiled
+/// This is the jwacs runtime.  All of the variables and functions
+/// defined in this file should be present whenever a jwacs-compiled
 /// script is being run.
 
 //TODO Wrap this all into a namespace

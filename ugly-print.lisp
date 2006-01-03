@@ -18,9 +18,9 @@
 (defun ugly-print (elm stream)
   "Outputs the AST to a stream with variables and function names converted to
    unique identifiers (ie. JW0) and with all formatting removed."
-  (let ((*pretty-mode* nil)
-        (*opt-space* "")
-        (new-elm (uglify-vars elm)))
+  (let* ((*pretty-mode* nil)
+         (*opt-space* "")
+         (new-elm (uglify-vars elm)))
     (pretty-print new-elm stream)))
 
 ;;; ==================================================
@@ -57,17 +57,21 @@
 
 (defun add-ugly-binding (var-name)
   "Takes a variable name and creates a new ugly name and adds that to the environment. Returns the ugly name"
-  (let ((ugly-name (genvar)))
+  (let ((ugly-name (genvar var-name)))
     (add-binding var-name ugly-name)
     ugly-name))
 
 (defparameter *genvar-counter* 0)
 
-(defun genvar ()
-  "Generates a unique string that will be our ugly name for variables"
+(defun genvar (&optional orig-name)
+  "Generates a unique string that will be our ugly name for variables.
+   When *PRETTY-MODE* is non-NIL and ORIG-NAME is provided, the name will
+   be unique but not all that ugly."
   (let ((old *genvar-counter*))
-    (setq *genvar-counter* (1+ old))
-    (concatenate 'string "JW" (format nil "~a" old))))
+    (incf *genvar-counter*)
+    (if (and *pretty-mode* orig-name)
+      (format nil "~A$~D" orig-name old)
+      (format nil "JW~D" old))))
 
 
 ;;; ==================================================

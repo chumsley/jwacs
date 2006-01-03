@@ -6,7 +6,7 @@
 
 ;;;; Helper functions
 (defun ugly-string (elm)
-  "Uglyprint LM to a tring value instead of a stream"
+  "Uglyprint LM to a string value instead of a stream"
   (with-output-to-string (s)
     (ugly-print elm s)))
 
@@ -46,17 +46,18 @@
 
 (deftest ugly-print/function-decl/5 :notes ugly-print
   (with-fresh-genvar
-    (jw::uglify-vars (parse "
-      function recursiveCount(i, n)
-      {
-        if(i > n)
-          return i - 1;
-        else
+    (let ((jw::*pretty-mode* nil))
+      (jw::uglify-vars (parse "
+        function recursiveCount(i, n)
         {
-          WScript.echo(i + '/' + n);
-          return recursiveCount(i + 1, n);
-        }
-      }")))
+          if(i > n)
+            return i - 1;
+          else
+          {
+            WScript.echo(i + '/' + n);
+            return recursiveCount(i + 1, n);
+          }
+        }"))))
   #.(parse "
       function JW0(JW1, JW2)
       {
@@ -153,3 +154,19 @@
                          }")))
   "var JW0=foo;function JW1(JW2){var JW3=JW2*2;if(JW3>JW0)return JW1(JW2--);else return JW2;}")
 
+(deftest ugly-print/pretty-variable/1 :notes ugly-print
+  (with-fresh-genvar
+    (let ((jw::*pretty-mode* t))
+      (jw::uglify-vars (parse "
+        function fn(arg1, arg2)
+        {
+          var foo = 10;
+          WScript.echo(foo + arg2);
+        }"))))
+  #.(parse "
+        function fn$0(arg1$1, arg2$2)
+        {
+          var foo$3 = 10;
+          WScript.echo(foo$3 + arg2$2);
+        }"))
+       
