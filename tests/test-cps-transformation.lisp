@@ -68,9 +68,9 @@
       function doStuff($k, branch)
       {
         if(branch)
-          return $call(foo, function(JW0) { return $call(baz, $k, this, []); }, this, []);
+          return $call(foo, function(dummy$0) { return $call(baz, function(dummy$1) { return $k(); }, this, []); }, this, []);
         else
-          return $call(bar, function(JW1) { return $call(baz, $k, this, []); }, this, []);
+          return $call(bar, function(dummy$2) { return $call(baz, function(dummy$3) { return $k(); }, this, []); }, this, []);
       }
       doStuff.$callStyle='cps';"))
 
@@ -131,11 +131,11 @@
           return foo($k, false);
         else
         {
-          return $call(WScript.echo, function(JW0) { return foo($k, true); }, this, ['hi']);
+          return $call(WScript.echo, function(dummy$0) { return foo($k, true); }, this, ['hi']);
         }
       }
       foo.$callStyle='cps';
-      foo($k, false);"))
+      foo(function(dummy$1) { return $k(); }, false);"))
 
 (deftest cps/post-function-dangling-tail/2 :notes cps
   (with-fresh-genvar
@@ -152,9 +152,9 @@
                              {
                                if(typeof $k != 'function')
                                  return JW0($id, $k, e);
-                               return $call(process, $k, this, [e]);
+                               return $call(process, function(dummy$1) { return $k(); }, this, [e]);
                              });
-        return $call(bar, $k, this, []);
+        return $call(bar, function(dummy$2) { return $k(); }, this, []);
       }
       foo.$callStyle = 'cps';"))
 
@@ -165,6 +165,7 @@
         return factorial(JW0);"))))
   #.(parse "
       return $call(factorial, $k, this, [JW0]);"))
+
 
 (deftest cps/suspend-transformation/1 :notes cps
   (with-fresh-genvar
@@ -217,7 +218,7 @@
       function fn($k)
       {
         var y = obj.field + 1;
-        return $call(obj.method, $k, this, [y]);
+        return $call(obj.method, function(dummy$1) { return $k(); }, this, [y]);
       }
       fn.$callStyle = 'cps';"))
   

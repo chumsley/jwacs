@@ -27,10 +27,10 @@
              :and-equals :or-equals :xor-equals))))
 
 (defparameter *cont-name* "$k"
-  "The name of the standard continuation parameter.  See SBCL-DEFPARAMETER-NOTE.")
+  "The name of the standard continuation parameter.  See SBCL-DEFPARAMETER-NOTE")
 
 (defparameter *cont-id* (make-identifier :name *cont-name*)
-  "An identifier whose name is *cont-name*.  See SBCL-DEFPARAMETER-NOTE.")
+  "An identifier whose name is *cont-name*.  See SBCL-DEFPARAMETER-NOTE")
 
 ;;;; Runtime parameters 
 ;;; When we refer to runtime functions, we indirect through parameters to make it easy to
@@ -176,61 +176,106 @@
                                                                                                                                                          (cons "$id" new-parameters)))))
                                                               (transform 'cps (function-expression-body elm))))))))))
 
+
+(defun inlineable-cps-call-p (elm)
+  "Return non-NIL if it is definitely safe for ELM to be used as the target
+   of an inline cps call"
+  (and (identifier-p elm)
+       (function-in-scope-p (identifier-name elm))))
+
 (defmethod transform ((xform (eql 'cps)) (elm return-statement))
   (with-slots (arg) elm
-    ;; We check for the tail-call case; in that case, the transformed
-    ;; fn-call will already include a return statement, so we should not
-    ;; add it here.
-    (if (fn-call-p arg)
-      (without-statement-tail
-        (transform 'cps arg))
-      (make-return-statement :arg
-                             (without-statement-tail
-                               (make-fn-call :fn *cont-id*
-                                             :args (list
-                                                    (transform 'cps (return-statement-arg elm)))))))))
+    (let ((new-fn-call
+           (cond
+             ;; Inlined tail call (pass continuation to function)
+             ((and (fn-call-p arg)
+                   (inlineable-cps-call-p (fn-call-fn arg)))
+              (without-statement-tail
+                (make-fn-call :fn (fn-call-fn arg)
+                              :args (cons *cont-id*
+                                          (mapcar (lambda (item)
+                                                    (transform 'cps item))
+                                                  (fn-call-args arg))))))
 
+             ;; Indirected tail call (pass continuation to $call)
+             ((fn-call-p arg)
+              (without-statement-tail
+                (make-fn-call :fn *call-fn*
+                              :args (list (fn-call-fn arg)
+                                          *cont-id*
+                                          (make-special-value :symbol :this)
+                                          (make-array-literal :elements
+                                                              (mapcar (lambda (item)
+                                                                        (transform 'cps item))
+                                                                      (fn-call-args arg)))))))
+
+             ;; Simple return (call continuation directly)
+              (t
+               (without-statement-tail
+                 (make-fn-call :fn *cont-id*
+                               :args (list
+                                      (transform 'cps (return-statement-arg elm)))))))))
+
+      (make-return-statement :arg new-fn-call))))
+
+(defun make-void-continuation (current-cont)
+  "Returns a function expression that accepts an argument (which it ignores),
+   and then calls CURRENT-CONT with no arguments.  This allows us to preserve
+   the behaviour of functions that return no value."
+  (make-function-expression
+   :parameters (list (genvar "dummy"))
+   :body (list (make-return-statement :arg
+                                      (make-fn-call :fn current-cont
+                                                    :args nil)))))
+
+;;; This method only handles function calls where the return value is ignored.
+;;;
+;;; Function calls that are the initializers for variable declarations are handled
+;;; in (METHOD TRANSFORM ((EQL 'CPS) VAR-DECL-STATEMENT)).  Function calls that are
+;;; assigned to existing variables or used as intermediate values in calculations are
+;;; transformed to variable-decl initializers in the EXPLICITIZE transformation.
+;;; Tail calls (ie, those that are the argument to a return statement) are handled
+;;; in (METHOD TRANSFORM ((EQL 'CPS) RETURN-STATEMENT)).
 (defmethod transform ((xform (eql 'cps)) (elm fn-call))
   (let ((new-fn-call
          (cond
-           ;; "Inlined" tail-call 
+           ;; "Inlined" tailless call
            ((and (null *statement-tail*)
-                 (identifier-p (fn-call-fn elm))
-                 (function-in-scope-p (identifier-name (fn-call-fn elm))))
+                 (inlineable-cps-call-p (fn-call-fn elm)))
             (make-fn-call
              :fn (fn-call-fn elm)
-             :args (cons *cont-id*
+             :args (cons (make-void-continuation *cont-id*)
                          (mapcar (lambda (item)
                                    (transform 'cps item))
                                  (fn-call-args elm)))))
 
-           ;; "Inlined" non-tail call
+           ;; "Inlined" call w/statement-tail
            ((and (identifier-p (fn-call-fn elm))
-                 (function-in-scope-p (identifier-name (fn-call-fn elm))))
+                 (inlineable-cps-call-p (fn-call-fn elm)))
             (make-fn-call
              :fn (fn-call-fn elm)
              :args (consume-statement-tail (statement-tail)
-                     (cons (make-function-expression :parameters (list (genvar))
+                     (cons (make-function-expression :parameters (list (genvar "dummy"))
                                                      :body (transform 'cps statement-tail))
                            (mapcar (lambda (item)
                                      (transform 'cps item))
                                    (fn-call-args elm))))))
 
-           ;; Indirected tail call
+           ;; Indirected tailless call
            ((null *statement-tail*)
             (make-fn-call :fn *call-fn*
                           :args (list (fn-call-fn elm)
-                                      *cont-id*
+                                      (make-void-continuation *cont-id*)
                                       (make-special-value :symbol :this)
                                       (make-array-literal :elements (fn-call-args elm)))))
 
-           ;; Indirected non-tail-call
+           ;; Indirected call w/statement-tail
            (t
             (make-fn-call :fn *call-fn*
                           :args
                           (consume-statement-tail (statement-tail)
                             (list (fn-call-fn elm)
-                                  (make-function-expression :parameters (list (genvar))
+                                  (make-function-expression :parameters (list (genvar "dummy"))
                                                             :body (transform 'cps statement-tail))
                                   (make-special-value :symbol :this)
                                   (make-array-literal :elements (fn-call-args elm)))))))))
@@ -240,8 +285,8 @@
             
 (defmethod transform :around ((xform (eql 'cps)) (elm-list list))
   (let ((*function-decls-in-scope* (append (mapcar 'function-decl-name
-                                                     (collect-in-scope elm-list 'function-decl))
-                                             *function-decls-in-scope*)))
+                                                   (collect-in-scope elm-list 'function-decl))
+                                           *function-decls-in-scope*)))
     (call-next-method)))
   
 (defmethod transform ((xform (eql 'cps)) (elm-list list))
@@ -271,7 +316,7 @@
         (append head (transform 'cps (cdr elm-list)))))))
 
 (defmethod transform ((xform (eql 'cps)) (elm var-decl-statement))
-  ;; Note: Assuming one decl per statment because that is one of the results of explicitization
+  ;; Assuming one decl per statment because that is one of the results of explicitization
   (with-slots (var-decls) elm
     (assert (<= (length var-decls) 1))
     (let ((name (var-decl-name (car var-decls)))
