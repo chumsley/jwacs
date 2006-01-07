@@ -32,6 +32,9 @@
 (defparameter *cont-id* (make-identifier :name *cont-name*)
   "An identifier whose name is *cont-name*.  See SBCL-DEFPARAMETER-NOTE")
 
+(defparameter *id-name* "$id"
+  "The name of the standard identity function")
+
 ;;;; Runtime parameters 
 ;;; When we refer to runtime functions, we indirect through parameters to make it easy to
 ;;; factor the runtime (and also to save having to contantly type (MAKE-STRING-LITERAL ...))
@@ -138,43 +141,137 @@
   `(let ((*statement-tail* nil))
     ,@body))
 
+;;;; Explicit-return-p generic function
+
+(defgeneric explicit-return-p (elm)
+  (:documentation "Returns non-NIL if ELM explicitly returns (or throws) via all control paths"))
+
+;;; Unless otherwise specified, a source element does not explicitly return
+(defmethod explicit-return-p (elm)
+  nil)
+
+;;; Base cases
+(defmethod explicit-return-p ((elm return-statement))
+  t)
+
+(defmethod explicit-return-p ((elm throw-statement))
+  t)
+
+;;; Sequences
+(defmethod explicit-return-p ((elm-list list))
+  (unless (null elm-list)
+    (or (explicit-return-p (car elm-list))
+        (explicit-return-p (cdr elm-list)))))
+
+;;; Branches
+(defmethod explicit-return-p ((elm if-statement))
+  (and (explicit-return-p (if-statement-then-statement elm))
+       (explicit-return-p (if-statement-else-statement elm))))
+
+(defmethod explicit-return-p ((elm switch))
+  (reduce (lambda (x y)
+            (and x y))
+          (switch-clauses elm)
+          :key 'explicit-return-p))
+
+(defmethod explicit-return-p ((elm try))
+  (with-slots (body catch-clause finally-clause) elm
+    (or (explicit-return-p finally-clause)
+        (if (null catch-clause)
+          (explicit-return-p body)
+          (and (explicit-return-p body)
+               (explicit-return-p catch-clause))))))
+      
+;;; Simple recursion
+(defmethod explicit-return-p ((elm statement-block))
+  (explicit-return-p (statement-block-statements elm)))
+
+(defmethod explicit-return-p ((elm case-clause))
+  (explicit-return-p (case-clause-body elm)))
+
+(defmethod explicit-return-p ((elm default-clause))
+  (explicit-return-p (default-clause-body elm)))
+
+(defmethod explicit-return-p ((elm do-statement))
+  (explicit-return-p (do-statement-body elm)))
+
+(defmethod explicit-return-p ((elm while))
+  (explicit-return-p (while-body elm)))
+
+(defmethod explicit-return-p ((elm for))
+  (explicit-return-p (for-body elm)))
+
+(defmethod explicit-return-p ((elm for-in))
+  (explicit-return-p (for-in-body elm)))
+
+(defmethod explicit-return-p ((elm with))
+  (explicit-return-p (with-body elm)))
+
+(defmethod explicit-return-p ((elm label))
+  (explicit-return-p (label-statement elm)))
+
+(defmethod explicit-return-p ((elm catch-clause))
+  (explicit-return-p (catch-clause-body elm)))
+
+(defmethod explicit-return-p ((elm finally-clause))
+  (explicit-return-p (finally-clause-body elm)))
+
 ;;;; CPS transform methods 
 
 (defmethod transform ((xform (eql 'cps)) (elm function-decl))
-  (without-statement-tail ; Each function starts with a fresh statement-tail
-    (list
-     (make-function-decl :name (function-decl-name elm)
+  ;; The body has an empty return statement appended if not every control path
+  ;; has an explicit return.
+  (let ((body (if (explicit-return-p (function-decl-body elm))
+                (function-decl-body elm)
+                (append (function-decl-body elm) (list #s(return-statement))))))
+    (without-statement-tail             ; Each function starts with a fresh statement-tail
+      (list
+       (make-function-decl :name (function-decl-name elm)
                            :parameters (cons *cont-name* (function-decl-parameters elm))
                            :body (in-local-scope
-                                  (transform 'cps (function-decl-body elm))))
-     (make-binary-operator :op-symbol :assign
-                           :left-arg (make-property-access :field *call-style-prop*
-                                                           :target (make-identifier :name (function-decl-name elm)))
-                           :right-arg *cps-call-style*))))
+                                   (transform 'cps body)))
+       (make-binary-operator :op-symbol :assign
+                             :left-arg (make-property-access :field *call-style-prop*
+                                                             :target (make-identifier :name (function-decl-name elm)))
+                             :right-arg *cps-call-style*)))))
+
+(defun make-call-style-guard (fn-name parameters)
+  "Builds an if statement that checks whether the incoming continuation argument is a function value;
+   if it isn't, then (on the assumption that a direct-style call has been mistakenly made) re-calls
+   this function (whose name is FN-NAME) with a default continuation parameter (`$id`) followed by
+   the original incoming parameters."
+  (make-if-statement
+   :condition
+   (make-binary-operator :op-symbol :not-equals
+                         :left-arg (make-unary-operator :op-symbol :typeof
+                                                        :arg *cont-id*)
+                         :right-arg (make-string-literal :value "function"))
+   :then-statement
+   (make-return-statement :arg (make-fn-call :fn (make-identifier :name fn-name)
+                                             :args (mapcar (lambda (p) (make-identifier :name p))
+                                                           (cons *id-name* parameters))))))
 
 (defmethod transform ((xform (eql 'cps)) (elm function-expression))
-  ;; Every function expression that is cps-transformed is given a name, to ensure
-  ;; that we can add the "guard" expression for callers from the outside.
+  ;; 1. Every function expression that is cps-transformed is given a name, to ensure
+  ;;    that we can add the "guard" expression for callers from the outside.
+  ;; 2. The body has an empty return statement appended if not every control path
+  ;;    has an explicit return.
   (let ((fn-name (if (function-expression-name elm)
                                       (function-expression-name elm)
                                       (genvar)))
-        (new-parameters (cons *cont-name* (function-expression-parameters elm))))
-    ;; Each function starts with a fresh statement-tail
-    (without-statement-tail
+        (new-parameters (cons *cont-name* (function-expression-parameters elm)))
+        (body (if (explicit-return-p (function-expression-body elm))
+                (function-expression-body elm)
+                (append (function-expression-body elm) (list #s(return-statement))))))
+    (without-statement-tail             ; Each function starts with a fresh statement-tail
       (make-fn-call :fn *cps-lambda-fn*
                     :args (list
                            (make-function-expression :name fn-name
                                                      :parameters new-parameters
                                                      :body (in-local-scope
                                                              (cons
-                                                              (make-if-statement :condition (make-binary-operator :op-symbol :not-equals
-                                                                                                                  :left-arg (make-unary-operator :op-symbol :typeof
-                                                                                                                                                 :arg *cont-id*)
-                                                                                                                  :right-arg (make-string-literal :value "function"))
-                                                                                 :then-statement (make-return-statement :arg (make-fn-call :fn (make-identifier :name fn-name)
-                                                                                                                                           :args (mapcar (lambda (p) (make-identifier :name p))
-                                                                                                                                                         (cons "$id" new-parameters)))))
-                                                              (transform 'cps (function-expression-body elm))))))))))
+                                                              (make-call-style-guard fn-name new-parameters)
+                                                              (transform 'cps body)))))))))
 
 
 (defun inlineable-cps-call-p (elm)
@@ -213,8 +310,8 @@
               (t
                (without-statement-tail
                  (make-fn-call :fn *cont-id*
-                               :args (list
-                                      (transform 'cps (return-statement-arg elm)))))))))
+                               :args (unless (null (return-statement-arg elm))
+                                       (list (transform 'cps (return-statement-arg elm))))))))))
 
       (make-return-statement :arg new-fn-call))))
 

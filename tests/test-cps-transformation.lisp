@@ -167,24 +167,6 @@
       return $call(factorial, $k, this, [JW0]);"))
 
 
-(deftest cps/suspend-transformation/1 :notes cps
-  (with-fresh-genvar
-    (transform 'cps (parse "
-      suspend foo.bar;
-      var baz = 10 + 12;")))
-    #.(parse "
-    {
-      var JW0 = function() {var baz = 10 + 12;};
-      foo.bar = JW0;
-      JW0();
-    }"))
-
-(deftest cps/resume-transformation/1 :notes cps
-  (transform 'cps (parse "
-      resume foo[bar];"))
-  #.(parse "
-      return foo[bar]();"))
-
 (deftest cps/object-literal/1 :notes cps
   (with-fresh-genvar
     (transform 'cps (parse "
@@ -221,4 +203,72 @@
         return $call(obj.method, function(dummy$1) { return $k(); }, this, [y]);
       }
       fn.$callStyle = 'cps';"))
-  
+
+(deftest cps/implicit-return/1 :notes cps
+  (transform 'cps (parse "
+    function foo()
+    {
+    }"))
+  #.(parse "
+    function foo($k)
+    {
+      return $k();
+    }
+    foo.$callStyle = 'cps';"))
+
+(deftest cps/implicit-return/2 :notes cps
+  (transform 'cps (parse "
+    function foo()
+    {
+      x = 10;
+    }"))
+  #.(parse "
+    function foo($k)
+    {
+      x = 10;
+      return $k();
+    }
+    foo.$callStyle = 'cps';"))
+
+(deftest cps/implicit-return/3 :notes cps
+  (with-fresh-genvar
+    (transform 'cps (parse "
+    function foo()
+    {
+      if(x)
+        bar();
+      else
+        y = 10;
+      z = 20;
+    }")))
+  #.(parse "
+    function foo($k)
+    {
+      if(x)
+        return $call(bar, function(dummy$0) { z = 20; return $k(); }, this, []);
+      else
+        y = 10;
+      
+      z = 20;
+      return $k();
+    }
+    foo.$callStyle = 'cps';"))
+
+(deftest cps/suspend-transformation/1 :notes cps
+  (with-fresh-genvar
+    (transform 'cps (parse "
+      suspend foo.bar;
+      var baz = 10 + 12;")))
+    #.(parse "
+    {
+      var JW0 = function() {var baz = 10 + 12;};
+      foo.bar = JW0;
+      JW0();
+    }"))
+
+(deftest cps/resume-transformation/1 :notes cps
+  (transform 'cps (parse "
+      resume foo[bar];"))
+  #.(parse "
+      return foo[bar]();"))
+

@@ -362,6 +362,12 @@
                                             :parameters ()
                                             :body (#S(return-statement :arg #S(identifier :name "x"))))))))
 
+(deftest parser/function-decl/3 :notes parser
+  (parse-only "function foo() { }")
+  (#S(function-decl :name "foo"
+                    :parameters nil
+                    :body nil)))
+
 (deftest parser/function-decl-and-toplevel-call/1 :notes parser
   (parse-only "function make_adder(n) { return function(x) { return x + n;};} make_adder(20);")
   (#S(function-decl :name "make_adder"

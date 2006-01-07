@@ -1,4 +1,4 @@
-Jan 3/2005
+Jan 3/2006
 To think about:
   * Think about adding '#argument' to the end of the browser URL; newPage could take
     an extra parameter called "bookmark" or something.  This allows us to change
@@ -20,7 +20,7 @@ To think about:
       transformation both track function-decl visibility with identical :AROUND
       methods on the (METHOD TRANSFORM (_ LIST)) method.
 
-Jan 3/2005:
+Jan 3/2006:
 Currently unsupported language features:
   * redo if-statements to make them non-exponential
   * switch statements
