@@ -166,6 +166,34 @@
   #.(parse "
       return $call(factorial, $k, this, [JW0]);"))
 
+(deftest cps/inline-call-with-tail/1 :notes cps
+  (with-fresh-genvar
+    (transform 'cps (parse "
+      function foo() {}
+      function bar()
+      {
+        foo();
+        x += 10;
+      }")))
+  #.(parse "
+      function foo($k) { return $k(); }
+      foo.$callStyle = 'cps';
+      function bar($k)
+      {
+        return foo(function (dummy$0) {
+                     x += 10;
+                     return $k();
+                   });
+      }
+      bar.$callStyle = 'cps';"))
+
+(deftest cps/indirected-tailless-call/1 :notes cps
+  (with-fresh-genvar
+    (in-local-scope
+      (transform 'cps (parse "
+        foo();"))))
+  #.(parse "
+        return $call(foo, function (dummy$0) { return $k(); }, this, []);"))
 
 (deftest cps/object-literal/1 :notes cps
   (with-fresh-genvar
