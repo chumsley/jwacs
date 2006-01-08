@@ -23,6 +23,7 @@
 
   ;; Expressions
   ((primary-expression :this) (make-special-value :symbol :this))
+  ((primary-expression :function_continuation) (make-special-value :symbol :function_continuation))
   ((primary-expression :identifier) (make-identifier :name $1))
   ((primary-expression literal) $1)
   ((primary-expression array-literal) $1)
@@ -30,6 +31,7 @@
   ((primary-expression :left-paren expression :right-paren) $2)
 
   ((primary-expression-no-lbf :this) (make-special-value :symbol :this))
+  ((primary-expression-no-lbf :function_continuation) (make-special-value :symbol :function_continuation))
   ((primary-expression-no-lbf :identifier) (make-identifier :name $1))
   ((primary-expression-no-lbf literal) $1)
   ((primary-expression-no-lbf array-literal) $1)
@@ -457,7 +459,7 @@
   ((finally :finally block) (make-finally-clause :body $2))
 
   ;; JWACS extended syntax
-  ((suspend-statement :suspend left-hand-side-expression-no-lbf :semicolon) (make-suspend-statement :arg $2))
+  ((suspend-statement :suspend :semicolon) (make-suspend-statement))
   ((resume-statement :resume left-hand-side-expression-no-lbf :semicolon) (make-resume-statement :arg $2))
 
   ;; Functions (Pg 83)

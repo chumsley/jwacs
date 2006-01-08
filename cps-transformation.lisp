@@ -459,25 +459,11 @@
                        :then-statement then-statement
                        :else-statement else-statement)))
 
-;;; The CPS transformation is where we convert `suspend` and `resume` statements
-;;; into standard Javascript (because `suspend` needs to capture statement-tails).
-;;TODO We no longer capture statement-tails for `suspend`, but CPS transform is still
-;; the right place to do the transformation, so that `suspend` can be guaranteed to turn
-;; into a `return` that doesn't tail-call the current continuation.
-(defmethod transform ((xform (eql 'cps)) (elm suspend-statement))
-  (consume-statement-tail (statement-tail)
-    (let* ((k-name (genvar))
-           (k-id (make-identifier :name k-name))
-           (k-expr (make-function-expression :body (transform 'cps statement-tail))))
-      (make-statement-block
-       :statements (list
-                    (make-var-decl-statement :var-decls
-                                             (list (make-var-decl :name k-name
-                                                                  :initializer k-expr)))
-                    (make-binary-operator :op-symbol :assign
-                                          :left-arg (suspend-statement-arg elm)
-                                          :right-arg k-id)
-                    (make-fn-call :fn k-id))))))
+;;;; function_continuation transformation
 
-(defmethod transform ((xform (eql 'cps)) (elm resume-statement))
-  (make-return-statement :arg (make-fn-call :fn (transform 'cps (resume-statement-arg elm)))))
+(defmethod transform ((xform (eql 'cps)) (elm special-value))
+  (if (eq :function_continuation
+          (special-value-symbol elm))
+    *cont-id*
+    (call-next-method)))
+          

@@ -164,8 +164,7 @@
   body)
 
 ;;;; JWACS extended syntax  
-(defstruct (suspend-statement (:include source-element))
-  arg)
+(defstruct (suspend-statement (:include source-element)))
 
 (defstruct (resume-statement (:include source-element))
   arg)

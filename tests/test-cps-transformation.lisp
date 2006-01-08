@@ -282,21 +282,10 @@
     }
     foo.$callStyle = 'cps';"))
 
-(deftest cps/suspend-transformation/1 :notes cps
-  (with-fresh-genvar
-    (transform 'cps (parse "
-      suspend foo.bar;
-      var baz = 10 + 12;")))
-    #.(parse "
-    {
-      var JW0 = function() {var baz = 10 + 12;};
-      foo.bar = JW0;
-      JW0();
-    }"))
-
-(deftest cps/resume-transformation/1 :notes cps
-  (transform 'cps (parse "
-      resume foo[bar];"))
-  #.(parse "
-      return foo[bar]();"))
-
+;; `suspend` and `resume` are handled by the TRAMPOLINE transformation.
+;; Capturing the current function's current continuation is handled by
+;; the CPS transformation.
+(deftest cps/function_continuation/1 :notes cps
+  (transform 'cps
+             (parse "x = function_continuation;"))
+  #.(parse "x = $k;"))

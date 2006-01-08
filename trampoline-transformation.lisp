@@ -117,4 +117,10 @@
     (:indirected-tail-call
      (make-return-statement :arg (make-indirected-call (return-statement-arg elm))))))
     
-    
+;;;; `suspend` and `resume` transformation
+
+(defmethod transform ((xform (eql 'trampoline)) (elm suspend-statement))
+  (make-return-statement :arg (make-result nil)))
+
+(defmethod transform ((xform (eql 'trampoline)) (elm resume-statement))
+  (make-return-statement :arg (make-fn-call :fn (transform 'cps (resume-statement-arg elm)))))

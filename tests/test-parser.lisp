@@ -1,10 +1,6 @@
 ;;;; test-parser.lisp
 ;;;
 ;;; Unit tests for the Javascript parser
-;;;
-;;; NOTE: Because (equal s1 s2) doesn't work for structures, we instead use
-;;; parse-to-plist, which returns a list-based representation of the source-element
-;;; structures.
 
 ;;TODO Round-trip test (eg, parse -> pretty-print -> parse)
 
@@ -404,10 +400,15 @@
                                                           #S(return-statement :arg #S(numeric-literal :value 1))))))))))
 
 (deftest parser/suspend-statement/1 :notes parser
-  (parse-only "suspend obj[x];")
-  (#S(suspend-statement :arg #S(property-access :target #S(identifier :name "obj")
-                                                :field #S(identifier :name "x")))))
+  (parse-only "suspend;")
+  (#S(suspend-statement)))
 
 (deftest parser/resume-statement/1 :notes parser
   (parse-only "resume getContinuation();")
   (#S(resume-statement :arg #S(fn-call :fn #S(identifier :name "getContinuation")))))
+
+(deftest parser/function_continuation/1 :notes parser
+  (parse-only "x = function_continuation;")
+  (#S(binary-operator :op-symbol :assign
+                      :left-arg #S(identifier :name "x")
+                      :right-arg #S(special-value :symbol :function_continuation))))

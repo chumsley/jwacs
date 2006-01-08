@@ -29,3 +29,25 @@
     (transform 'trampoline
                (parse "return fn(4);")))
   #.(parse "return $trampolineResult(fn, this, [4]);"))
+
+(deftest trampoline/suspend/1 :notes trampoline
+  (transform 'trampoline (parse "
+    if(flag)
+      suspend;
+    else
+      return 50;"))
+  #.(parse "
+    if(flag)
+      return {done: true};
+    else
+      return {done: true, result: 50};"))
+
+;; Note that we return the result of the continuation directly without
+;; wrapping it in a thunk or a result object (a "trampoline box"?)
+;; since it should already be trampoline boxed by the continuation iteself.
+(deftest trampoline/resume/1 :notes trampoline
+  (transform 'trampoline (parse "
+      resume foo[bar];"))
+  #.(parse "
+      return foo[bar]();"))
+

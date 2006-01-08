@@ -160,6 +160,7 @@
 (deftoken :finally      "finally" :keyword)
 (deftoken :for          "for"    :keyword)
 (deftoken :function     "function" :keyword)
+(deftoken :function_continuation "function_continuation" :keyword) ; JWACS-only syntax
 (deftoken :if           "if"     :keyword)
 (deftoken :in           "in"     :keyword)
 (deftoken :instanceof   "instanceof" :keyword) ;???

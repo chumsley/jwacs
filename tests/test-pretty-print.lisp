@@ -391,9 +391,13 @@ finally
 
 (deftest pretty-print/suspend-statement/1 :note pretty-print
   (pretty-string
-   (make-suspend-statement :arg (make-property-access :target foo-id
-                                                      :field (make-string-literal :value "bar"))))
-  "suspend foo.bar")
+   (make-suspend-statement))
+  "suspend")
+
+(deftest pretty-print/function_continuation/1 :note pretty-print
+  (pretty-string
+   (make-special-value :symbol :function_continuation))
+  "function_continuation")
 
 (deftest pretty-print/resume-statement/1 :note pretty-print
   (pretty-string

@@ -422,8 +422,7 @@ expression, or
 
 ;;;; JWACS-only extensions 
 (defmethod pretty-print ((elm suspend-statement) s)
-  (format s "suspend ")
-  (pretty-print (suspend-statement-arg elm) s))
+  (format s "suspend"))
 
 (defmethod pretty-print ((elm resume-statement) s)
   (format s "resume ")
