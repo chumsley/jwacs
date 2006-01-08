@@ -277,7 +277,8 @@
           (reduce (lambda (a b) (and a b))
                   (structure-slots x)
                   :key (lambda (slot)
-                         (equalp-with-case (slot-value x slot) (slot-value y slot))))))
+                         (equalp-with-case (slot-value x slot) (slot-value y slot)))
+                  :initial-value t)))
                           
     (t (eql x y))))
 
