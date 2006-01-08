@@ -187,14 +187,6 @@
       }
       bar.$callStyle = 'cps';"))
 
-(deftest cps/indirected-tailless-call/1 :notes cps
-  (with-fresh-genvar
-    (in-local-scope
-      (transform 'cps (parse "
-        foo();"))))
-  #.(parse "
-        return $call(foo, function (dummy$0) { return $k(); }, this, []);"))
-
 (deftest cps/object-literal/1 :notes cps
   (with-fresh-genvar
     (transform 'cps (parse "
@@ -281,6 +273,14 @@
       return $k();
     }
     foo.$callStyle = 'cps';"))
+
+(deftest cps/indirected-tailless-call/1 :notes cps
+  (with-fresh-genvar
+    (in-local-scope
+      (transform 'cps (parse "
+        foo();"))))
+  #.(parse "
+        return $call(foo, function (dummy$0) { return $k(); }, this, []);"))
 
 ;; `suspend` and `resume` are handled by the TRAMPOLINE transformation.
 ;; Capturing the current function's current continuation is handled by

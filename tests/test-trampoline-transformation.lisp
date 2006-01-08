@@ -51,3 +51,9 @@
   #.(parse "
       return foo[bar]();"))
 
+(deftest trampoline/resume/2 :notes trampoline
+  (transform 'trampoline (parse "
+      resume foo[bar] <- baz;"))
+  #.(parse "
+      return foo[bar](baz);"))
+

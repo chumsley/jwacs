@@ -426,4 +426,7 @@ expression, or
 
 (defmethod pretty-print ((elm resume-statement) s)
   (format s "resume ")
-  (pretty-print (resume-statement-arg elm) s))
+  (pretty-print (resume-statement-target elm) s)
+  (when (resume-statement-arg elm)
+    (format s "~a<-~a" *opt-space* *opt-space* )
+    (pretty-print (resume-statement-arg elm) s)))

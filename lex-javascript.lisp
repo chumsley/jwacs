@@ -92,6 +92,7 @@
 (deftoken :equals2      "==" :operator-token)
 (deftoken :equals       "=" :operator-token)
 (deftoken :not-equals   "!=" :operator-token)
+(deftoken :left-arrow   "<-" :operator-token)
 (deftoken :less-than-equals "<=" :operator-token)
 (deftoken :greater-than-equals ">=" :operator-token)
 (deftoken :urshift      ">>>" :operator-token)

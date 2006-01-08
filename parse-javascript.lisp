@@ -460,7 +460,8 @@
 
   ;; JWACS extended syntax
   ((suspend-statement :suspend :semicolon) (make-suspend-statement))
-  ((resume-statement :resume left-hand-side-expression-no-lbf :semicolon) (make-resume-statement :arg $2))
+  ((resume-statement :resume left-hand-side-expression-no-lbf :semicolon) (make-resume-statement :target $2))
+  ((resume-statement :resume left-hand-side-expression-no-lbf :left-arrow expression :semicolon) (make-resume-statement :target $2 :arg $4))
 
   ;; Functions (Pg 83)
   ((function-decl :function :identifier :left-paren formal-parameter-list :right-paren function-body)

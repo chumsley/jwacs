@@ -401,5 +401,12 @@ finally
 
 (deftest pretty-print/resume-statement/1 :note pretty-print
   (pretty-string
-   (make-resume-statement :arg (make-fn-call :fn foo-id :args (list bar-id))))
+   (make-resume-statement :target (make-fn-call :fn foo-id :args (list bar-id))))
   "resume foo(bar)")
+
+(deftest pretty-print/resume-statement/2 :note pretty-print
+  (pretty-string
+   (make-resume-statement :target (make-property-access :target foo-id
+                                                        :field #s(string-literal :value "bar"))
+                          :arg baz-id))
+  "resume foo.bar <- baz")

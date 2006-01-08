@@ -167,6 +167,7 @@
 (defstruct (suspend-statement (:include source-element)))
 
 (defstruct (resume-statement (:include source-element))
+  target
   arg)
 
 ;;;; Operator precedence and associativity 

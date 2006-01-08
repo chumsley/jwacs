@@ -405,7 +405,13 @@
 
 (deftest parser/resume-statement/1 :notes parser
   (parse-only "resume getContinuation();")
-  (#S(resume-statement :arg #S(fn-call :fn #S(identifier :name "getContinuation")))))
+  (#S(resume-statement :target #S(fn-call :fn #S(identifier :name "getContinuation")))))
+
+(deftest parser/resume-statement/2 :notes parser
+  (parse-only "resume foo.bar <- baz;")
+  (#S(resume-statement :target #S(property-access :target #S(identifier :name "foo")
+                                                  :field #S(string-literal :value "bar"))
+                       :arg #S(identifier :name "baz"))))
 
 (deftest parser/function_continuation/1 :notes parser
   (parse-only "x = function_continuation;")

@@ -123,4 +123,7 @@
   (make-return-statement :arg (make-result nil)))
 
 (defmethod transform ((xform (eql 'trampoline)) (elm resume-statement))
-  (make-return-statement :arg (make-fn-call :fn (transform 'cps (resume-statement-arg elm)))))
+  (with-slots (target arg) elm
+    (make-return-statement :arg (make-fn-call :fn (transform 'cps target)
+                                              :args (when arg
+                                                      (list arg))))))
