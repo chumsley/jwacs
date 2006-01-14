@@ -16,19 +16,27 @@
   #.(parse "return {done: true, result: x[50]};"))
 
 (deftest trampoline/inlined-thunk/1 :notes trampoline
-  (let ((jw::*function-decls-in-scope* '("fn")))
-    (transform 'trampoline
-               (parse "return fn(4);")))
+  (test-transform 'trampoline
+             (parse "return fn(4);"))
   #.(parse "return {done: false,
                     thunk: function() {
                         return fn(4);
                     }};"))
 
-(deftest trampoline/indirected-tail-call/1 :notes trampoline
-  (let ((jw::*function-decls-in-scope* '()))
-    (transform 'trampoline
-               (parse "return fn(4);")))
-  #.(parse "return $trampolineResult(fn, this, [4]);"))
+;; Verify that the correct administrative source-element gets created
+(deftest trampoline/inlined-thunk/2 :notes trampoline
+  (transform 'trampoline
+             (parse "return fn(4);"))
+  (#s(return-statement
+      :arg
+      #S(object-literal :properties
+                        ((#s(identifier :name "done") . #S(special-value :symbol :false))
+                         (#s(identifier :name "thunk") . #S(thunk-function
+                                                            :body
+                                                            (#s(return-statement
+                                                                :arg
+                                                                #S(fn-call :fn #S(identifier :name "fn")
+                                                                           :args (#S(numeric-literal :value 4))))))))))))
 
 (deftest trampoline/suspend/1 :notes trampoline
   (transform 'trampoline (parse "

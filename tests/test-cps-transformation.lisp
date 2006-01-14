@@ -9,7 +9,7 @@
 ;;;; Tests 
 (deftest cps/factorial/1 :notes cps
   (with-fresh-genvar
-    (transform 'cps (parse "
+    (test-transform 'cps (parse "
        function factorial1(n)
        {
          if(n == 0)
@@ -47,15 +47,10 @@
                                                                                           :right-arg #s(identifier :name "r1")))))))
                                      #s(binary-operator :op-symbol :subtract
                                                         :left-arg #s(identifier :name "n")
-                                                        :right-arg #s(numeric-literal :value 1))))))))))
-     #s(binary-operator :op-symbol :assign
-                        :left-arg #s(property-access :field #s(string-literal :value "$callStyle")
-                                                     :target #s(identifier :name "factorial1"))
-                        :right-arg #s(string-literal :value "cps"))))
-
+                                                        :right-arg #s(numeric-literal :value 1))))))))))))
 (deftest cps/symmetric-dangling-tail/1 :notes cps
   (with-fresh-genvar
-    (transform 'cps (parse "
+    (test-transform 'cps (parse "
       function doStuff(branch)
       {
         if(branch)
@@ -68,15 +63,14 @@
       function doStuff($k, branch)
       {
         if(branch)
-          return $call(foo, function(dummy$0) { return $call(baz, function(dummy$1) { return $k(); }, this, []); }, this, []);
+          return foo(function(dummy$0) { return baz(function(dummy$1) { return $k(); }); });
         else
-          return $call(bar, function(dummy$2) { return $call(baz, function(dummy$3) { return $k(); }, this, []); }, this, []);
-      }
-      doStuff.$callStyle='cps';"))
+          return bar(function(dummy$2) { return baz(function(dummy$3) { return $k(); }); });
+      }"))
 
 (deftest cps/asymmetric-dangling-tail/1 :notes cps
   (with-fresh-genvar
-    (transform 'cps (parse "
+    (test-transform 'cps (parse "
       function factorial2(n)
       {
         var retVal;
@@ -107,12 +101,11 @@
         }
 
         return $k(retVal);
-      }
-      factorial2.$callStyle = 'cps';"))
+      }"))
   
 (deftest cps/post-function-dangling-tail/1 :notes cps
   (with-fresh-genvar
-    (transform 'cps (parse "
+    (test-transform 'cps (parse "
       function foo(branch)
       {
         if(branch)
@@ -131,15 +124,14 @@
           return foo($k, false);
         else
         {
-          return $call(WScript.echo, function(dummy$0) { return foo($k, true); }, this, ['hi']);
+          return WScript.echo(function(dummy$0) { return foo($k, true); }, 'hi');
         }
       }
-      foo.$callStyle='cps';
       foo(function(dummy$1) { return $k(); }, false);"))
 
 (deftest cps/post-function-dangling-tail/2 :notes cps
   (with-fresh-genvar
-    (transform 'cps (parse "
+    (test-transform 'cps (parse "
       function foo()
       {
         onEvent = function(e) { process(e); };
@@ -148,15 +140,12 @@
   #.(parse "
       function foo($k)
       {
-        onEvent = $cpsLambda(function JW0($k, e)
-                             {
-                               if(typeof $k != 'function')
-                                 return JW0($id, $k, e);
-                               return $call(process, function(dummy$1) { return $k(); }, this, [e]);
-                             });
-        return $call(bar, function(dummy$2) { return $k(); }, this, []);
-      }
-      foo.$callStyle = 'cps';"))
+        onEvent = function($k, e)
+                  {
+                    return process(function(dummy$0) { return $k(); }, e);
+                  };
+        return bar(function(dummy$1) { return $k(); });
+      }"))
 
 (deftest cps/tail-fn-call/1 :notes cps
   (with-fresh-genvar
@@ -164,11 +153,11 @@
       (transform 'cps (parse "
         return factorial(JW0);"))))
   #.(parse "
-      return $call(factorial, $k, this, [JW0]);"))
+      return factorial($k, JW0);"))
 
 (deftest cps/inline-call-with-tail/1 :notes cps
   (with-fresh-genvar
-    (transform 'cps (parse "
+    (test-transform 'cps (parse "
       function foo() {}
       function bar()
       {
@@ -177,19 +166,17 @@
       }")))
   #.(parse "
       function foo($k) { return $k(); }
-      foo.$callStyle = 'cps';
       function bar($k)
       {
         return foo(function (dummy$0) {
                      x += 10;
                      return $k();
                    });
-      }
-      bar.$callStyle = 'cps';"))
+      }"))
 
 (deftest cps/object-literal/1 :notes cps
   (with-fresh-genvar
-    (transform 'cps (parse "
+    (test-transform 'cps (parse "
       var obj =
       {
         field: 44, 
@@ -208,21 +195,18 @@
       var obj =
       {
         field: 44,
-        method: $cpsLambda(function JW0($k)
+        method: function ($k)
         {
-          if(typeof $k != 'function')
-            return JW0($id, $k);
           return factorial(function(x) {
                              return $k(x * 2);
                            }, this.field);
-        })
+        }
       };
       function fn($k)
       {
         var y = obj.field + 1;
-        return $call(obj.method, function(dummy$1) { return $k(); }, this, [y]);
-      }
-      fn.$callStyle = 'cps';"))
+        return obj.method(function(dummy$0) { return $k(); }, y);
+      }"))
 
 (deftest cps/implicit-return/1 :notes cps
   (transform 'cps (parse "
@@ -233,8 +217,7 @@
     function foo($k)
     {
       return $k();
-    }
-    foo.$callStyle = 'cps';"))
+    }"))
 
 (deftest cps/implicit-return/2 :notes cps
   (transform 'cps (parse "
@@ -247,12 +230,11 @@
     {
       x = 10;
       return $k();
-    }
-    foo.$callStyle = 'cps';"))
+    }"))
 
 (deftest cps/implicit-return/3 :notes cps
   (with-fresh-genvar
-    (transform 'cps (parse "
+    (test-transform 'cps (parse "
     function foo()
     {
       if(x)
@@ -265,22 +247,13 @@
     function foo($k)
     {
       if(x)
-        return $call(bar, function(dummy$0) { z = 20; return $k(); }, this, []);
+        return bar(function(dummy$0) { z = 20; return $k(); });
       else
         y = 10;
       
       z = 20;
       return $k();
-    }
-    foo.$callStyle = 'cps';"))
-
-(deftest cps/indirected-tailless-call/1 :notes cps
-  (with-fresh-genvar
-    (in-local-scope
-      (transform 'cps (parse "
-        foo();"))))
-  #.(parse "
-        return $call(foo, function (dummy$0) { return $k(); }, this, []);"))
+    }"))
 
 ;; `suspend` and `resume` are handled by the TRAMPOLINE transformation.
 ;; Capturing the current function's current continuation is handled by

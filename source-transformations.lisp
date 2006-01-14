@@ -49,7 +49,7 @@
 ;;;; Collection within a single scope  
 (defgeneric collect-in-scope (elm target-type)
   (:documentation
-   "Finds an returns a list of all elements of TARGET-TYPE in the same scope as
+   "Finds and returns a list of all elements of TARGET-TYPE in the same scope as
     ELM.  Does not recurse into function-decl or function-expression elements.
     So for example, searching for function-decls in this code:
 

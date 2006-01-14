@@ -49,6 +49,8 @@
                 finally-clause
                 function-decl
                 function-expression
+                continuation-function
+                thunk-function
                 suspend-statement
                 resume-statement
                 

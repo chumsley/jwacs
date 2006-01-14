@@ -32,32 +32,11 @@
 (defparameter *cont-id* (make-identifier :name *cont-name*)
   "An identifier whose name is *cont-name*.  See SBCL-DEFPARAMETER-NOTE")
 
-(defparameter *id-name* "$id"
-  "The name of the standard identity function")
-
 ;;;; Runtime parameters 
 ;;; When we refer to runtime functions, we indirect through parameters to make it easy to
 ;;; factor the runtime (and also to save having to contantly type (MAKE-STRING-LITERAL ...))
 
-(defparameter *call-style-prop* (make-string-literal :value "$callStyle")
-  "The name of the callStyle property")
-
-(defparameter *cps-call-style* (make-string-literal :value "cps")
-  "The value of the `*call-style-prop*` property for CPS functions")
-
-(defparameter *call-fn* (make-identifier :name "$call")
-  "Identifier of the $call function in the runtime")
-
-(defparameter *cps-lambda-fn* (make-identifier :name "$cpsLambda")
-  "Runtime function that accepts a function-expression and returns the same function with
-   the $callStyle property set to 'cps'.")
-
 ;;;; Scope tracking 
-
-(defparameter *function-decls-in-scope* nil
-  "A list of names of currently-visible function-decls.  We can use this to
-   determine which calls need to be indirected through $call, and which can
-   be 'inlined' as unchecked CPS calls.")
 
 (defparameter *in-local-scope* nil
   "T when the lexical scope is currently inside a function decl, NIL when the
@@ -67,10 +46,6 @@
   "Execute BODY with *IN-LOCAL-SCOPE* bound to T"
   `(let ((*in-local-scope* t))
     ,@body))
-
-(defun function-in-scope-p (name)
-  "Return non-NIL if a function-decl with name NAME is currently visible in scope"
-  (member name *function-decls-in-scope* :test 'equal))
 
 ;;;; Statement tails 
 ;;;
@@ -225,101 +200,48 @@
                 (function-decl-body elm)
                 (append (function-decl-body elm) (list #s(return-statement))))))
     (without-statement-tail             ; Each function starts with a fresh statement-tail
-      (list
-       (make-function-decl :name (function-decl-name elm)
-                           :parameters (cons *cont-name* (function-decl-parameters elm))
-                           :body (in-local-scope
-                                   (transform 'cps body)))
-       (make-binary-operator :op-symbol :assign
-                             :left-arg (make-property-access :field *call-style-prop*
-                                                             :target (make-identifier :name (function-decl-name elm)))
-                             :right-arg *cps-call-style*)))))
+      (make-function-decl :name (function-decl-name elm)
+                          :parameters (cons *cont-name* (function-decl-parameters elm))
+                          :body (in-local-scope
+                                  (transform 'cps body))))))
 
-(defun make-call-style-guard (fn-name parameters)
-  "Builds an if statement that checks whether the incoming continuation argument is a function value;
-   if it isn't, then (on the assumption that a direct-style call has been mistakenly made) re-calls
-   this function (whose name is FN-NAME) with a default continuation parameter (`$id`) followed by
-   the original incoming parameters."
-  (make-if-statement
-   :condition
-   (make-binary-operator :op-symbol :not-equals
-                         :left-arg (make-unary-operator :op-symbol :typeof
-                                                        :arg *cont-id*)
-                         :right-arg (make-string-literal :value "function"))
-   :then-statement
-   (make-return-statement :arg (make-fn-call :fn (make-identifier :name fn-name)
-                                             :args (mapcar (lambda (p) (make-identifier :name p))
-                                                           (cons *id-name* parameters))))))
 
 (defmethod transform ((xform (eql 'cps)) (elm function-expression))
-  ;; 1. Every function expression that is cps-transformed is given a name, to ensure
-  ;;    that we can add the "guard" expression for callers from the outside.
-  ;; 2. The body has an empty return statement appended if not every control path
-  ;;    has an explicit return.
-  (let ((fn-name (if (function-expression-name elm)
-                                      (function-expression-name elm)
-                                      (genvar)))
-        (new-parameters (cons *cont-name* (function-expression-parameters elm)))
+  ;; The body has an empty return statement appended if not every control path
+  ;; has an explicit return.
+  (let ((new-parameters (cons *cont-name* (function-expression-parameters elm)))
         (body (if (explicit-return-p (function-expression-body elm))
                 (function-expression-body elm)
                 (append (function-expression-body elm) (list #s(return-statement))))))
     (without-statement-tail             ; Each function starts with a fresh statement-tail
-      (make-fn-call :fn *cps-lambda-fn*
-                    :args (list
-                           (make-function-expression :name fn-name
-                                                     :parameters new-parameters
-                                                     :body (in-local-scope
-                                                             (cons
-                                                              (make-call-style-guard fn-name new-parameters)
-                                                              (transform 'cps body)))))))))
-
-
-(defun inlineable-cps-call-p (elm)
-  "Return non-NIL if it is definitely safe for ELM to be used as the target
-   of an inline cps call"
-  (and (identifier-p elm)
-       (function-in-scope-p (identifier-name elm))))
+      (make-function-expression :name (function-expression-name elm)
+                                :parameters new-parameters
+                                :body (in-local-scope
+                                        (transform 'cps body))))))
 
 (defmethod transform ((xform (eql 'cps)) (elm return-statement))
   (with-slots (arg) elm
     (let ((new-fn-call
-           (cond
-             ;; Inlined tail call (pass continuation to function)
-             ((and (fn-call-p arg)
-                   (inlineable-cps-call-p (fn-call-fn arg)))
-              (without-statement-tail
-                (make-fn-call :fn (fn-call-fn arg)
-                              :args (cons *cont-id*
-                                          (mapcar (lambda (item)
-                                                    (transform 'cps item))
-                                                  (fn-call-args arg))))))
-
-             ;; Indirected tail call (pass continuation to $call)
-             ((fn-call-p arg)
-              (without-statement-tail
-                (make-fn-call :fn *call-fn*
-                              :args (list (fn-call-fn arg)
-                                          *cont-id*
-                                          (make-special-value :symbol :this)
-                                          (make-array-literal :elements
-                                                              (mapcar (lambda (item)
-                                                                        (transform 'cps item))
-                                                                      (fn-call-args arg)))))))
-
-             ;; Simple return (call continuation directly)
-              (t
-               (without-statement-tail
-                 (make-fn-call :fn *cont-id*
-                               :args (unless (null (return-statement-arg elm))
-                                       (list (transform 'cps (return-statement-arg elm))))))))))
-
+           (if (fn-call-p arg)
+             ;; Tail call
+             (without-statement-tail
+               (make-fn-call :fn (fn-call-fn arg)
+                             :args (cons *cont-id*
+                                         (mapcar (lambda (item)
+                                                   (transform 'cps item))
+                                                 (fn-call-args arg)))))
+             ;; Simple return
+             (without-statement-tail
+               (make-fn-call :fn *cont-id*
+                             :args (unless (null (return-statement-arg elm))
+                                     (list (transform 'cps (return-statement-arg elm)))))))))
       (make-return-statement :arg new-fn-call))))
 
 (defun make-void-continuation (current-cont)
   "Returns a function expression that accepts an argument (which it ignores),
    and then calls CURRENT-CONT with no arguments.  This allows us to preserve
    the behaviour of functions that return no value."
-  (make-function-expression
+  (make-continuation-function
    :parameters (list (genvar "dummy"))
    :body (list (make-return-statement :arg
                                       (make-fn-call :fn current-cont
@@ -335,57 +257,28 @@
 ;;; in (METHOD TRANSFORM ((EQL 'CPS) RETURN-STATEMENT)).
 (defmethod transform ((xform (eql 'cps)) (elm fn-call))
   (let ((new-fn-call
-         (cond
-           ;; "Inlined" tailless call
-           ((and (null *statement-tail*)
-                 (inlineable-cps-call-p (fn-call-fn elm)))
-            (make-fn-call
-             :fn (fn-call-fn elm)
-             :args (cons (make-void-continuation *cont-id*)
-                         (mapcar (lambda (item)
-                                   (transform 'cps item))
-                                 (fn-call-args elm)))))
+         (if (null *statement-tail*)
+           ;; Tailless call
+           (make-fn-call
+            :fn (fn-call-fn elm)
+            :args (cons (make-void-continuation *cont-id*)
+                        (mapcar (lambda (item)
+                                  (transform 'cps item))
+                                (fn-call-args elm))))
 
-           ;; "Inlined" call w/statement-tail
-           ((and (identifier-p (fn-call-fn elm))
-                 (inlineable-cps-call-p (fn-call-fn elm)))
-            (make-fn-call
-             :fn (fn-call-fn elm)
-             :args (consume-statement-tail (statement-tail)
-                     (cons (make-function-expression :parameters (list (genvar "dummy"))
-                                                     :body (transform 'cps statement-tail))
-                           (mapcar (lambda (item)
-                                     (transform 'cps item))
-                                   (fn-call-args elm))))))
-
-           ;; Indirected tailless call
-           ((null *statement-tail*)
-            (make-fn-call :fn *call-fn*
-                          :args (list (fn-call-fn elm)
-                                      (make-void-continuation *cont-id*)
-                                      (make-special-value :symbol :this)
-                                      (make-array-literal :elements (fn-call-args elm)))))
-
-           ;; Indirected call w/statement-tail
-           (t
-            (make-fn-call :fn *call-fn*
-                          :args
-                          (consume-statement-tail (statement-tail)
-                            (list (fn-call-fn elm)
-                                  (make-function-expression :parameters (list (genvar "dummy"))
-                                                            :body (transform 'cps statement-tail))
-                                  (make-special-value :symbol :this)
-                                  (make-array-literal :elements (fn-call-args elm)))))))))
+           ;; Call w/statement-tail
+           (make-fn-call
+            :fn (fn-call-fn elm)
+            :args (consume-statement-tail (statement-tail)
+                    (cons (make-continuation-function :parameters (list (genvar "dummy"))
+                                                      :body (transform 'cps statement-tail))
+                          (mapcar (lambda (item)
+                                    (transform 'cps item))
+                                  (fn-call-args elm))))))))
     (if *in-local-scope*
       (make-return-statement :arg new-fn-call)
       new-fn-call)))
-            
-(defmethod transform :around ((xform (eql 'cps)) (elm-list list))
-  (let ((*function-decls-in-scope* (append (mapcar 'function-decl-name
-                                                   (collect-in-scope elm-list 'function-decl))
-                                           *function-decls-in-scope*)))
-    (call-next-method)))
-  
+
 (defmethod transform ((xform (eql 'cps)) (elm-list list))
   (unless (null elm-list)
     (let ((statements-consumed nil)
@@ -423,8 +316,8 @@
          (consume-statement-tail (statement-tail)
            (let ((new-call  (make-fn-call :fn (fn-call-fn initializer)
                                           :args (cons
-                                                 (make-function-expression :parameters (list name)
-                                                                           :body (transform 'cps statement-tail))
+                                                 (make-continuation-function :parameters (list name)
+                                                                             :body (transform 'cps statement-tail))
                                                  (fn-call-args initializer)))))
              (make-return-statement :arg new-call))))
         (t

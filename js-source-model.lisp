@@ -163,6 +163,13 @@
   parameters
   body)
 
+;;;; "Administrative lambda" source elements
+(defstruct (continuation-function (:include function-expression))
+  "A function expression that is used as a continuation")
+
+(defstruct (thunk-function (:include function-expression))
+  "A function expression that is used as a thunk in a boxed trampoline result")
+
 ;;;; JWACS extended syntax  
 (defstruct (suspend-statement (:include source-element)))
 
