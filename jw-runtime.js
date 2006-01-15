@@ -70,7 +70,10 @@ function $trampoline(origThunk)
 // `args` with `this` set to `thisObj`.
 function $callFromDirect(f, thisObj, args)
 {
+  var argArray = new Array;
+  for(var idx = 0; idx < args.length; idx++)
+    argArray[idx] = args[idx];
   return $trampoline(function() {
-                       return f.apply(thisObj, [$id].concat(args));
+                       return f.apply(thisObj, [$id].concat(argArray));
                      });
 }
