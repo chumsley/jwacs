@@ -30,7 +30,8 @@
                (:file "test-explicitize")
                (:file "test-cps-transformation")
                (:file "test-loop-transformation")
-               (:file "test-trampoline-transformation"))))
+               (:file "test-trampoline-transformation")
+               (:file "test-runtime-transformation"))))
     :depends-on (jwacs))
 
 (defmethod perform ((o test-op) (c (eql (find-system 'jwacs-tests))))

@@ -1,4 +1,4 @@
-//// jw-rt.js
+//// jw-runtime.js
 ///
 /// This is the jwacs runtime.  All of the variables and functions
 /// defined in this file should be present whenever a jwacs-compiled
@@ -6,42 +6,50 @@
 
 //TODO Wrap this all into a namespace
 
-/// The identity function
+// The identity continuation.  We assume that a continuation will only
+// ever be resumed or called from within a trampoline loop, which means
+// that $id(10) should return 10 as a boxed result rather than just
+// returning a raw value of 10.
 function $id(x)
 {
-	return x;
+  return {done:true, result:x};
 }
+$id.$isK = true;
 
 // Tail calls from the global scope should pass $id as the continuation.
 var $k = $id;
 
+// Returns function expression `fn` with its $jw property
+// set to true.  This allows us to cps-convert function expressions
+// while still treating them as "primitive" values.
+function $lambda(fn)
+{
+  fn.$jw = true;
+  return fn;
+}
+
+// Returns function expression `fn` with its $isK property
+// set to true.  This allows us to detect continuations at
+// runtime while still creating them in a single step (ie,
+// without always having to assign them to an intermediate
+// variable first)
+function $makeK(fn)
+{
+  fn.$isK = true;
+  return fn;
+}
+
 // Call function `f` in either CPS or direct style, depending upon
-// the value of `f`'s  $callStyle property.  The continuation `k`
+// the value of `f`'s  $jw property.  The continuation `k`
 // will be called with the results regardless of the style that
 // `f` is called in.  `thisObj` specifies the current `this`
 // context, and `args` is an Array of arguments to pass to `f`.
 function $call(f, k, thisObj, args)
 {
-  if(f.$callStyle == 'cps')
+  if(f.$jw)
     return f.apply(thisObj, [k].concat(args));
   else
     return k(f.apply(thisObj, args));
-}
-
-// Returns function expression `fn` with its $callStyle property
-// set to "cps".  This allows us to cps-convert function expressions
-// while still treating them as "primitive" values.
-function $cpsLambda(fn)
-{
-  fn.$callStyle = 'cps';
-  return fn;
-}
-
-// The identity function for trampoline-style functions.  Returns
-// a return object whose `result` field is set to `x`.
-function $trampolineId(x)
-{
-  return {done:true, result:x};
 }
 
 // "Pogo-stick" function for running a call to a trampoline-style
@@ -58,20 +66,11 @@ function $trampoline(origThunk)
 	return ret.result;
 }
 
-// Returns a trampoline result object that is appropriate for
-// a function call that applies `f` to `args` in the current `this`
-// context specified by `thisObj`.
-//
-// If `f` has an `$isTrampolined` field that is set to true, then
-// this function returns a thunk result containing a call to `f`.
-// Otherwise, it calls `f` and wraps the result in a trampoline
-// result object.
-function $trampolineResult(f, thisObj, args)
+// Start a trampoline loop that calls `f` on the arguments in
+// `args` with `this` set to `thisObj`.
+function $callFromDirect(f, thisObj, args)
 {
-  if(f.$isTrampolined)
-    return { done: false,
-             thunk: function() { return f.apply(thisObj, args); }};
-  else
-    return { done: true, 
-             result: f.apply(thisObj, args) };
+  return $trampoline(function() {
+                       return f.apply(thisObj, [$id].concat(args));
+                     });
 }
