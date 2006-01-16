@@ -33,6 +33,12 @@
    at all other times (so that SBCL won't drop into the debugger when
    we're trying to load parse-javascript.lisp).")
 
+;;;; Custom ASDF file types
+
+(defclass js-file (static-file) ())
+(defmethod source-file-type ((c js-file) (s module)) "js")
+(defmethod operation-done-p (o (c js-file))  t)
+
 ;;;; System definition
 (asdf:defsystem jwacs 
   :version "0.1"
@@ -42,6 +48,7 @@
   :components ((:module "external"
                         :components
                         ((:file "yacc")))
+               (:js-file "jw-runtime")
                (:file "package")
                (:file "lexer-macros")
                (:file "lex-javascript")
@@ -56,7 +63,8 @@
                (:file "ugly-print")
                (:file "loop-transformation")
                (:file "trampoline-transformation")
-               (:file "runtime-transformation"))
+               (:file "runtime-transformation")
+               (:file "compiler"))
   :depends-on (cl-ppcre))
 
 (defmethod perform ((o test-op) (c (eql (find-system 'jwacs))))
