@@ -110,6 +110,13 @@
 
 (defmethod transform ((xform (eql 'uniquify)) (elm function-decl))
   (with-added-environment
+
+    ;; Make sure that the function name has a binding in the current environment
+    ;; (It will if this source-element was part of a list, but it won't if this
+    ;; is a singleton source element)
+    (unless (find-binding (function-decl-name elm))
+      (add-ugly-binding (function-decl-name elm)))
+
     (let ((new-params (mapcar #'add-ugly-binding (function-decl-parameters elm))))
       (make-function-decl :name (find-binding (function-decl-name elm))
                           :parameters new-params
