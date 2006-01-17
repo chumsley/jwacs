@@ -6,5 +6,6 @@
 (defpackage :jwacs
   (:use :cl :cl-ppcre)
   (:nicknames :jw)
-  (:export #:parse))
-
+  (:export
+   #:parse
+   #:process))

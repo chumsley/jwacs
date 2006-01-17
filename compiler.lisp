@@ -19,12 +19,11 @@
 (defun pipeline-compile (elm &optional (pipeline *compiler-pipeline*))
   "Applies the transformations specified in PIPELINE to ELM in order.
    ELM may be either a source-element or a list of source-elements."
-  (when pipeline
-    (format t "~&~A~%" (car pipeline)))   ;TEST
-  (if (null pipeline)
-    elm
-    (pipeline-compile (transform (car pipeline) elm)
-                      (cdr pipeline))))
+  (let ((*genvar-counter* 0))
+    (if (null pipeline)
+      elm
+      (pipeline-compile (transform (car pipeline) elm)
+                        (cdr pipeline)))))
 
 (defun parse-file (path)
   "Load the file at PATH and parse it into a js/jw source model"
@@ -36,11 +35,11 @@
                       finally (return (apply 'concatenate 'string lines)))))
       (parse text))))
 
-(defun process (path &key out-path (include-runtime t) (pretty-output t))
-  "Parses the file or files specified by PATH and compiles them into a single
+(defun process (pathspecs &key out-path (include-runtime t) (pretty-output t))
+  "Parses the file or files specified by PATHSPECS and compiles them into a single
    output .js file, which will be written to OUT-PATH.
 
-   PATH can be a string, a pathname, a list of strings, or a list of pathnames.
+   PATHSPECS can be a string, a pathname, a list of strings, or a list of pathnames.
    The pathnames may include wildcards.
 
    If OUT-PATH is not specified, then the output will be written to a
@@ -56,43 +55,51 @@
 
    If PRETTY-OUTPUT is non-NIL, the output will be pretty-printed; if it is
    non-NIL, then output will be obfuscated."
-  (let* (
-         ;; Environment setup
-         (*pretty-mode* pretty-output)
-         (*opt-space* (if pretty-output " " ""))
-         (*genvar-counter* 0)
-         
-         ;; Actual locals
-         (input-paths (if (listp path)
-                        (mapcan 'directory path)
-                        (directory path)))
+  (let* ((input-paths (find-pathspec-matches pathspecs))
          (input-elms (mapcan 'parse-file input-paths))
-         (output-elms (pipeline-compile input-elms))
-         (target (if out-path
-                   out-path
-                   (let ((namesake (car (last input-paths))))
-                     (make-pathname :host (pathname-host namesake)
-                                    :device (pathname-device namesake)
-                                    :directory (pathname-directory namesake)
-                                    :name (pathname-name namesake)
-                                    :version (pathname-version namesake)
-                                    :type "js")))))
+         (target (compute-output-path out-path (car (last input-paths)))))
+
+    ;; Save the user from themselves if they attempt to overwrite an input file
+    (when (member target input-paths :test 'pathname-match-p)
+      (error "Output target ~S matches an input path ~S"
+             target
+             (car (member target input-paths :test 'pathname-match-p))))
+             
+    ;; Emit the compiled elements
     (with-open-file (out target :direction :output :if-exists :supersede :if-does-not-exist :create)
       (when include-runtime
         (emit-runtime out :pretty-output pretty-output))
-      (pretty-print output-elms out))
+      (emit-elms (pipeline-compile input-elms) out :pretty-output pretty-output))
 
     ;; Return the path to the output filename
     target))
 
+(defun find-pathspec-matches (pathspecs)
+  "Returns a list of pathnames that match PATHSPECS.  PATHSPECS may be either
+   a string, a pathname, or a list of pathnames.  It may include wildcards."
+  (if (listp pathspecs)
+    (mapcan 'directory pathspecs)
+    (directory pathspecs)))
+
+(defun compute-output-path (out-path default-pathname)
+  "If OUT-PATH is non-NIL, returns it.  Otherwise, builds a new pathname
+   whose extension is '.js' and whose name is the same as that of
+   DEFAULT-PATHNAME."
+  (if out-path
+    out-path
+    (merge-pathnames (make-pathname :type "js") default-pathname)))
 
 (defun emit-runtime (out-stream &key pretty-output)
   "Prints the jwacs runtime to OUT-STREAM.  If PRETTY-OUTPUT is NIL,
    the runtime will be printed compactly."
-  (let* ((*pretty-mode* pretty-output)
-         (*opt-space* (if pretty-output " " ""))
-         (fname (asdf:component-pathname
+  (let* ((fname (asdf:component-pathname
                  (asdf:find-component (asdf:find-system :jwacs) "jw-runtime")))
          (elms (parse-file fname)))
-    (pretty-print elms out-stream)))         
-    
+    (emit-elms elms out-stream :pretty-output pretty-output)))         
+
+(defun emit-elms (elms out-stream &key pretty-output)
+  "Prints ELMS to OUT-STREAM.  If PRETTY-OUTPUT is NIL, the elements will
+   be printed compactly"
+  (let ((*pretty-mode* pretty-output)
+         (*opt-space* (if pretty-output " " "")))
+    (pretty-print elms out-stream)))
