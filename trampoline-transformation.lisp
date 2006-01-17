@@ -54,9 +54,10 @@
                           (cons *result-id* elm)))))     
 
 (defmethod transform ((xform (eql 'trampoline)) (elm return-statement))
-  (if (fn-call-p (return-statement-arg elm))
-    (make-return-statement :arg (make-thunk elm))
-    (make-return-statement :arg (make-result (return-statement-arg elm)))))
+  (with-slots (arg) elm
+    (if (fn-call-p (return-statement-arg elm))
+      (make-return-statement :arg (make-thunk (make-return-statement :arg (transform 'trampoline arg))))
+      (make-return-statement :arg (make-result (transform 'trampoline arg))))))
 
 ;;;; `suspend` and `resume` transformation
 

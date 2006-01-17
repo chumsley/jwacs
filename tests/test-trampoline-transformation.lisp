@@ -38,6 +38,17 @@
                                                                 #S(fn-call :fn #S(identifier :name "fn")
                                                                            :args (#S(numeric-literal :value 4))))))))))))
 
+(deftest trampoline/function-expression-recursion/1 :notes trampoline
+  (test-transform 'trampoline (parse "
+        return factorial(function(JW0) { return $k(n * JW0); }, n-1);"))
+  #.(parse "
+        return {done: false,
+                thunk: function() {
+                        return factorial(function(JW0) {
+                                           return {done: false, thunk: function() { return $k(n * JW0); }};
+                                         }, n - 1);
+                       }};"))
+    
 (deftest trampoline/suspend/1 :notes trampoline
   (transform 'trampoline (parse "
     if(flag)
