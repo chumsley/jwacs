@@ -33,7 +33,7 @@
                       until (null line)
                       collect line into lines
                       collect (format nil "~%") into lines
-                      finally return (apply 'concatenate 'string lines))))
+                      finally (return (apply 'concatenate 'string lines)))))
       (parse text))))
 
 (defun process (path &key out-path (include-runtime t) (pretty-output t))
