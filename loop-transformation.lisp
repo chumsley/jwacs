@@ -1,173 +1,215 @@
 ;;;; loop-transformation.lisp
 ;;; 
-;;;  Implements the transformation of looping constructs (while, do-while, for, for-in) into
-;;;  their recursive-function calling equivalents.
+;;
+;; LOOP-CANONICALIZE: turn loops into a form more easily EXPLICITIZE'd and CPS'ed
+;;
+;;  Basically we remove the test into an if statement in the loop, remove any variable declarations inside the loop
+;;  and annotate at the correct places with "break" and "continue"
+;;
+;;
+;; We'll also turn everything into a while loop, so we only have one loop type to deal with later on.
 
 (in-package :jwacs)
 
-;; =====================
-;; === WHILE LOOP ===
-;; * Original
-;;
-;; while(test)
-;; {
-;;   body;
+;; ===================================
+;; WHILE LOOP
+
+;; This is the most basic loop, and is going to be our base case.
+;; Here we move all variable declarations OUT of the while's body (keeping assignment inside).
+;; We move the test into an if-break statement inside the body, and we add explicit calls 
+;; to break and continue (which makes life easier for the rest of our transformations).
+
+
+;; while(test) {
+;;    var x = rval;
+;;    foo();
 ;; }
 ;;
-;; * Transformed
+;; BECOMES ==>
 ;;
-;; var while_var = function whileloop()
-;; {
-;;   if(test)
-;;     {
-;;       body();
-;;       whileloop();
-;;     }
+;; var x;
+;; while(true) {
+;;   if(!test)
+;;     break;
+;;   x = rval;
+;;   foo();
+;;   continue;
 ;; }
-;; while_var();
 
-(defmethod transform ((xform (eql 'loop-to-function)) (elm while))
-  (let ((function-var (genvar))
-        (function-name (genvar)))
-    (make-statement-block 
-     :statements
-     (list 
-      (make-var-decl-statement 
-       :var-decls 
-       (list
-        (make-var-decl 
-         :name function-var
-         :initializer (make-function-expression 
-                       :name function-name
-                       :parameters nil
-                       :body (list (make-if-statement 
-                                    :condition (while-condition elm)
-                                    :then-statement (make-statement-block 
-                                                     :statements (append (transform-body xform #'while-body elm)
-                                                                         (list (make-fn-call 
-                                                                                :fn (make-identifier :name function-name)
-                                                                                :args nil))))
-                                    :else-statement nil))))))
-      (make-fn-call :fn (make-identifier :name function-var) :args nil)))))
 
-		      
+(defmethod transform ((xform (eql 'loop-canonicalize)) (elm while))
+  (let ((new-decls (mapcar (lambda (decl)  
+                             (make-var-decl :name (var-decl-name decl) :initializer nil))
+                           (collect-in-scope (while-body elm) 'var-decl)))
+        (new-while (make-while 
+                    :condition (make-special-value :symbol :true)
+                    :body (make-statement-block 
+                           :statements (append (list (make-if-statement 
+                                                      :condition (make-unary-operator :op-symbol :logical-not :arg (while-condition elm))
+                                                      :then-statement (make-break-statement :label nil)))
+                                               (statement-block-statements (transform 'loop-canonicalize 
+                                                                                      (transform 'loop-canonicalize-in-body 
+                                                                                                 (while-body elm))))
+                                               (list (make-continue-statement :label nil)))))))
+    ;; Let's try to be polite and not generate ugly braces when we don't need them
+    (if (null new-decls)
+        new-while
+        (make-statement-block :statements (list                                            
+                                           (make-var-decl-statement :var-decls new-decls)
+                                           new-while)))))
 
-(defun transform-body (xform body-fn elm)
-  "Performs the XFORM transformation on the 'body' of ELM (extracted using
-  BODY-FN).  The return value is guaranteed to be a list of statements."
-  (let* ((transformed-body (transform xform (funcall body-fn elm)))
-         (transformed-stmts (if (statement-block-p transformed-body)
-                                (statement-block-statements transformed-body)
-                                transformed-body)))
-    (if (listp transformed-stmts)
-        transformed-stmts
-        (list transformed-stmts))))
 
-;; =====================
-;; === DO-WHILE LOOP ===
-;; * Original
+;; ===================================
+;; DO-WHILE LOOP
+ 
+;; DO-WHILE loops are converted into straight WHILE loops.
+;; An if statement is added to skip the test when this is the first time through the loop.
+;; This approach was chosen over using the while test around the continue (ie "if(test) continue;" instead of "if(!test) break;")
+;; even though it is uglier, because if there was a label on this loop and a nested loop used a labelled continue, 
+;; that labelled continue would also have to have the test around it.
 ;;
+;; In short, it's uglier but it keeps the test in one place.
+
+
 ;; do {
-;;   body;
+;;  var x = rval;
+;;  foo();
 ;; } while(test);
 ;;
-;; * Transformed 
+;; BECOMES ==>
 ;;
-;; var dowhile_var = function dowhileloop()
-;; {
-;;   body();
-;;   if(test) {
-;;     dowhileloop();
+;; var first = true;
+;; while(true) {
+;;   if(!first) {
+;;     if(!test) 
+;;      break;
+;;     } 
 ;;   }
+;;   else {
+;;     first = false;
+;;   } 
+;;   x=rval;
+;;   foo();
+;;   continue;
 ;; }
-;; dowhile_var();
 
 
-(defmethod transform ((xform (eql 'loop-to-function)) (elm do-statement))
-  (let ((function-var (genvar))
-        (function-name (genvar)))
-    (make-statement-block 
-     :statements 
-     (list 
-      (make-var-decl-statement 
-       :var-decls (list 
-                   (make-var-decl 
-                    :name function-var
-                    :initializer (make-function-expression 
-                                  :name function-name
-                                  :parameters nil			       
-                                  :body  (append (transform-body xform #'do-statement-body elm)
-                                                 (list (make-if-statement :condition (do-statement-condition elm)
-                                                                          :then-statement (make-statement-block
-                                                                                           :statements (list 
-                                                                                                        (make-fn-call 
-                                                                                                         :fn (make-identifier :name function-name) 
-                                                                                                         :args nil)))
-                                                                          :else-statement nil)))))))
-      (make-fn-call :fn (make-identifier :name function-var) :args nil)))))
-
-							
-
-
-;; =====================
-;; ===   FOR LOOP    ===
-;; * Original
-;;
-;; for(expressions; test; loop_expr) 
-;; {
-;;   body();
-;; }
-;;
-;; * Transformed
-;;
-;; expressions;
-;; var function_var = function forloop()
-;; {
-;;   if(test) {
-;;     body
-;;     loop_expr;
-;;     forloop();
-;;   }
-;; }
-;; function_var();
-
-(defmethod transform ((xform (eql 'loop-to-function)) (elm for))
-  (let ((function-var (genvar))
-	(function-name (genvar)))
+(defmethod transform ((xform (eql 'loop-canonicalize)) (elm do-statement))
+  (let* ((firstp (genvar)) ; firstp is the variable we use to determine if this is the first iteration through the loop
+         (new-decls (append (mapcar (lambda (decl)  (make-var-decl :name (var-decl-name decl) :initializer nil))
+                                    (collect-in-scope (do-statement-body elm) 'var-decl))
+                            (list (make-var-decl :name firstp :initializer (make-special-value :symbol :true)))))
+         (new-while (make-while 
+                     :condition (make-special-value :symbol :true)
+                     :body (make-statement-block
+                            :statements (append
+                                         (list (make-if-statement
+                                                :condition (make-unary-operator :op-symbol :logical-not :arg (make-identifier :name firstp))
+                                                :then-statement (make-statement-block 
+                                                                 :statements (list (make-if-statement
+                                                                                    :condition (make-unary-operator 
+                                                                                                :op-symbol :logical-not 
+                                                                                                :arg (do-statement-condition elm))
+                                                                                    :then-statement (make-break-statement :label nil))))
+                                                :else-statement (make-binary-operator
+                                                                 :op-symbol :assign
+                                                                 :left-arg (make-identifier :name firstp)
+                                                                 :right-arg (make-special-value :symbol :false))))
+                                           (statement-block-statements (transform 'loop-canonicalize (transform 'loop-canonicalize-in-body (do-statement-body elm))))
+                                           (list (make-continue-statement :label nil)))))))
     (make-statement-block
-     :statements
-     (list (for-initializer elm)
-	   (make-var-decl-statement 
-	    :var-decls (list
-			(make-var-decl 
-			 :name function-var
-			 :initializer (make-function-expression 
-				       :name function-name 
-				       :parameters nil
-				       :body (list (make-if-statement 
-						    :condition (for-condition elm)
-						    :then-statement (make-statement-block 
-								     :statements
-								     (append (transform-body xform #'for-body elm)
-									     (list (for-step elm))
-									     (list (make-fn-call 
-										    :fn (make-identifier :name function-name) 
-										    :args nil))))))))))
-	   (make-fn-call :fn (make-identifier :name function-var) :args nil)))))
+     :statements (list
+                  (make-var-decl-statement :var-decls new-decls)
+                  new-while))))
+
+;; ===================================
+;; FOR LOOP
+
+;; For loops are converted to while loops as well.
+;; This is fairly straight forward, we move the initializer to above the while and the 
+;; loop statement to just before the continue;
 
 
+
+;; for(var x=0; x<10; x++) {
+;;   foo();
+;; }
+;;
+;; ==>
+;;
+;; var x=0;
+;; while(true) {
+;;  if(!(x<10)) 
+;;   break;
+;;  foo();
+;;  x++;
+;;  continue;
+;; }
+
+
+(defmethod transform ((xform (eql 'loop-canonicalize)) (elm for))
+ (let* ((new-decls (mapcar (lambda (decl)  (make-var-decl :name (var-decl-name decl) :initializer nil))
+                           (collect-in-scope (for-body elm) 'var-decl)))
+        (new-header-statements (if (null new-decls)
+                                   (list (for-initializer elm))
+                                   (list (make-var-decl-statement :var-decls new-decls)
+                                         (for-initializer elm))))
+       (new-loop (make-while :condition (make-special-value :symbol :true)
+                             :body (make-statement-block 
+                                    :statements (append
+                                                 (list (make-if-statement
+                                                       :condition (make-unary-operator :op-symbol :logical-not :arg (for-condition elm))
+                                                       :then-statement (make-break-statement :label nil)))
+                                                 (statement-block-statements (transform 'loop-canonicalize (transform 'loop-canonicalize-in-body (for-body elm))))
+                                                 (list (for-step elm))
+                                                 (list (make-continue-statement :label nil)))))))
+   (if (null new-header-statements)
+       new-loop
+       (make-statement-block
+        :statements (append
+                     new-header-statements
+                     (list new-loop))))))
+
+
+
+;; =========================
+;; Helper transform
+
+;; This transformation is for use in the body of while loops-- it converts all var-decls into
+;; regular assignments. 
+;; This needs to happen after you've collected any var-decls to be placed before their appropriate looping statements
+
+(defmethod transform ((xform (eql 'loop-canonicalize-in-body)) (elm var-decl-statement))
+  (let ((assignments (mapcar (lambda (var-decl) (if (not (null (var-decl-initializer var-decl)))
+                                                    (make-binary-operator :op-symbol :assign
+                                                                          :left-arg (make-identifier :name (var-decl-name var-decl))
+                                                                          :right-arg (var-decl-initializer var-decl))))
+                                     (var-decl-statement-var-decls elm))))
+    (if (> (length assignments) 1) 
+        (make-statement-block :statements assignments)
+        (car assignments))))
 
 
 ;; ===================
-;; === FOR-IN LOOP ===
-;; * Original
+;;  FOR-IN LOOP 
+
+;; For-in loops are rather a strange beast.  We can't reproduce the for-in functionality
+;; easily (or at all) without using for-in. Ugh.
 ;;
+;; So we keep the for-in, but we remove the body and generate an array in that for-in
+;; over which we will apply the body.  Because the for-in is just generating a temporary
+;; array, we know this is safe for the CPS transform.
+;;
+;; Here I'm going to cheat a little and convert the for-in to a for-in and while loop, and then 
+;; run the loop-canonicalize on the while loop to get a properly transformed while loop.
+
+
 ;; for(var_x in var_y)
 ;; {
 ;;   body;
 ;; }
 ;;
-;; * Transformed
+;; BECOMES ==>
 ;;
 ;; new_array = new Array();
 ;; new_count=0;
@@ -175,38 +217,38 @@
 ;; {
 ;;   new_array[new_count++]=new_prop;
 ;; }
-;; function forinloop(new_count_rec)
-;; {
-;;   if(new_count_rec<new_array.length)
-;;     {
-;;       var_x = new_array[new_count_rec++];
-;;       body;
-;;       forinloop(new_count_rec);
-;;     }
+;; while(new_count_rec<new_array.length) {
+;;   var_x = new_array[new_count_rec++];
+;;   body;
 ;; }
-;; forinloop(0);
+;;
+;; BECOMES ==> something that has a loop-canonicalized while. :) 
 
-(defmethod transform ((xform (eql 'loop-to-function)) (elm for-in))
-  (let ((new-array (genvar))
-        (new-count (genvar))
-        (new-prop (genvar))
-        (function-var (genvar))
-        (function-name (genvar))
-        (new-count-rec (genvar)))
+(defmethod transform ((xform (eql 'loop-canonicalize)) (elm for-in))
+  (let* ((new-array (genvar))     ; the array to which we dump the collected data
+         (new-count (genvar))     ; a counter for our array-- basically we're just adding a property with a number as its key
+         (new-prop (genvar))      ; the iterator var
+         (new-count-rec (genvar)) ; the counter for our while loop (ya, ya, could reuse new-count I guess)
+         (new-while (make-while :condition (make-binary-operator 
+                                            :op-symbol :less-than
+                                            :left-arg (make-identifier :name new-count-rec)
+                                            :right-arg (make-property-access 
+                                                        :target (make-identifier :name new-array)
+                                                        :field (make-string-literal :value "length")))
+                                :body (make-statement-block
+                                       :statements 
+                                       (append
+                                        (list (make-forin-assign elm new-array new-count-rec))
+                                        (statement-block-statements (for-in-body elm)))))))
+                                                
     (make-statement-block
      :statements
      (list (make-var-decl-statement 
-            :var-decls (list 
-                        (make-var-decl 
-                         :name new-array
-                         :initializer (make-new-expr 
-                                       :object-name (make-identifier :name "Array") 
-                                       :args nil))))
-           (make-var-decl-statement
-            :var-decls (list 
-                        (make-var-decl 
-                         :name new-count
-                         :initializer (make-numeric-literal :value 0))))
+            :var-decls (list (make-var-decl :name new-array :initializer (make-new-expr 
+                                                                          :object-name (make-identifier :name "Array") 
+                                                                          :args nil))
+                             (make-var-decl :name new-count :initializer (make-numeric-literal :value 0))
+                             (make-var-decl :name new-count-rec :initializer (make-numeric-literal :value 0))))           
            (make-for-in 
             :binding (make-var-decl-statement
                       :var-decls (list 
@@ -221,36 +263,13 @@
                                                          :op-symbol :post-incr
                                                          :arg (make-identifier :name new-count)))
                                       :right-arg (make-identifier :name new-prop)))))
-           (make-var-decl-statement
-            :var-decls (list 
-                        (make-var-decl 
-                         :name function-var 
-                         :initializer (make-function-expression
-                                       :name function-name
-                                       :parameters (list new-count-rec)
-                                       :body (list 
-                                              (make-if-statement 
-                                               :condition 
-                                               (make-binary-operator 
-                                                :op-symbol :less-than
-                                                :left-arg (make-identifier :name new-count-rec)
-                                                :right-arg (make-property-access 
-                                                            :target (make-identifier :name new-array)
-                                                            :field (make-string-literal :value "length")))
-                                               :then-statement 
-                                               (make-statement-block 
-                                                :statements (append  
-                                                             (list (make-forin-assign elm new-array new-count-rec))
-                                                             (transform-body xform #'for-in-body elm)
-                                                             (list (make-fn-call :fn (make-identifier :name function-name)
-                                                                                 :args (list (make-identifier :name new-count-rec))))))))))))
-           (make-fn-call :fn (make-identifier :name function-var)
-                         :args (list (make-numeric-literal :value 0)))))))
-
-
+           (transform xform new-while)))))
 											  
 
 (defun make-forin-assign (elm new-array new-count-rec)
+  "Creates the assignment that spoofs our iterating through the for-in collection. Just assigns the orignal iterator var
+   from the for-in a value from our new array of values, which we are iterating through using a while loop and the variable
+   new-count-rec"
   (let ((prop-access
 	 (make-property-access :target (make-identifier :name new-array)
 			       :field (make-unary-operator :op-symbol :post-incr

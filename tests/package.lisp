@@ -115,8 +115,8 @@
                 cps
                 explicitize
                 shift-function-decls
-                loop-to-function
                 uniquify
+                loop-canonicalize
                 in-local-scope
                 trampoline
                 runtime

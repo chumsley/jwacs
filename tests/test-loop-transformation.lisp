@@ -1,163 +1,88 @@
 (in-package :jwacs-tests)
 
-(defnote loop-to-function "tests for loop-to-function source transformation")
+;; canonicalization tests
 
-;;XXX These tests reflect the old notion of what loop translations should look like,
-;;     not the spanky new notion, so I'm commenting them out.
-;(deftest loop-to-function/while/1 :notes loop-to-function
-;  (with-fresh-genvar
-;    (transform 'loop-to-function
-;               (parse "x=0; while(x<4) { foo(); x++; }")))
-;  #.(parse "x=0; 
-;            {
-;            var JW0 = function JW1() {
-;              if(x<4) {
-;                foo();
-;                x++;
-;                JW1();
-;              }
-;            };         
-;           JW0();
-;           }"))
+(defnote loop-canonicalize "tests for canonicalize source transformation")
 
-                  
-;(deftest loop-to-function/do-while/1 :notes loop-to-function
-; (with-fresh-genvar
-;   (transform 'loop-to-function
-;	      (parse "x=0; do { foo(); x++; } while(x<4);")))
-; #.(parse "x=0;
-;           {
-;           var JW0 = function JW1() {
-;             foo();
-;             x++;
-;             if(x<4) {
-;               JW1();
-;             }
-;           };
-;           JW0();
-;           }"))
+;; ====================================
+;; WHILE LOOPS
 
-;(deftest loop-to-function/for/1 :notes loop-to-function
-;  (with-fresh-genvar
-;    (transform 'loop-to-function
-;               (parse "for(x=0; x<4; x++) { foo(); }")))
-;  #.(parse "{
-;             x=0;           
-;           var JW0 = function JW1() {
-;              if(x<4) {
-;               foo();
-;               x++;
-;               JW1();
-;              }
-;           };
-;           JW0();           
-;         }"))
 
-;(deftest loop-to-function/for-in/1 :notes loop-to-function
-; (with-fresh-genvar
-;   (transform 'loop-to-function
-;	      (parse "for(var x in obj) 
-;                      {
-;                        foo();
-;                      }")))
-; #.(parse " {
-;  var JW0 = new Array;
-;  var JW1 = 0;
-;  for(var JW2 in obj)
-;  {
-;    JW0[JW1++] = JW2;
-;  }
-;  var JW3 = function JW4(JW5) { if(JW5 < JW0.length)
-;  {
-;    var x = JW0[JW5++];
-    
-;    foo();
-    
-;    JW4(JW5);
-;  } };
-;  JW3(0);
-;}"))
+(deftest canonicalize/while/basic :notes  loop-canonicalize
+    (transform 'loop-canonicalize
+               (parse "x=0; while(x<4) { foo(); x++; }"))
+  #.(parse "x=0; while(true) { if(!(x<4)) break; foo(); x++; continue; }"))
 
-;(deftest loop-to-function/break/1 :notes loop-to-function
-;  (with-fresh-genvar
-;    (transform 'loop-to-function
-;               (parse "x=0;
-;                       while(x<4)
-;                       {
-;                         var y = foo(x++);
-;                         if(y == null)
-;                           break;
-;                       }")))
-;  #.(parse "x=0;
-;            {
-;              var JW0 = function JW1() {
-;                if(x < 4)
-;                {
-;                  var y = foo(x++);
-;                  if(y == null)
-;                    return;
-;                }
-;              };
-;            }"))
-                  
-;(deftest loop-to-function/continue/1 :notes loop-to-function
-;  (with-fresh-genvar
-;    (transform 'loop-to-function
-;               (parse "x=0;
-;                       while(x<4)
-;                       {
-;                         var y = foo(x++);
-;                         if(y == null)
-;                           continue;
-;                       }")))
-;  #.(parse "x=0;
-;            {
-;              var JW0 = function JW1() {
-;                if(x < 4)
-;                {
-;                  var y = foo(x++);
-;                  if(y == null)
-;                    JW1();
-;                }
-;              };
-;            }"))
+(deftest canonicalize/while/var-decl-in-body :notes  loop-canonicalize
+    (transform 'loop-canonicalize
+               (parse "x=0; while(x<4) { var y=0; foo(); x++; }"))
+  #.(parse "x=0; { var y; while(true) { if(!(x<4)) break; y=0; foo(); x++; continue; } }"))
 
-;(deftest loop-to-function/continue/2 :notes loop-to-function
-;  (with-fresh-genvar
-;    (transform 'loop-to-function
-;               (parse "for(x=0; x<4; x++) { if(bar()) continue; foo(); }")))
-;  #.(parse "{
-;              x=0;           
-;              var JW0 = function JW1() {
-;                if(x<4) {
-;                  if(bar()) {
-;                    x++;
-;                    JW1();
-;                  }
-;                  foo();
-;                  x++;
-;                  JW1();
-;                }
-;              };
-;              JW0();           
-;            }"))
+(deftest canonicalize/while/nested-while :notes  loop-canonicalize
+    (transform 'loop-canonicalize
+               (parse "while(x<4) { var y=0; foo(); while(y<5) { var z=0; bar(); } }"))
+    #.(parse "{ var y,z; while(true) { if(!(x<4)) break; y=0; foo(); while(true) { if(!(y<5)) break; z=0; bar(); continue; } continue; } }"))
 
-;(deftest loop-to-function/continue/3 :notes loop-to-function
-;  (with-fresh-genvar
-;    (transform 'loop-to-function
-;               (parse "x=0; do { if(foo()) continue; x++; } while(x<4);")))
-;  #.(parse "x=0;
-;            {
-;              var JW0 = function JW1() {
-;                if(foo())
-;                  if(x<4)
-;                    JW1();
-;                  else
-;                    return;
-;                x++;
-;                if(x<4) {
-;                  JW1();
-;                }
-;              };
-;              JW0();
-;            }"))
+
+;; ====================================
+;; FOR LOOPS
+
+
+(deftest canonicalize/for/basic :notes loop-canonicalize
+    (transform 'loop-canonicalize
+               (parse "for(var x=0; x<10; x++) { foo(); }"))
+    #.(parse "{ var x=0; while(true) { if(!(x<10)) break; foo(); x++; continue; } }"))
+
+
+(deftest canonicalize/for/var-decl-in-body :notes loop-canonicalize
+    (transform 'loop-canonicalize 
+               (parse "for(var x=0; x<10; x++) { var y=0; foo();}"))
+    #.(parse "{ var y; var x=0; while(true) { if(!(x<10)) break; y=0; foo(); x++; continue; } }"))
+
+;; ====================================
+;; DO-WHILE LOOPS
+
+(deftest canonicalize/do-while/var-decl-in-body :notes loop-canonicalize
+  (with-fresh-genvar
+    (transform 'loop-canonicalize
+               (parse "do { var x = rval; foo(); } while(test);")))
+    #.(parse "{
+  var x, JW0 = true;
+  while(true)
+  {
+    if(!JW0)
+    {
+      if(!test)
+        break;
+    }
+    else
+      JW0 = false;
+    x = rval;
+    foo();
+    continue;
+  }
+}"))
+
+
+;; ====================================
+;; FOR-IN LOOPS
+
+(deftest canonicalize/for-in/basic :notes loop-canonicalize
+  (with-fresh-genvar
+    (transform 'loop-canonicalize
+               (parse "for(var_x in some_collection) { foo(); }")))
+  #.(parse "{
+  var JW0 = new Array, JW1 = 0, JW3 = 0;
+  for(var JW2 in some_collection)
+  {
+    JW0[JW1++] = JW2;
+  }
+  while(true)
+  {
+    if(!(JW3 < JW0.length))
+      break;
+    var_x = JW0[JW3++];
+    foo();
+    continue;
+  }
+}"))
