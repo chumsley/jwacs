@@ -22,9 +22,9 @@
       var x = foo(bar(baz(50 + quux(10))));")))
   #.(parse "
       var JW0 = quux(10);
-      var JW2 = baz(50 + JW0);
-      var JW3 = bar(JW2);
-      var x = foo(JW3);"))
+      var JW1 = baz(50 + JW0);
+      var JW2 = bar(JW1);
+      var x = foo(JW2);"))
 
 (deftest explicitize/var-decl/3 :notes explicitize
   (with-fresh-genvar
@@ -127,12 +127,12 @@
           var JW3 = foo(JW2);
           return baz(JW3);
         case 12:
-          var JW5 = quux(12);
-          baz(JW5);
+          var JW4 = quux(12);
+          baz(JW4);
           break;
         default:
-          var JW6 = quuux(null);
-          return quux(JW6);
+          var JW5 = quuux(null);
+          return quux(JW5);
       }"))
 
 (deftest explicitize/factorial/1 :notes explicitize
@@ -178,8 +178,8 @@
       };
       function fn()
       {
-        var JW2 = foo();
-        obj.method(obj.field + JW2);
+        var JW1 = foo();
+        obj.method(obj.field + JW1);
       }"))
 
 

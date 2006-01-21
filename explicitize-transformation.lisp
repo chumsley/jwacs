@@ -4,180 +4,242 @@
 ;;; functionality.
 (in-package :jwacs)
 
-;;;; Explicitize transformation 
-;;; The explicitize transformation gives each intermediate value a
-;;; name.  After the transformation is done, the result of every
-;;; function call will be assigned to a variable.
+;;================================================================================
+;;;; Explicitize transformation
 ;;;
-;;; As a convenience, variable statements that contain declarations for
-;;; multiple variables will also be converted to series of single
-;;; variable declarations (eg `var x, y=10;` ---> `var x; var y = 10;`)
+;;; Makes intermediate values explicit by assigning them to named variables.
+;;; An intermediate value is any value that is passed to an operator or
+;;; function that was produced by another operator or function.
+;;; We make exceptions for values that are produced by operators applied
+;;; to non-function-calls.  So in the code
+;;;   bar(50 + foo())
+;;; the expression `foo()` produces an intermediate value that will be
+;;; explicitly named.  However, in the similar code
+;;;   bar(50 + 100)
+;;; we don't treat `50 + 100` as producing an intermediate value, because
+;;; it is an operator applied to two constants.  Same goes for `50 + x`
+;;; in the code
+;;;   bar(50 + x)
+;;;
+;;; As a convenience, the explicitize transformation also breaks up
+;;; var-decl-statements that contain more than one var-decl into multiple
+;;; single-decl var-decl-statements.  So
+;;;   var x = 10, y = 20
+;;; will become
+;;;   var x = 10;
+;;;   var y = 20;
+
+;;================================================================================
+;;;; Implementation note
+;;;
+;;; The explicitize transformation has a more complicated protocol than most of
+;;; the other transformations.  Sometimes a source-element will be in a position
+;;; in the code where it can be replaced with a series of new statements.  Ex:
+;;;
+;;;   echo('hello', newline());
+;;;
+;;; can legally be replaced by
+;;;
+;;;   var JW0 = newline();
+;;;   echo('hello', JW0);
+;;;
+;;; However, at other times, a statement will be "nested" in such a way that it
+;;; is /not/ legal to replace it with a series of arbitrary statements (this is
+;;; usually when it is nested into an expression).  In this code
+;;;
+;;;   return process('hello', newline()) + process('seeya', newline());
+;;;
+;;; the first call to `process` cannot be replaced with an arbitrary list of
+;;; statements.  Instead, we can place some "prerequisite" statements before the
+;;; entire return statement, and represent the valuet that results from executing
+;;; the prerequisites by a "proxy" variable that will be defined as part of the
+;;; prerequisites:
+;;;
+;;;   var JW0 = newline();
+;;;   var JW1 = process('hello', JW0);
+;;;   var JW2 = newline();
+;;;   var JW3 = process('seeya', JW2);
+;;;   return JW1 + JW3;
+;;;
+;;; In this case, `JW1` is the proxy for the first call to process, and `JW3` is
+;;; the proxy for the second call to process.
+;;;
+;;; The main job of the explicitization transformation is to make sure that every
+;;; function call in a nested context is replaced with a proxy variable.
+;;;
+;;; Since the fn-call method needs to return a proxy with prerequisites when it
+;;; is in a nested context, but may return a function call (possibly also with
+;;; some prerequisites) in a non-nested context, we need some way to tell it whether
+;;; it is in a nested context or not.  We use the dynamic variable *NESTED-CONTEXT*
+;;; to track this information (see next section comment).
+;;;
+;;; The TRANSFORM method for the EXPLICITIZE transformation returns 2 values.
+;;; The first value is a source-element that should go wherever the original element
+;;; lived in the parse tree.  I refer to this as the "proxy" value, even though it
+;;; isn't always a proxy (it may just be a transformed version of the original element).
+;;;
+;;; The second value is a list of "prerequisite" statements that should go before the
+;;; innermost enclosing non-nested statement (which may be this statement).
+
+;;================================================================================
+;;;; Sub-expression protocol
+;;;
+;;; Transformations are responsible for knowing whether they are nested within subexpressions
+;;; or not, and therefore whether they should return using a proxy.  For example, the element
+;;;    foo(bar());
+;;; should return `foo(JWn);` with prereqs of `var JWn = bar();` when it is
+;;; not nested.  However, when it /is/ nested, it should return `JWn` with prereqs
+;;; of `var JWm = bar(); var JWn = foo(JWm);`.
+;;;
+;;; In order for the explicitization methods of TRANSFORM to know whether they are in a nested
+;;; context or not, we bind *NESTED-CONTEXT* to T when calling TRANSFORM on nested expressions.
+
+;;TODO I'm not sure I like the term "nested".  Better ideas, anyone?
+
+(defparameter *nested-context* nil
+  "T when processing nested subexpressions")
+
+(defun nested-transform (xform elm)
+  "Apply XFORM to ELM in a nested context (ie, with *NESTED-CONTEXT* bound to T)"
+  (let ((*nested-context* t))
+    (transform xform elm)))
+
+(defmacro with-nesting (&body body)
+  "Execute the forms of BODY with *NESTED-CONTEXT* bound to T."
+  `(let ((*nested-context* t))
+    ,@body))
+    
+;;TODO move this somewhere more general, use it generally
+(defun make-var-init (var-name init-value)
+  "Create a VAR-DECL-STATEMENT that initializes a variable named VAR-NAME to INIT-VALUE"
+  (make-var-decl-statement :var-decls
+                           (list (make-var-decl :name var-name :initializer init-value))))
+
+;;================================================================================
+;;;; TRANSFORM methods
 
 ;; These elements should have been removed by LOOP-TO-FUNCTION
-(forbid-transformation-elements explicitize (do-statement for for-in))
-
-;;TODO It is difficult to express in a single sentence exactly what EXPOSE-INTERMEDIATE
-;; and EXPLICITIZE-RHS actually do.  These functions need to be refactored.
-(defun expose-intermediate (elm)
-  "Return a cons cell whose CAR is the name of the result of this element,
-   and whose CDR is a list of statements that need to be added before the element.
-   ELM should be the output of an explicitization transformation.  This function
-   exists purely to make it easier to deal with the pre-statements issue."
-  (cond
-    ((fn-call-p elm)
-     (let ((new-var (genvar)))
-       (list (make-identifier :name new-var)
-             (make-var-decl-statement
-              :var-decls (list (make-var-decl :name new-var :initializer elm))))))
-    ((listp elm)
-     (let ((new-var (genvar))
-           (final-stmt (car (last elm))))
-
-       ;; The last statement in a statement list is a version of the original that contains no nested
-       ;; intermediate expressions.  If it is a function call, then we convert it to a var decl and
-       ;; return the var name as the expression to reference.  Otherwise, we remove it and return it
-       ;; as the expression to reference.  This helps to avoid redundant code like
-       ;;       `var r3 = r1 + r2;
-       ;;        foo(r3);`
-       ;; In the above expression, it is safe to eliminate `r3` and call `foo(r1 + r2)` directly, since
-       ;; operator calls never need to be converted to CPS.
-       (if (fn-call-p final-stmt)
-         (cons (make-identifier :name new-var)
-               (substitute (make-var-decl-statement
-                            :var-decls (list (make-var-decl :name new-var :initializer final-stmt)))
-                           final-stmt
-                           elm
-                           :from-end t
-                           :count 1))
-         (cons final-stmt
-               (remove final-stmt elm :from-end t :count 1)))))
-                
-    (t (list elm))))
+(forbid-transformation-elements explicitize (do-statement for))
 
 (defmethod transform ((xform (eql 'explicitize)) (elm fn-call))
-  (let ((transformed-args (mapcar (lambda (x) (transform 'explicitize x))
-                                  (fn-call-args elm))))
-    (loop for tx-arg in transformed-args
-          for intermediates = (expose-intermediate tx-arg)
-          collect (car intermediates) into new-args
-          nconc (cdr intermediates) into new-stmts
-          finally
-          (let ((new-elm (make-fn-call :fn (fn-call-fn elm)
+  (loop for arg in (fn-call-args elm)
+        for (proxy prereq) = (multiple-value-list (nested-transform 'explicitize arg))
+        collect proxy into new-args
+        nconc prereq into new-stmts
+        finally
+        (multiple-value-bind (call-proxy call-prereqs)
+            (nested-transform 'explicitize (fn-call-fn elm))
+          (let ((new-stmts (nconc call-prereqs new-stmts)) ; The new binding uses the old binding
+                (new-elm (make-fn-call :fn call-proxy
                                        :args new-args)))
-            (if new-stmts
-              (return (nconc new-stmts (list new-elm)))
-              (return new-elm))))))
-  
-(defun explicitize-rhs (elm &optional assignment-slot)
-  "Helper function for transforming the right-hand-side of assignments and initializations.
-   Returns either an updated copy of ELM, or a list of statements that should go roughly
-   where ELM used to be."
-  (let ((slot-names (structure-slots elm))
-        (pre-statements nil)
-        (new-elm (funcall (get-constructor elm))))
-    (loop for slot in slot-names
-          for intermediates = (expose-intermediate (transform 'explicitize (slot-value elm slot)))
-          do (setf (slot-value new-elm slot) (car intermediates))
-          nconc (cdr intermediates) into pre-statements-l
-          finally (setf pre-statements pre-statements-l))
-    
-    (let ((final-pre-statement (car (last pre-statements))))
-      (cond
-        ;; This case "compresses" out extraneous variables.
-        ;; (ie, "var JW0 = <something>; var JW1 = JW0;" is a pointless sequence)
-        ;; The condition is:
-        ;; There are pre-statements, and we have an assignment-slot, and the last
-        ;; pre-statement is a variable declaration, and the assignment-slot is just
-        ;; a reference to that final variable declaration.
-        ((and pre-statements
-              assignment-slot
-              (var-decl-statement-p final-pre-statement)
-              (identifier-p (slot-value new-elm assignment-slot))
-              (equal (identifier-name (slot-value new-elm assignment-slot))
-                     (var-decl-name (car (var-decl-statement-var-decls final-pre-statement)))))
-         (setf (slot-value new-elm assignment-slot)
-               (var-decl-initializer (car (var-decl-statement-var-decls final-pre-statement))))
-         (nconc (remove final-pre-statement pre-statements :from-end t :count 1)
-                (list new-elm)))
-
-        (pre-statements
-         (nconc pre-statements (list new-elm)))
-
-        (t
-         new-elm)))))
-
-(defmethod transform ((xform (eql 'explicitize)) (elm binary-operator))
-  (explicitize-rhs elm))
-
-(defmethod transform ((xform (eql 'explicitize)) (elm unary-operator))
-  (explicitize-rhs elm))
-
-(defmethod transform ((xform (eql 'explicitize)) (elm var-decl))
-  (explicitize-rhs elm 'initializer))
-
-(defmethod transform ((xform (eql 'explicitize)) (elm return-statement))
-  (explicitize-rhs elm 'arg))
-
-(defmethod transform ((xform (eql 'explicitize)) (elm if-statement))
-  (flet ((maybe-block (intermediate)
-           (cond
-             ((and (cdr intermediate)
-                   (statement-block-p (car intermediate)))
-              (make-statement-block :statements (nconc (cdr intermediate)
-                                                       (statement-block-statements (car intermediate)))))
-             ((cdr intermediate)
-              (make-statement-block :statements (nconc (cdr intermediate)
-                                                       (list (car intermediate)))))
-             (t (car intermediate)))))
-    (let* ((cond-intermediate (expose-intermediate (transform 'explicitize (if-statement-condition elm))))
-           (then-intermediate (expose-intermediate (transform 'explicitize (if-statement-then-statement elm))))
-           (else-intermediate (expose-intermediate (transform 'explicitize (if-statement-else-statement elm))))
-           (new-elm (make-if-statement :condition (car cond-intermediate)
-                                       :then-statement (maybe-block then-intermediate)
-                                       :else-statement (maybe-block else-intermediate))))
-      (if (cdr cond-intermediate)
-        (nconc (cdr cond-intermediate) (list new-elm))
-        new-elm))))
-                  
-(defmethod transform ((xform (eql 'explicitize)) (elm switch))
-  (let ((val-intermediate (expose-intermediate (transform 'explicitize (switch-value elm))))
-        (new-clauses (mapcar (lambda (clause) (transform 'explicitize clause))
-                             (switch-clauses elm))))
-    (if (cdr val-intermediate)
-      (nconc (cdr val-intermediate)
-             (list (make-switch :value (car val-intermediate)
-                                :clauses new-clauses)))
-      (make-switch :value (car val-intermediate)
-                   :clauses new-clauses))))
-
-;;TODO conditional expressions, comma expressions
+            (if *nested-context*
+              (let ((new-var (genvar)))
+                (return (values (make-identifier :name new-var)
+                                (nconc new-stmts (list (make-var-init new-var new-elm))))))
+              (return (values new-elm
+                              new-stmts)))))))
 
 (defmethod transform ((xform (eql 'explicitize)) (elm var-decl-statement))
-  (let ((pre-statements nil)
-        (new-decls nil))
-    (loop for decl in (var-decl-statement-var-decls elm)
-          for intermediates = (expose-intermediate (transform 'explicitize decl))
-          collect (car intermediates) into new-decls-l
-          nconc (cdr intermediates) into pre-statements-l
-          finally
-          (setf new-decls new-decls-l)
-          (setf pre-statements pre-statements-l))
-    (cond
-      (pre-statements
-       (nconc pre-statements
-              (mapcar (lambda (x)
-                        (make-var-decl-statement :var-decls (list x)))
-                      new-decls)))
-      ((> (length new-decls) 1)
-       (mapcar (lambda (x)
-                 (make-var-decl-statement :var-decls (list x)))
-               new-decls))
-      (t
-       (make-var-decl-statement :var-decls new-decls)))))
+  (if (> (length (var-decl-statement-var-decls elm)) 1)
+    (transform 'explicitize (mapcar (lambda (decl)
+                                      (make-var-decl-statement :var-decls (list decl)))
+                                    (var-decl-statement-var-decls elm)))
+    (multiple-value-bind (proxy prereqs)
+        (transform 'explicitize (first (var-decl-statement-var-decls elm)))
+      (values (make-var-decl-statement :var-decls (list proxy))
+              prereqs))))
+
+;; We need to override the default handling to ensure that the pre-statments for the
+;; then-statement occur inside the then-statement instead of before the entire if-statement,
+;; and similarly for the else-statement.  Otherwise portions of the then-statement (AND
+;; else-statement) might be executed unconditionally.
+(defmethod transform ((xform (eql 'explicitize)) (elm if-statement))
+  (flet ((maybe-block (proxy prereqs)
+           "Combine PROXY and PREREQS into a block if necessary"
+           (cond
+             ((null proxy)
+              (if prereqs
+                (make-statement-block :statements prereqs)
+                nil))
+             ((listp proxy)
+              (make-statement-block :statements (append prereqs proxy)))
+             ((statement-block-p proxy)
+              (make-statement-block :statements (append prereqs 
+                                                        (statement-block-statements proxy))))
+             (prereqs
+              (make-statement-block :statements (append prereqs (list proxy))))
+             (t
+              proxy))))
+    (multiple-value-bind (cond-proxy cond-prereqs)
+        (nested-transform 'explicitize (if-statement-condition elm))
+      (multiple-value-bind (then-proxy then-prereqs)
+          (transform 'explicitize (if-statement-then-statement elm))
+        (multiple-value-bind (else-proxy else-prereqs)
+            (transform 'explicitize (if-statement-else-statement elm))
+          (values (make-if-statement :condition cond-proxy
+                                     :then-statement (maybe-block then-proxy then-prereqs)
+                                     :else-statement (maybe-block else-proxy else-prereqs))
+                  cond-prereqs))))))
+
+(defmethod transform ((xform (eql 'explicitize)) (elm switch))
+  (multiple-value-bind (cond-proxy cond-prereqs)
+      (nested-transform 'explicitize (switch-value elm))
+    (values
+     (make-switch :value cond-proxy
+                  :clauses (mapcar (lambda (clause) ; Clauses never have prereqs, so a simple mapcar is fine
+                                     (transform 'explicitize clause))
+                                   (switch-clauses elm)))
+     cond-prereqs)))
+
+(defmethod transform ((xform (eql 'explicitize)) (elm case-clause))
+  (multiple-value-bind (body-proxy body-prereqs)
+      (transform 'explicitize (case-clause-body elm))
+    (make-case-clause :label (case-clause-label elm)
+                      :body
+                      (cond
+                        ((statement-block-p body-proxy)
+                         (make-statement-block :statements (append body-prereqs
+                                                                   (statement-block-statements body-proxy))))
+                        ((listp body-proxy)
+                         (append body-prereqs body-proxy))
+                        (t
+                         (append body-prereqs (list body-proxy)))))))                        
+
+;;TODO special handling for AND and OR expressions
+(defmethod transform ((xform (eql 'explicitize)) (elm binary-operator))
+  (with-nesting
+    (call-next-method)))
+
+(defmethod transform ((xform (eql 'explicitize)) (elm unary-operator))
+  (with-nesting
+    (call-next-method)))
+
+(defmethod transform ((xform (eql 'explicitize)) (elm object-literal))
+  (loop for (prop-name . prop-val) in (object-literal-properties elm)
+        for (val-proxy val-prereqs) = (multiple-value-list (nested-transform 'explicitize prop-val))
+        collect (cons prop-name val-proxy) into props
+        nconc val-prereqs into prereqs
+        finally (return (values (make-object-literal :properties props)
+                                prereqs))))
 
 (defmethod transform ((xform (eql 'explicitize)) (elm-list list))
-  (unless (null elm-list)
-    (let ((head (transform 'explicitize (car elm-list))))
-      (if (listp head)
-        (append head (transform 'explicitize (cdr elm-list)))
-        (cons head  (transform 'explicitize (cdr elm-list)))))))
+  (loop for elm in elm-list
+        for (proxy prereqs) = (multiple-value-list (transform 'explicitize elm))
+        nconc prereqs
+        if (listp proxy)
+          nconc proxy
+        else
+          collect proxy))
+
+;; For the EXPLICITIZE transformation, the default behaviour must collect prerequisite
+;; statements as well as proxies.
+;; TODO Automatically add blocks if a singleton statement is converted to a 
+(defmethod transform ((xform (eql 'explicitize)) (elm source-element))
+  (let ((fresh-elm (funcall (get-constructor elm))))
+    (loop for slot in (structure-slots elm)
+          for (proxy prereqs) = (multiple-value-list (transform xform (slot-value elm slot)))
+          do
+          (setf (slot-value fresh-elm slot)
+                proxy)
+          nconc prereqs into pre-stmts
+          finally (return (values fresh-elm pre-stmts)))))
