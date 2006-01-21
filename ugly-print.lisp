@@ -12,7 +12,6 @@
 
 (in-package :jwacs) 
 
-
 ; Our main entry point to the ugly printer
 ;   Please note that we're cheating somewhat-- the source
 (defun ugly-print (elm stream)
@@ -100,6 +99,13 @@
     (add-ugly-binding (function-decl-name fun-decl)))
   (transform 'uniquify elm))
 
+;;; Guarantee that we will always have an environment available
+(defmethod transform :around ((xform (eql 'uniquify)) elm)
+  (if (null *environment*)
+    (with-added-environment
+      (call-next-method))
+    (call-next-method)))
+
 (defmethod transform ((xform (eql 'uniquify)) (elm identifier))
   (let ((new-name (find-binding (identifier-name elm))))
     ;; If the identifier is defined in this script, use its unique name.
@@ -131,5 +137,7 @@
                                 :body (transform-in-scope (function-expression-body elm))))))
   
 (defmethod transform ((xform (eql 'uniquify)) (elm var-decl))
+  (unless (find-binding (var-decl-name elm))
+    (add-ugly-binding (var-decl-name elm)))
   (make-var-decl :name (find-binding (var-decl-name elm))
                  :initializer (transform xform (var-decl-initializer elm))))
