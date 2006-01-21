@@ -34,6 +34,24 @@
       var JW0 = bar(y);
       return foo(JW0);"))
 
+(deftest explicitize/var-decl/4 :notes explicitize
+  (with-fresh-genvar
+    (transform 'explicitize (parse "
+      var x = 10, y = 20;")))
+  #.(parse "
+      var x = 10;
+      var y = 20;"))
+
+(deftest explicitize/var-decl/5 :notes explicitize
+  (with-fresh-genvar
+    (transform 'explicitize (parse "
+      var x = foo(bar()), y = baz(quux());")))
+  #.(parse "
+      var JW0 = bar();
+      var x = foo(JW0);
+      var JW1 = quux();
+      var y = baz(JW1);"))
+
 (deftest explicitize/unary/1 :notes explicitize
   (with-fresh-genvar
     (transform 'explicitize (parse "
@@ -135,6 +153,36 @@
           return quux(JW5);
       }"))
 
+(deftest explicitize/while/1 :notes explicitize
+  (with-fresh-genvar
+    (transform 'explicitize (parse "
+      while(foo())
+      {
+        bar(baz());
+      }")))
+  #.(parse "
+      var JW0 = foo();
+      while(JW0)
+      {
+        var JW1 = baz();
+        bar(JW1);
+      }"))
+
+(deftest explicitize/for-in/1 :notes explicitize
+  (with-fresh-genvar
+    (transform 'explicitize (parse "
+      for(x in foo())
+      {
+        bar(baz());
+      }")))
+  #.(parse "
+      var JW0 = foo();
+      for(x in JW0)
+      {
+        var JW1 = baz();
+        bar(JW1);
+      }"))
+
 (deftest explicitize/factorial/1 :notes explicitize
   (with-fresh-genvar
     (transform 'explicitize (parse "
@@ -182,5 +230,58 @@
         obj.method(obj.field + JW1);
       }"))
 
+(deftest explicitize/conditional/1 :notes explicitize
+  (with-fresh-genvar
+    (transform 'explicitize (parse "
+      var x = foo() ? bar() : baz();")))
+  #.(parse "
+      var JW0 = foo();
+      var JW1;
+      if(JW0)
+        JW1 = bar();
+      else
+        JW1 = baz();
+      var x = JW1;"))
 
+(deftest explicitze/conditional/2 :notes explicitize
+  (with-fresh-genvar
+    (transform 'explicitize (parse "
+      foo(bar() ? baz() : quux());")))
+  #.(parse "
+      var JW0 = bar();
+      var JW1;
+      if(JW0)
+        JW1 = baz();
+      else
+        JW1 = quux();
+      foo(JW1);"))
+
+(deftest explicitize/short-circuit-and/1 :notes explicitize
+  (with-fresh-genvar
+    (transform (parse "
+      var x = foo() && bar() && baz();")))
+  #.(parse "
+      var JW0 = foo();
+      var JW1;
+      if(JW0)
+        JW1 = bar();
+      var JW2;
+      if(JW0 && JW1)
+        JW2 = baz();
+      var x = JW0 && JW1 && JW2;"))
+
+(deftest explicitize/short-circuit-or/1 :notes explicitize
+  (with-fresh-genvar
+    (transform (parse "
+      foo(x || y || z);")))
+  #.(parse "
+      var JW0 = x;
+      var JW1;
+      if(!JW0)
+        JW1 = y;
+      var JW2;
+      if(!JW1)
+        JW2 = z;
+      foo(JW0 || JW1 || JW2);"))
+      
    
