@@ -235,12 +235,11 @@
       var x = foo() ? bar() : baz();")))
   #.(parse "
       var JW0 = foo();
-      var JW1;
       if(JW0)
-        JW1 = bar();
+        var JW1 = bar();
       else
-        JW1 = baz();
-      var x = JW1;"))
+        var JW2 = baz();
+      var x = JW0 ? JW1 : JW2;"))
 
 (deftest explicitze/conditional/2 :notes explicitize
   (with-fresh-genvar
@@ -248,12 +247,22 @@
       foo(bar() ? baz() : quux());")))
   #.(parse "
       var JW0 = bar();
-      var JW1;
       if(JW0)
-        JW1 = baz();
+        var JW1 = baz();
       else
-        JW1 = quux();
-      foo(JW1);"))
+        var JW2 = quux();
+      foo(JW0 ? JW1 : JW2);"))
+
+(deftest explicitize/conditional/3 :notes explicitize
+  (with-fresh-genvar
+    (transform 'explicitize (parse "
+      foo(x ? y : calculateZ());")))
+  #.(parse "
+      if(x)
+        ;
+      else
+        var JW0 = calculateZ();
+      foo(x ? y : JW0);"))
 
 (deftest explicitize/short-circuit-and/1 :notes explicitize
   (with-fresh-genvar

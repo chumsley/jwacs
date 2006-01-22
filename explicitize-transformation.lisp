@@ -223,6 +223,50 @@
                            :body (maybe-block body-proxy body-prereqs))
               collection-prereqs))))
 
+(defmethod transform ((xform (eql 'explicitize)) (elm conditional))
+  (multiple-value-bind (cond-proxy cond-prereqs)
+      (nested-transform 'explicitize (conditional-condition elm))
+    (multiple-value-bind (then-proxy then-prereqs)
+        (nested-transform 'explicitize (conditional-true-arg elm))
+      (multiple-value-bind (else-proxy else-prereqs)
+          (nested-transform 'explicitize (conditional-false-arg elm))
+        (cond
+          ;; If neither of the non-guaranteed branches have prereqs, then
+          ;; no need to do any special processing
+          ((and (null then-prereqs)
+                (null else-prereqs))
+           (values (make-conditional :condition cond-proxy
+                                     :true-arg then-proxy
+                                     :false-arg else-proxy)
+                   cond-prereqs))
+          ;; If the cond-proxy is idempotent, then we can just wrap the
+          ;; non-guaranteed prereqs in an if-statement and be done with it
+          ((idempotent-expression-p cond-proxy)
+           (values (make-conditional :condition cond-proxy
+                                     :true-arg then-proxy
+                                     :false-arg else-proxy)
+                   (append cond-prereqs
+                           ;;TODO make an if with a negated conditional if there are only else-prereqs
+                           (list (make-if-statement :condition cond-proxy
+                                                    :then-statement (maybe-block nil then-prereqs)
+                                                    :else-statement (maybe-block nil else-prereqs))))))
+          ;; Non-idempotent cond proxy with at least
+          ;; one non-guaranteed prereq
+          (t
+           (let* ((cond-proxy-name (genvar))
+                  (cond-prereqs (append cond-prereqs
+                                        (list (make-var-init cond-proxy-name cond-proxy))))
+                  (cond-proxy (make-identifier :name cond-proxy-name)))
+             (values (make-conditional :condition cond-proxy
+                                     :true-arg then-proxy
+                                     :false-arg else-proxy)
+                   (append cond-prereqs
+                           ;;TODO make an if with a negated conditional if there are only else-prereqs
+                           (list (make-if-statement :condition cond-proxy
+                                                    :then-statement (maybe-block nil then-prereqs)
+                                                    :else-statement (maybe-block nil else-prereqs))))))))))))
+          
+
 (defun explicitize-short-circuit-operator (elm)
   "Transforms ELM (should be a BINARY-OPERATOR) in a way that preserves the short-circuit semantics"
   (assert (binary-operator-p elm))
