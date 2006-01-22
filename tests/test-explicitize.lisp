@@ -5,7 +5,7 @@
 
 ;;;; Test categories 
 (defnote explicitize "tests for the explicitize transformation")
-    
+
 ;;;; Tests 
 (deftest explicitize/var-decl/1 :notes explicitize
   (with-fresh-genvar
@@ -156,16 +156,15 @@
 (deftest explicitize/while/1 :notes explicitize
   (with-fresh-genvar
     (transform 'explicitize (parse "
-      while(foo())
+      while(true)
       {
         bar(baz());
       }")))
   #.(parse "
-      var JW0 = foo();
-      while(JW0)
+      while(true)
       {
-        var JW1 = baz();
-        bar(JW1);
+        var JW0 = baz();
+        bar(JW0);
       }"))
 
 (deftest explicitize/for-in/1 :notes explicitize
@@ -258,30 +257,64 @@
 
 (deftest explicitize/short-circuit-and/1 :notes explicitize
   (with-fresh-genvar
-    (transform (parse "
+    (transform 'explicitize (parse "
       var x = foo() && bar() && baz();")))
   #.(parse "
       var JW0 = foo();
-      var JW1;
       if(JW0)
-        JW1 = bar();
-      var JW2;
-      if(JW0 && JW1)
-        JW2 = baz();
-      var x = JW0 && JW1 && JW2;"))
+        var JW1 = bar();
+      var JW3 = JW0 && JW1;
+      if(JW3)
+        var JW2 = baz();
+      var x = JW3 && JW2;"))
+
+(deftest explicitize/short-circuit-and/2 :notes explicitize
+  (with-fresh-genvar
+    (transform 'explicitize (parse "
+      var w = foo() && x && bar();")))
+  #.(parse "
+      var JW0 = foo();
+      var JW2 = JW0 && x;
+      if(JW2)
+        var JW1 = bar();
+      var w = JW2 && JW1;"))
 
 (deftest explicitize/short-circuit-or/1 :notes explicitize
   (with-fresh-genvar
-    (transform (parse "
-      foo(x || y || z);")))
+    (transform 'explicitize (parse "
+      foo(x() || y() || z());")))
   #.(parse "
-      var JW0 = x;
-      var JW1;
+      var JW0 = x();
       if(!JW0)
-        JW1 = y;
-      var JW2;
-      if(!JW1)
-        JW2 = z;
-      foo(JW0 || JW1 || JW2);"))
+        var JW1 = y();
+      var JW3 = JW0 || JW1;
+      if(!JW3)
+        var JW2 = z();
+      foo(JW3 || JW2);"))
+
+(deftest explicitize/short-circuit-or/2 :notes explicitize
+  (with-fresh-genvar
+    (transform 'explicitize (parse "
+      var w = x || expensive() || null;")))
+  #.(parse "
+      if(!x)
+        var JW0 = expensive();
+      var w = x || JW0 || null;"))
       
-   
+      
+(deftest explicitize/short-circuit-mixed/1 :notes explicitize
+  (with-fresh-genvar
+    (transform 'explicitize (parse "
+      foo(w() && x() || y() && z());")))
+  #.(parse "
+      var JW0 = w();
+      if(JW0)
+        var JW1 = x();
+      var JW4 = JW0 && JW1;
+      if(!JW4)
+      {
+        var JW2 = y();
+        if(JW2)
+          var JW3 = z();
+      }      
+      foo(JW4 || JW2 && JW3);"))

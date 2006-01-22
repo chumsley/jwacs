@@ -114,6 +114,22 @@
   "Create a VAR-DECL-STATEMENT that initializes a variable named VAR-NAME to INIT-VALUE"
   (make-var-decl-statement :var-decls
                            (list (make-var-decl :name var-name :initializer init-value))))
+(defun maybe-block (proxy prereqs)
+  "Combine PROXY and PREREQS into a block if necessary"
+  (cond
+    ((null proxy)
+     (if (> (length prereqs) 1)
+       (make-statement-block :statements prereqs)
+       (first prereqs)))
+    ((listp proxy)
+     (make-statement-block :statements (append prereqs proxy)))
+    ((statement-block-p proxy)
+     (make-statement-block :statements (append prereqs 
+                                               (statement-block-statements proxy))))
+    (prereqs
+     (make-statement-block :statements (append prereqs (list proxy))))
+    (t
+     proxy)))
 
 ;;================================================================================
 ;;;; TRANSFORM methods
@@ -154,32 +170,16 @@
 ;; and similarly for the else-statement.  Otherwise portions of the then-statement (AND
 ;; else-statement) might be executed unconditionally.
 (defmethod transform ((xform (eql 'explicitize)) (elm if-statement))
-  (flet ((maybe-block (proxy prereqs)
-           "Combine PROXY and PREREQS into a block if necessary"
-           (cond
-             ((null proxy)
-              (if prereqs
-                (make-statement-block :statements prereqs)
-                nil))
-             ((listp proxy)
-              (make-statement-block :statements (append prereqs proxy)))
-             ((statement-block-p proxy)
-              (make-statement-block :statements (append prereqs 
-                                                        (statement-block-statements proxy))))
-             (prereqs
-              (make-statement-block :statements (append prereqs (list proxy))))
-             (t
-              proxy))))
-    (multiple-value-bind (cond-proxy cond-prereqs)
-        (nested-transform 'explicitize (if-statement-condition elm))
-      (multiple-value-bind (then-proxy then-prereqs)
-          (transform 'explicitize (if-statement-then-statement elm))
-        (multiple-value-bind (else-proxy else-prereqs)
-            (transform 'explicitize (if-statement-else-statement elm))
-          (values (make-if-statement :condition cond-proxy
-                                     :then-statement (maybe-block then-proxy then-prereqs)
-                                     :else-statement (maybe-block else-proxy else-prereqs))
-                  cond-prereqs))))))
+  (multiple-value-bind (cond-proxy cond-prereqs)
+      (nested-transform 'explicitize (if-statement-condition elm))
+    (multiple-value-bind (then-proxy then-prereqs)
+        (transform 'explicitize (if-statement-then-statement elm))
+      (multiple-value-bind (else-proxy else-prereqs)
+          (transform 'explicitize (if-statement-else-statement elm))
+        (values (make-if-statement :condition cond-proxy
+                                   :then-statement (maybe-block then-proxy then-prereqs)
+                                   :else-statement (maybe-block else-proxy else-prereqs))
+                cond-prereqs)))))
 
 (defmethod transform ((xform (eql 'explicitize)) (elm switch))
   (multiple-value-bind (cond-proxy cond-prereqs)
@@ -205,10 +205,74 @@
                         (t
                          (append body-prereqs (list body-proxy)))))))                        
 
-;;TODO special handling for AND and OR expressions
+(defmethod transform ((xform (eql 'explicitize)) (elm while))
+  (assert (idempotent-expression-p (while-condition elm))) ; LOOP-CANONICALIZATION should reduce all while loops to idempotent conditions
+  (multiple-value-bind (body-proxy body-prereqs)
+      (transform 'explicitize (while-body elm))
+    (values (make-while :condition (while-condition elm)
+                        :body (maybe-block body-proxy body-prereqs))
+            nil)))
+
+(defmethod transform ((xform (eql 'explicitize)) (elm for-in))
+  (multiple-value-bind (collection-proxy collection-prereqs)
+      (nested-transform 'explicitize (for-in-collection elm))
+    (multiple-value-bind (body-proxy body-prereqs)
+        (transform 'explicitize (for-in-body elm))
+      (values (make-for-in :binding (for-in-binding elm)
+                           :collection collection-proxy
+                           :body (maybe-block body-proxy body-prereqs))
+              collection-prereqs))))
+
+(defun explicitize-short-circuit-operator (elm)
+  "Transforms ELM (should be a BINARY-OPERATOR) in a way that preserves the short-circuit semantics"
+  (assert (binary-operator-p elm))
+  (flet ((make-if-wrapper (cond-proxy wrapped-prereqs)
+           "Create the kind of if wrapper for WRAPPED-PREREQS that is appropriate for
+            ELM's operator"
+           (make-if-statement :condition
+                              (ecase (binary-operator-op-symbol elm)
+                                (:logical-and cond-proxy)
+                                (:logical-or (make-unary-operator :op-symbol :logical-not
+                                                                  :arg cond-proxy)))
+                              :then-statement (maybe-block nil wrapped-prereqs))))
+    (multiple-value-bind (left-proxy left-prereqs)
+        (nested-transform 'explicitize (binary-operator-left-arg elm))
+      (multiple-value-bind (right-proxy right-prereqs)
+          (nested-transform 'explicitize (binary-operator-right-arg elm))
+        (cond
+          ;; No special handling required if right arg has no prereqs
+          ((null right-prereqs)
+           (values (make-binary-operator :op-symbol (binary-operator-op-symbol elm)
+                                         :left-arg left-proxy
+                                         :right-arg right-proxy)
+                   left-prereqs))
+          ;; If the right arg has prereqs, they need to be wrapped in an if.
+          ;; If the left arg's proxy is idempotent, then we needn't add a variable initialization for it
+          ((idempotent-expression-p left-proxy)
+           (values (make-binary-operator :op-symbol (binary-operator-op-symbol elm)
+                                         :left-arg left-proxy
+                                         :right-arg right-proxy)
+                   (append left-prereqs
+                           (list (make-if-wrapper left-proxy right-prereqs)))))
+          ;; If the right arg has prereqs and the left proxy is not idempotent, we need to
+          ;; construct a left proxy and use it to wrap the right prereqs.
+          (t
+           (let* ((left-proxy-name (genvar))
+                  (left-prereqs (append left-prereqs
+                                        (list (make-var-init left-proxy-name left-proxy))))
+                  (left-proxy (make-identifier :name left-proxy-name)))
+             (values (make-binary-operator :op-symbol (binary-operator-op-symbol elm)
+                                           :left-arg left-proxy
+                                           :right-arg right-proxy)
+                     (append left-prereqs
+                             (list (make-if-wrapper left-proxy right-prereqs)))))))))))
+
 (defmethod transform ((xform (eql 'explicitize)) (elm binary-operator))
-  (with-nesting
-    (call-next-method)))
+  (if (member (binary-operator-op-symbol elm)
+              '(:logical-and :logical-or))
+    (explicitize-short-circuit-operator elm)
+    (with-nesting
+      (call-next-method))))
 
 (defmethod transform ((xform (eql 'explicitize)) (elm unary-operator))
   (with-nesting

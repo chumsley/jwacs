@@ -256,3 +256,18 @@
     ((:assign :times-equals :divide-equals :mod-equals :plus-equals :minus-equals
       :lshift-equals :rshift-equals :urshift-equals :and-equals :xor-equals :or-equals)
      :right)))
+
+;;TODO This function is not complete:
+;; - binary operators are idempotent so long as they
+;;   aren't assignment operators and so long as both args are idempotent.
+;; - conditional operators are idempotent so long as all args are idempotent
+;; - a small number of unary operators (logical-not, unary-negate, unary-plus, bitwise-not)
+;;   are idempotent so long as their arg is idempotent
+(defun idempotent-expression-p (elm)
+  "Return true if ELM is an 'idempotent expression', ie one which it is
+   safe to add repetitions of"
+  (typecase elm
+    ((or special-value identifier numeric-literal string-literal re-literal)
+     t)
+    (otherwise
+     nil)))
