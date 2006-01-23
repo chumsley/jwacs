@@ -37,7 +37,10 @@
 
 (defclass js-file (static-file) ())
 (defmethod source-file-type ((c js-file) (s module)) "js")
-(defmethod operation-done-p (o (c js-file))  t)
+(defmethod operation-done-p ((o load-op) (c js-file))  
+  t)
+(defmethod operation-done-p ((o compile-op) (c js-file))
+  t)
 
 ;;;; System definition
 (asdf:defsystem jwacs 
