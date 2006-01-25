@@ -34,7 +34,6 @@
    we're trying to load parse-javascript.lisp).")
 
 ;;;; Custom ASDF file types
-
 (defclass js-file (static-file) ())
 (defmethod source-file-type ((c js-file) (s module)) "js")
 (defmethod operation-done-p ((o load-op) (c js-file))  

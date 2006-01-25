@@ -271,5 +271,5 @@
 				 :right-arg prop-access))
 	  ((var-decl-statement-p binding)
 	   (let ((vardecl (car (var-decl-statement-var-decls binding))))
-       (make-var-init (var-decl-name vardec1) prop-access)))
+       (make-var-init (var-decl-name vardecl) prop-access)))
 	  (t nil))))
