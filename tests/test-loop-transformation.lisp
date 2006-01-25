@@ -9,7 +9,7 @@
 
 
 (deftest canonicalize/while/basic :notes  loop-canonicalize
-    (transform 'loop-canonicalize
+  (transform 'loop-canonicalize
                (parse "x=0; while(x<4) { foo(); x++; }"))
   #.(parse "x=0; while(true) { if(!(x<4)) break; foo(); x++; continue; }"))
 

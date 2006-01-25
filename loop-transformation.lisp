@@ -51,12 +51,9 @@
                                                                                       (transform 'loop-canonicalize-in-body 
                                                                                                  (while-body elm))))
                                                (list (make-continue-statement :label nil)))))))
-    ;; Let's try to be polite and not generate ugly braces when we don't need them
-    (if (null new-decls)
-        new-while
-        (make-statement-block :statements (list                                            
-                                           (make-var-decl-statement :var-decls new-decls)
-                                           new-while)))))
+    (if new-decls
+      (single-statement (make-var-decl-statement :var-decls new-decls) new-while)
+      new-while)))
 
 
 ;; ===================================
@@ -163,12 +160,7 @@
                                                  (statement-block-statements (transform 'loop-canonicalize (transform 'loop-canonicalize-in-body (for-body elm))))
                                                  (list (for-step elm))
                                                  (list (make-continue-statement :label nil)))))))
-   (if (null new-header-statements)
-       new-loop
-       (make-statement-block
-        :statements (append
-                     new-header-statements
-                     (list new-loop))))))
+   (single-statement new-header-statements new-loop)))
 
 
 
@@ -185,9 +177,7 @@
                                                                           :left-arg (make-identifier :name (var-decl-name var-decl))
                                                                           :right-arg (var-decl-initializer var-decl))))
                                      (var-decl-statement-var-decls elm))))
-    (if (> (length assignments) 1) 
-        (make-statement-block :statements assignments)
-        (car assignments))))
+    (single-statement assignments)))
 
 
 ;; ===================
@@ -281,6 +271,5 @@
 				 :right-arg prop-access))
 	  ((var-decl-statement-p binding)
 	   (let ((vardecl (car (var-decl-statement-var-decls binding))))
-	     (make-var-decl-statement :var-decls (list (make-var-decl :name (var-decl-name vardecl)
-								:initializer prop-access)))))
+       (make-var-init (var-decl-name vardec1) prop-access)))
 	  (t nil))))

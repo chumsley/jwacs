@@ -33,7 +33,11 @@
 ;;;; Implementation note
 ;;;
 ;;; The explicitize transformation has a more complicated protocol than most of
-;;; the other transformations.  Sometimes a source-element will be in a position
+;;; the other transformations, so the TRANSFORM method is just a thin wrapper that
+;;; calls a separate generic function called TX-EXPLICITIZE and translates the
+;;; results to the TRANSFORM protocol
+;;;
+;;; Sometimes a source-element will be in a position
 ;;; in the code where it can be replaced with a series of new statements.  Ex:
 ;;;
 ;;;   echo('hello', newline());
@@ -73,7 +77,7 @@
 ;;; it is in a nested context or not.  We use the dynamic variable *NESTED-CONTEXT*
 ;;; to track this information (see next section comment).
 ;;;
-;;; The TRANSFORM method for the EXPLICITIZE transformation returns 2 values.
+;;; The TX-EXPLICITIZE transformation function returns 2 values.
 ;;; The first value is a source-element that should go wherever the original element
 ;;; lived in the parse tree.  I refer to this as the "proxy" value, even though it
 ;;; isn't always a proxy (it may just be a transformed version of the original element).
@@ -91,77 +95,77 @@
 ;;; not nested.  However, when it /is/ nested, it should return `JWn` with prereqs
 ;;; of `var JWm = bar(); var JWn = foo(JWm);`.
 ;;;
-;;; In order for the explicitization methods of TRANSFORM to know whether they are in a nested
-;;; context or not, we bind *NESTED-CONTEXT* to T when calling TRANSFORM on nested expressions.
+;;; In order for the methods of TX-EXPLICITIZE to know whether they are in a nested
+;;; context or not, we bind *NESTED-CONTEXT* to T when calling TX-EXPLICITIZE on nested expressions.
 
 ;;TODO I'm not sure I like the term "nested".  Better ideas, anyone?
 
 (defparameter *nested-context* nil
   "T when processing nested subexpressions")
 
-(defun nested-transform (xform elm)
-  "Apply XFORM to ELM in a nested context (ie, with *NESTED-CONTEXT* bound to T)"
+(defun nested-explicitize (elm)
+  "Call TX-EXPLICITIZE on ELM in a nested context (ie, with *NESTED-CONTEXT* bound to T)"
   (let ((*nested-context* t))
-    (transform xform elm)))
+    (tx-explicitize elm)))
 
 (defmacro with-nesting (&body body)
   "Execute the forms of BODY with *NESTED-CONTEXT* bound to T."
   `(let ((*nested-context* t))
     ,@body))
     
-;;TODO move this somewhere more general, use it generally
-(defun make-var-init (var-name init-value)
-  "Create a VAR-DECL-STATEMENT that initializes a variable named VAR-NAME to INIT-VALUE"
-  (make-var-decl-statement :var-decls
-                           (list (make-var-decl :name var-name :initializer init-value))))
-(defun maybe-block (proxy prereqs)
-  "Combine PROXY and PREREQS into a block if necessary"
-  (cond
-    ((null proxy)
-     (if (> (length prereqs) 1)
-       (make-statement-block :statements prereqs)
-       (first prereqs)))
-    ((listp proxy)
-     (make-statement-block :statements (append prereqs proxy)))
-    ((statement-block-p proxy)
-     (make-statement-block :statements (append prereqs 
-                                               (statement-block-statements proxy))))
-    (prereqs
-     (make-statement-block :statements (append prereqs (list proxy))))
-    (t
-     proxy)))
-
 ;;================================================================================
-;;;; TRANSFORM methods
+;;;; TRANSFORM method
+
+(defmethod transform ((xform (eql 'explicitize)) elm)
+  (multiple-value-bind (proxy prereqs)
+      (tx-explicitize elm)
+    (if (null prereqs)
+      proxy
+      (append prereqs (list proxy)))))
 
 ;; These elements should have been removed by LOOP-TO-FUNCTION
 (forbid-transformation-elements explicitize (do-statement for))
 
-(defmethod transform ((xform (eql 'explicitize)) (elm fn-call))
+;;================================================================================
+;;;; TX-EXPLICITIZE methods
+
+(defgeneric tx-explicitize (elm)
+  (:documentation
+   "Performs the explicitization transformation on ELM and returns two values.
+
+    The first value is a 'proxy' that should be place in the source tree at the
+    same location that ELM originally occupied.
+
+    The second value is a list of 'prerequisite' statements that should go
+    immediately before the nearest enclosing statement of ELM.  The nearest
+    enclosing statement is a simple statement.  The list of prerequisites may
+    be NIL."))
+
+(defmethod tx-explicitize ((elm fn-call))
   (loop for arg in (fn-call-args elm)
-        for (proxy prereq) = (multiple-value-list (nested-transform 'explicitize arg))
+        for (proxy prereq) = (multiple-value-list (nested-explicitize arg))
         collect proxy into new-args
-        nconc prereq into new-stmts
+        append prereq into new-stmts
         finally
         (multiple-value-bind (call-proxy call-prereqs)
-            (nested-transform 'explicitize (fn-call-fn elm))
-          (let ((new-stmts (nconc call-prereqs new-stmts)) ; The new binding uses the old binding
+            (nested-explicitize (fn-call-fn elm))
+          (let ((new-stmts (append call-prereqs new-stmts)) ; The new binding uses the old binding
                 (new-elm (make-fn-call :fn call-proxy
                                        :args new-args)))
             (if *nested-context*
               (let ((new-var (genvar)))
                 (return (values (make-identifier :name new-var)
-                                (nconc new-stmts (list (make-var-init new-var new-elm))))))
+                                (append new-stmts (list (make-var-init new-var new-elm))))))
               (return (values new-elm
                               new-stmts)))))))
 
-(defmethod transform ((xform (eql 'explicitize)) (elm var-decl-statement))
+(defmethod tx-explicitize ((elm var-decl-statement))
   (if (> (length (var-decl-statement-var-decls elm)) 1)
-    (transform 'explicitize (mapcar (lambda (decl)
+    (tx-explicitize (mapcar (lambda (decl)
                                       (make-var-decl-statement :var-decls (list decl)))
                                     (var-decl-statement-var-decls elm)))
     (multiple-value-bind (proxy prereqs)
-        (transform 'explicitize (first (var-decl-statement-var-decls elm)))
+        (tx-explicitize (first (var-decl-statement-var-decls elm)))
       (values (make-var-decl-statement :var-decls (list proxy))
               prereqs))))
 
@@ -169,31 +173,31 @@
 ;; then-statement occur inside the then-statement instead of before the entire if-statement,
 ;; and similarly for the else-statement.  Otherwise portions of the then-statement (AND
 ;; else-statement) might be executed unconditionally.
-(defmethod transform ((xform (eql 'explicitize)) (elm if-statement))
+(defmethod tx-explicitize ((elm if-statement))
   (multiple-value-bind (cond-proxy cond-prereqs)
-      (nested-transform 'explicitize (if-statement-condition elm))
+      (nested-explicitize (if-statement-condition elm))
     (multiple-value-bind (then-proxy then-prereqs)
-        (transform 'explicitize (if-statement-then-statement elm))
+        (tx-explicitize (if-statement-then-statement elm))
       (multiple-value-bind (else-proxy else-prereqs)
-          (transform 'explicitize (if-statement-else-statement elm))
+          (tx-explicitize (if-statement-else-statement elm))
         (values (make-if-statement :condition cond-proxy
-                                   :then-statement (maybe-block then-proxy then-prereqs)
-                                   :else-statement (maybe-block else-proxy else-prereqs))
+                                   :then-statement (single-statement then-prereqs then-proxy)
+                                   :else-statement (single-statement else-prereqs else-proxy))
                 cond-prereqs)))))
 
-(defmethod transform ((xform (eql 'explicitize)) (elm switch))
+(defmethod tx-explicitize ((elm switch))
   (multiple-value-bind (cond-proxy cond-prereqs)
-      (nested-transform 'explicitize (switch-value elm))
+      (nested-explicitize (switch-value elm))
     (values
      (make-switch :value cond-proxy
                   :clauses (mapcar (lambda (clause) ; Clauses never have prereqs, so a simple mapcar is fine
-                                     (transform 'explicitize clause))
+                                     (tx-explicitize clause))
                                    (switch-clauses elm)))
      cond-prereqs)))
 
-(defmethod transform ((xform (eql 'explicitize)) (elm case-clause))
+(defmethod tx-explicitize ((elm case-clause))
   (multiple-value-bind (body-proxy body-prereqs)
-      (transform 'explicitize (case-clause-body elm))
+      (tx-explicitize (case-clause-body elm))
     (make-case-clause :label (case-clause-label elm)
                       :body
                       (cond
@@ -205,31 +209,31 @@
                         (t
                          (append body-prereqs (list body-proxy)))))))                        
 
-(defmethod transform ((xform (eql 'explicitize)) (elm while))
+(defmethod tx-explicitize ((elm while))
   (assert (idempotent-expression-p (while-condition elm))) ; LOOP-CANONICALIZATION should reduce all while loops to idempotent conditions
   (multiple-value-bind (body-proxy body-prereqs)
-      (transform 'explicitize (while-body elm))
+      (tx-explicitize (while-body elm))
     (values (make-while :condition (while-condition elm)
-                        :body (maybe-block body-proxy body-prereqs))
+                        :body (single-statement body-prereqs body-proxy))
             nil)))
 
-(defmethod transform ((xform (eql 'explicitize)) (elm for-in))
+(defmethod tx-explicitize ((elm for-in))
   (multiple-value-bind (collection-proxy collection-prereqs)
-      (nested-transform 'explicitize (for-in-collection elm))
+      (nested-explicitize (for-in-collection elm))
     (multiple-value-bind (body-proxy body-prereqs)
-        (transform 'explicitize (for-in-body elm))
+        (tx-explicitize (for-in-body elm))
       (values (make-for-in :binding (for-in-binding elm)
                            :collection collection-proxy
-                           :body (maybe-block body-proxy body-prereqs))
+                           :body (single-statement body-prereqs body-proxy))
               collection-prereqs))))
 
-(defmethod transform ((xform (eql 'explicitize)) (elm conditional))
+(defmethod tx-explicitize ((elm conditional))
   (multiple-value-bind (cond-proxy cond-prereqs)
-      (nested-transform 'explicitize (conditional-condition elm))
+      (nested-explicitize (conditional-condition elm))
     (multiple-value-bind (then-proxy then-prereqs)
-        (nested-transform 'explicitize (conditional-true-arg elm))
+        (nested-explicitize (conditional-true-arg elm))
       (multiple-value-bind (else-proxy else-prereqs)
-          (nested-transform 'explicitize (conditional-false-arg elm))
+          (nested-explicitize (conditional-false-arg elm))
         (cond
           ;; If neither of the non-guaranteed branches have prereqs, then
           ;; no need to do any special processing
@@ -248,8 +252,8 @@
                    (append cond-prereqs
                            ;;TODO make an if with a negated conditional if there are only else-prereqs
                            (list (make-if-statement :condition cond-proxy
-                                                    :then-statement (maybe-block nil then-prereqs)
-                                                    :else-statement (maybe-block nil else-prereqs))))))
+                                                    :then-statement (single-statement then-prereqs)
+                                                    :else-statement (single-statement else-prereqs))))))
           ;; Non-idempotent cond proxy with at least
           ;; one non-guaranteed prereq
           (t
@@ -263,8 +267,8 @@
                    (append cond-prereqs
                            ;;TODO make an if with a negated conditional if there are only else-prereqs
                            (list (make-if-statement :condition cond-proxy
-                                                    :then-statement (maybe-block nil then-prereqs)
-                                                    :else-statement (maybe-block nil else-prereqs))))))))))))
+                                                    :then-statement (single-statement then-prereqs)
+                                                    :else-statement (single-statement else-prereqs))))))))))))
           
 
 (defun explicitize-short-circuit-operator (elm)
@@ -278,11 +282,11 @@
                                 (:logical-and cond-proxy)
                                 (:logical-or (make-unary-operator :op-symbol :logical-not
                                                                   :arg cond-proxy)))
-                              :then-statement (maybe-block nil wrapped-prereqs))))
+                              :then-statement (single-statement wrapped-prereqs))))
     (multiple-value-bind (left-proxy left-prereqs)
-        (nested-transform 'explicitize (binary-operator-left-arg elm))
+        (nested-explicitize (binary-operator-left-arg elm))
       (multiple-value-bind (right-proxy right-prereqs)
-          (nested-transform 'explicitize (binary-operator-right-arg elm))
+          (nested-explicitize (binary-operator-right-arg elm))
         (cond
           ;; No special handling required if right arg has no prereqs
           ((null right-prereqs)
@@ -311,43 +315,45 @@
                      (append left-prereqs
                              (list (make-if-wrapper left-proxy right-prereqs)))))))))))
 
-(defmethod transform ((xform (eql 'explicitize)) (elm binary-operator))
+(defmethod tx-explicitize ((elm binary-operator))
   (if (member (binary-operator-op-symbol elm)
               '(:logical-and :logical-or))
     (explicitize-short-circuit-operator elm)
     (with-nesting
       (call-next-method))))
 
-(defmethod transform ((xform (eql 'explicitize)) (elm unary-operator))
+(defmethod tx-explicitize ((elm unary-operator))
   (with-nesting
     (call-next-method)))
 
-(defmethod transform ((xform (eql 'explicitize)) (elm object-literal))
+(defmethod tx-explicitize ((elm object-literal))
   (loop for (prop-name . prop-val) in (object-literal-properties elm)
-        for (val-proxy val-prereqs) = (multiple-value-list (nested-transform 'explicitize prop-val))
+        for (val-proxy val-prereqs) = (multiple-value-list (nested-explicitize prop-val))
         collect (cons prop-name val-proxy) into props
-        nconc val-prereqs into prereqs
+        append val-prereqs into prereqs
         finally (return (values (make-object-literal :properties props)
                                 prereqs))))
 
-(defmethod transform ((xform (eql 'explicitize)) (elm-list list))
+(defmethod tx-explicitize ((elm-list list))
   (loop for elm in elm-list
-        for (proxy prereqs) = (multiple-value-list (transform 'explicitize elm))
-        nconc prereqs
+        for (proxy prereqs) = (multiple-value-list (tx-explicitize elm))
+        append prereqs
         if (listp proxy)
-          nconc proxy
+          append proxy
         else
           collect proxy))
 
 ;; For the EXPLICITIZE transformation, the default behaviour must collect prerequisite
 ;; statements as well as proxies.
-;; TODO Automatically add blocks if a singleton statement is converted to a 
-(defmethod transform ((xform (eql 'explicitize)) (elm source-element))
+(defmethod tx-explicitize ((elm source-element))
   (let ((fresh-elm (funcall (get-constructor elm))))
     (loop for slot in (structure-slots elm)
-          for (proxy prereqs) = (multiple-value-list (transform xform (slot-value elm slot)))
+          for (proxy prereqs) = (multiple-value-list (tx-explicitize (slot-value elm slot)))
           do
           (setf (slot-value fresh-elm slot)
                 proxy)
-          nconc prereqs into pre-stmts
+          append prereqs into pre-stmts
           finally (return (values fresh-elm pre-stmts)))))
+
+(defmethod tx-explicitize (elm)
+  elm)

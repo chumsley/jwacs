@@ -257,7 +257,10 @@
       :lshift-equals :rshift-equals :urshift-equals :and-equals :xor-equals :or-equals)
      :right)))
 
+;;;; Other static properties of source models
+
 ;;TODO This function is not complete:
+;;TODO is this function in the right place?
 ;; - binary operators are idempotent so long as they
 ;;   aren't assignment operators and so long as both args are idempotent.
 ;; - conditional operators are idempotent so long as all args are idempotent
@@ -271,3 +274,36 @@
      t)
     (otherwise
      nil)))
+
+;;;; Convenience functions
+
+(defun make-var-init (var-name init-value)
+  "Create a VAR-DECL-STATEMENT that initializes a variable named VAR-NAME to INIT-VALUE"
+  (make-var-decl-statement :var-decls
+                           (list (make-var-decl :name var-name :initializer init-value))))
+
+(defun single-statement (&rest elm-arguments)
+  "Takes a list of source elements and distills them into a single statement.
+   If there is only one statement once all the lists have been flattened and
+   the statement-blocks pulled apart, then returns that single statement.
+   Otherwise, wraps the entire flattened sequence in a statement-block."
+  (labels ((combine (elm-arguments)
+             "Combine ELM-ARGUMENTS into a single list, stripping out statement-blocks
+              if necessary"
+             (cond
+               ((null elm-arguments)
+                nil)
+               ((listp (car elm-arguments))
+                (append (car elm-arguments)
+                        (combine (cdr elm-arguments))))
+               ((statement-block-p (car elm-arguments))
+                (append (statement-block-statements (car elm-arguments))
+                        (combine (cdr elm-arguments))))
+               (t
+                (cons (car elm-arguments)
+                      (combine (cdr elm-arguments)))))))
+    (let ((statement-list (combine elm-arguments)))
+      (if (> (length statement-list) 1)
+        (make-statement-block :statements statement-list)
+        (first statement-list)))))
+

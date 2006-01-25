@@ -64,10 +64,10 @@
 (deftest explicitize/if-condition/1 :notes explicitize
   (with-fresh-genvar
     (transform 'explicitize (parse "
-      if(foo()) { var x = bar(); }")))
+      if(foo()) { var x = bar(); return x; }")))
   #.(parse "
       var JW0 = foo();
-      if(JW0) { var x = bar(); }"))
+      if(JW0) { var x = bar(); return x; }"))
 
 (deftest explicitize/if-condition/2 :notes explicitize
   (with-fresh-genvar

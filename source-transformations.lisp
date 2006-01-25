@@ -65,11 +65,11 @@
 
 (defmethod collect-in-scope ((elm-list list) target-type)
   (loop for elm in elm-list
-        nconc (collect-in-scope elm target-type)))
+        append (collect-in-scope elm target-type)))
 
 (defmethod collect-in-scope ((elm source-element) target-type)
   (loop for slot in (structure-slots elm)
-        nconc (collect-in-scope (slot-value elm slot) target-type)))
+        append (collect-in-scope (slot-value elm slot) target-type)))
 
 ;; Don't recurse, because the body is a new, innermore scope.
 (defmethod collect-in-scope ((elm function-decl) target-type)
