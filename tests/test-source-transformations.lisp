@@ -14,8 +14,8 @@
     "hello there!")
 
 (deftest source-transformations/general-behaviour/1 :notes source-transformations
-  (transform 'hello #S(continue-statement :label "go away!"))
-  #S(continue-statement :label "hello there!"))
+  (transform 'hello #S(continue-statement :target-label "go away!"))
+  #S(continue-statement :target-label "hello there!"))
 
 (deftest source-transformations/general-behaviour/2 :notes source-transformations
   (transform 'hello '("string 1" symbol ("string 2")))

@@ -42,15 +42,16 @@
                              (make-var-decl :name (var-decl-name decl) :initializer nil))
                            (collect-in-scope (while-body elm) 'var-decl)))
         (new-while (make-while 
+                    :label (source-element-label elm)
                     :condition (make-special-value :symbol :true)
                     :body (make-statement-block 
                            :statements (append (list (make-if-statement 
                                                       :condition (make-unary-operator :op-symbol :logical-not :arg (while-condition elm))
-                                                      :then-statement (make-break-statement :label nil)))
+                                                      :then-statement (make-break-statement :target-label nil)))
                                                (statement-block-statements (transform 'loop-canonicalize 
                                                                                       (transform 'loop-canonicalize-in-body 
                                                                                                  (while-body elm))))
-                                               (list (make-continue-statement :label nil)))))))
+                                               (list (make-continue-statement :target-label nil)))))))
     (if new-decls
       (single-statement (make-var-decl-statement :var-decls new-decls) new-while)
       new-while)))
@@ -96,7 +97,8 @@
          (new-decls (append (mapcar (lambda (decl)  (make-var-decl :name (var-decl-name decl) :initializer nil))
                                     (collect-in-scope (do-statement-body elm) 'var-decl))
                             (list (make-var-decl :name firstp :initializer (make-special-value :symbol :true)))))
-         (new-while (make-while 
+         (new-while (make-while
+                     :label (source-element-label elm)
                      :condition (make-special-value :symbol :true)
                      :body (make-statement-block
                             :statements (append
@@ -151,15 +153,16 @@
                                    (list (for-initializer elm))
                                    (list (make-var-decl-statement :var-decls new-decls)
                                          (for-initializer elm))))
-       (new-loop (make-while :condition (make-special-value :symbol :true)
+       (new-loop (make-while :label (source-element-label elm)
+                             :condition (make-special-value :symbol :true)
                              :body (make-statement-block 
                                     :statements (append
                                                  (list (make-if-statement
                                                        :condition (make-unary-operator :op-symbol :logical-not :arg (for-condition elm))
-                                                       :then-statement (make-break-statement :label nil)))
+                                                       :then-statement (make-break-statement :target-label nil)))
                                                  (statement-block-statements (transform 'loop-canonicalize (transform 'loop-canonicalize-in-body (for-body elm))))
                                                  (list (for-step elm))
-                                                 (list (make-continue-statement :label nil)))))))
+                                                 (list (make-continue-statement :target-label nil)))))))
    (single-statement new-header-statements new-loop)))
 
 
@@ -219,7 +222,8 @@
          (new-count (genvar))     ; a counter for our array-- basically we're just adding a property with a number as its key
          (new-prop (genvar))      ; the iterator var
          (new-count-rec (genvar)) ; the counter for our while loop (ya, ya, could reuse new-count I guess)
-         (new-while (make-while :condition (make-binary-operator 
+         (new-while (make-while :label (source-element-label elm)
+                                :condition (make-binary-operator 
                                             :op-symbol :less-than
                                             :left-arg (make-identifier :name new-count-rec)
                                             :right-arg (make-property-access 

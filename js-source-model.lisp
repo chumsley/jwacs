@@ -23,7 +23,8 @@
 ;;;; Standard Javascript 
 
 (defstruct source-element
-  "A common base type for all source elements")
+  "A common base type for all source elements"
+  label)
 
 (defstruct (special-value (:include source-element))
   symbol)
@@ -111,10 +112,10 @@
   body)
 
 (defstruct (continue-statement (:include source-element))
-  label)
+  target-label)
 
 (defstruct (break-statement (:include source-element))
-  label)
+  target-label)
 
 (defstruct (return-statement (:include source-element))
   arg)
@@ -128,15 +129,11 @@
   clauses)
 
 (defstruct (case-clause (:include source-element))
-  label
+  value
   body)
 
 (defstruct (default-clause (:include source-element))
   body)
-
-(defstruct (label (:include source-element))
-  name
-  statement)
 
 (defstruct (throw-statement (:include source-element))
   value)

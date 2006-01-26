@@ -182,9 +182,6 @@
 (defmethod explicit-return-p ((elm with))
   (explicit-return-p (with-body elm)))
 
-(defmethod explicit-return-p ((elm label))
-  (explicit-return-p (label-statement elm)))
-
 (defmethod explicit-return-p ((elm catch-clause))
   (explicit-return-p (catch-clause-body elm)))
 

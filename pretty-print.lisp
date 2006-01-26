@@ -313,15 +313,15 @@ expression, or
 
 (defmethod pretty-print ((elm continue-statement) s)
   (format s "continue")
-  (when (continue-statement-label elm)
+  (when (continue-statement-target-label elm)
     (format s " ")
-    (pretty-print (continue-statement-label elm) s)))
+    (pretty-print (continue-statement-target-label elm) s)))
 
 (defmethod pretty-print ((elm break-statement) s)
   (format s "break")
-  (when (break-statement-label elm)
+  (when (break-statement-target-label elm)
     (format s " ") ;opt-space?
-    (pretty-print (break-statement-label elm) s)))
+    (pretty-print (break-statement-target-label elm) s)))
 
 (defmethod pretty-print ((elm return-statement) s)
   (format s "return")
@@ -347,7 +347,7 @@ expression, or
 (defmethod pretty-print ((elm case-clause) s)
   (fresh-line-indented s)
   (format s "case ")
-  (pretty-print (case-clause-label elm) s)
+  (pretty-print (case-clause-value elm) s)
   (format s ":")
   (with-indent
     (pretty-print (case-clause-body elm) s)))
@@ -363,11 +363,6 @@ expression, or
   (pretty-print (with-scope-object elm) s)
   (format s ")")
   (pretty-print-subordinate (with-body elm) s))
-
-(defmethod pretty-print ((elm label) s)
-  (format s "~A:" (label-name elm))
-  (fresh-line-indented s)
-  (pretty-print (label-statement elm) s))
 
 (defmethod pretty-print ((elm try) s)
   (format s "try")
@@ -420,6 +415,12 @@ expression, or
      (fresh-line-indented s)
      (format s "}"))))
 
+;; Print a label before each statement that has one
+(defmethod pretty-print :before ((elm source-element) s)
+  (when (source-element-label elm)
+    (format s "~A:" (source-element-label elm))
+    (fresh-line-indented s)))
+
 ;;;; JWACS-only extensions 
 (defmethod pretty-print ((elm suspend-statement) s)
   (format s "suspend"))
@@ -430,3 +431,4 @@ expression, or
   (when (resume-statement-arg elm)
     (format s "~a<-~a" *opt-space* *opt-space* )
     (pretty-print (resume-statement-arg elm) s)))
+

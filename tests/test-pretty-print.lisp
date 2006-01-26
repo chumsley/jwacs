@@ -323,13 +323,13 @@ while(foo > 55.0)")
 (deftest pretty-print/switch/1 :notes pretty-print
   (pretty-string (make-switch :value foo-id :clauses
                  (list
-                  (make-case-clause :label (make-numeric-literal :value 10)
+                  (make-case-clause :value (make-numeric-literal :value 10)
                              :body (list
                                     (make-fn-call :fn bar-id :args (list (make-numeric-literal :value 1)))
                                     (make-fn-call :fn baz-id :args (list foo-id))
                                     (make-break-statement)))
-                  (make-case-clause :label (make-numeric-literal :value 20))
-                  (make-case-clause :label (make-numeric-literal :value 30)
+                  (make-case-clause :value (make-numeric-literal :value 20))
+                  (make-case-clause :value (make-numeric-literal :value 30)
                              :body (list
                                     (make-fn-call :fn bar-id :args (list (make-numeric-literal :value 3)))))
                   (make-default-clause :body (list
@@ -355,7 +355,7 @@ default:
 }")
 
 (deftest pretty-print/label/1 :notes pretty-print
-  (pretty-string (make-label :name "fhwqgads" :statement (make-fn-call :fn foo-id :args (list bar-id baz-id))))
+  (pretty-string (make-fn-call :fn foo-id :label "fhwqgads" :args (list bar-id baz-id)))
   "fhwqgads:
 foo(bar, baz)")
 

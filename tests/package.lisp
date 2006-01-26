@@ -42,7 +42,6 @@
                 switch
                 case-clause
                 default-clause
-                label
                 throw-statement
                 try
                 catch-clause
@@ -85,7 +84,6 @@
                 make-switch
                 make-case-clause
                 make-default-clause
-                make-label
                 make-throw-statement
                 make-try
                 make-catch-clause

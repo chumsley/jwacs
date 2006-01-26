@@ -198,7 +198,7 @@
 (defmethod tx-explicitize ((elm case-clause))
   (multiple-value-bind (body-proxy body-prereqs)
       (tx-explicitize (case-clause-body elm))
-    (make-case-clause :label (case-clause-label elm)
+    (make-case-clause :value (case-clause-value elm)
                       :body
                       (cond
                         ((statement-block-p body-proxy)

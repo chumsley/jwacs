@@ -238,15 +238,15 @@
 
 (deftest parser/continue-statement/1 :notes parser
   (parse-only "continue;")
-  (#S(continue-statement :label nil)))
+  (#S(continue-statement :target-label nil)))
 
 (deftest parser/continue-statement/2 :notes parser
   (parse-only "continue blockName;")
-  (#S(continue-statement :label "blockName")))
+  (#S(continue-statement :target-label "blockName")))
 
 (deftest parser/break-statement/1 :notes parser
   (parse-only "break blockName;")
-  (#S(break-statement :label "blockName")))
+  (#S(break-statement :target-label "blockName")))
 
 (deftest parser/with/1 :notes parser
   (parse-only "with(x.y) { z -= 10; }")
@@ -260,26 +260,33 @@
 (deftest parser/switch/1 :notes parser
   (parse-only "switch(x[y]) { case 10:case 20:return x << 1;default:case 88:break; }")
   (#S(switch :value #S(property-access :target #S(identifier :name "x")
-                                     :field #S(identifier :name "y"))
-            :clauses
-            (#S(case-clause :label #S(numeric-literal :value 10)
-                           :body nil)
-             #S(case-clause :label #S(numeric-literal :value 20)
-                           :body (#S(return-statement :arg #S(binary-operator :op-symbol :lshift
-                                                                            :left-arg #S(identifier :name "x")
-                                                                            :right-arg #S(numeric-literal :value 1)))))
-             #S(default-clause :body nil)
-             #S(case-clause :label #S(numeric-literal :value 88)
-                           :body (#S(break-statement :label nil)))))))
+                                       :field #S(identifier :name "y"))
+             :clauses
+             (#S(case-clause :value #S(numeric-literal :value 10)
+                             :body nil)
+                #S(case-clause :value #S(numeric-literal :value 20)
+                               :body (#S(return-statement :arg #S(binary-operator :op-symbol :lshift
+                                                                                  :left-arg #S(identifier :name "x")
+                                                                                  :right-arg #S(numeric-literal :value 1)))))
+                #S(default-clause :body nil)
+                #S(case-clause :value #S(numeric-literal :value 88)
+                               :body (#S(break-statement :target-label nil)))))))
 
-(deftest parser/statement-block/1 :notes parser
+(deftest parser/label/1 :notes parser
+  (parse-only "jaerb: while(true) { echo('good jorb'); }")
+  (#S(while :label "jaerb"
+            :condition #S(special-value :symbol :true)
+            :body #S(statement-block :statements (#S(fn-call :fn #S(identifier :name "echo")
+                                                             :args (#s(string-literal :value "good jorb"))))))))
+(deftest parser/label/2 :notes parser
   (parse-only "{hello: x += 20;x*=10;}")
-  (#S(statement-block :statements (#S(label :name "hello" :statement #S(binary-operator :op-symbol :plus-equals
-                                                                               :left-arg #S(identifier :name "x")
-                                                                               :right-arg #S(numeric-literal :value 20)))
-                                  #S(binary-operator :op-symbol :times-equals
-                                                    :left-arg #S(identifier :name "x")
-                                                    :right-arg #S(numeric-literal :value 10))))))
+  (#S(statement-block :statements (#S(binary-operator :label "hello"
+                                                      :op-symbol :plus-equals
+                                                      :left-arg #S(identifier :name "x")
+                                                      :right-arg #S(numeric-literal :value 20))
+                                   #S(binary-operator :op-symbol :times-equals
+                                                      :left-arg #S(identifier :name "x")
+                                                      :right-arg #S(numeric-literal :value 10))))))
 
 (deftest parser/throw-statement/1 :notes parser
   (parse-only "throw -1;")

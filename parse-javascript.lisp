@@ -414,10 +414,10 @@
   ((iteration-statement-no-if :for :left-paren :var variable-decl-no-in :in expression :right-paren statement-no-if)
    (make-for-in :binding (make-var-decl-statement :var-decls (list $4)) :collection $6 :body $8))
 
-  ((continue-statement :continue :identifier :semicolon) (make-continue-statement :label $2))
+  ((continue-statement :continue :identifier :semicolon) (make-continue-statement :target-label $2))
   ((continue-statement :continue :semicolon) (make-continue-statement))
 
-  ((break-statement :break :identifier :semicolon) (make-break-statement :label $2))
+  ((break-statement :break :identifier :semicolon) (make-break-statement :target-label $2))
   ((break-statement :break :semicolon) (make-break-statement))
 
   ((return-statement :return expression :semicolon) (make-return-statement :arg $2))
@@ -440,14 +440,20 @@
   ((case-clauses case-clause) (list $1))
   ((case-clauses case-clauses case-clause) (append $1 (list $2)))
 
-  ((case-clause :case expression :colon statement-list) (make-case-clause :label $2 :body $4))
-  ((case-clause :case expression :colon) (make-case-clause :label $2))
+  ((case-clause :case expression :colon statement-list) (make-case-clause :value $2 :body $4))
+  ((case-clause :case expression :colon) (make-case-clause :value $2))
   ((case-clause :default :colon statement-list) (make-default-clause :body $3))
   ((case-clause :default :colon) (make-default-clause))
 
   ;; Pg 81
-  ((labelled-statement :identifier :colon statement) (make-label :name $1 :statement $3))
-  ((labelled-statement-no-if :identifier :colon statement-no-if) (make-label :name $1 :statement $3))
+  ((labelled-statement :identifier :colon statement)
+   (let ((elm $3))
+     (setf (source-element-label elm) $1)
+     elm))
+  ((labelled-statement-no-if :identifier :colon statement-no-if)
+   (let ((elm $3))
+     (setf (source-element-label elm) $1)
+     elm))
 
   ((throw-statement :throw expression :semicolon) (make-throw-statement :value $2))
 
