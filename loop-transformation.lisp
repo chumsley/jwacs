@@ -116,10 +116,9 @@
                                                                  :right-arg (make-special-value :symbol :false))))
                                            (statement-block-statements (transform 'loop-canonicalize (transform 'loop-canonicalize-in-body (do-statement-body elm))))
                                            (list (make-continue-statement :label nil)))))))
-    (make-statement-block
-     :statements (list
-                  (make-var-decl-statement :var-decls new-decls)
-                  new-while))))
+    (single-statement
+     (make-var-decl-statement :var-decls new-decls)
+     new-while)))
 
 ;; ===================================
 ;; FOR LOOP
@@ -175,10 +174,10 @@
 ;; This needs to happen after you've collected any var-decls to be placed before their appropriate looping statements
 
 (defmethod transform ((xform (eql 'loop-canonicalize-in-body)) (elm var-decl-statement))
-  (let ((assignments (mapcar (lambda (var-decl) (if (not (null (var-decl-initializer var-decl)))
+  (let ((assignments (mapcar (lambda (var-decl) (awhen (var-decl-initializer var-decl)
                                                     (make-binary-operator :op-symbol :assign
                                                                           :left-arg (make-identifier :name (var-decl-name var-decl))
-                                                                          :right-arg (var-decl-initializer var-decl))))
+                                                                          :right-arg it)))
                                      (var-decl-statement-var-decls elm))))
     (single-statement assignments)))
 

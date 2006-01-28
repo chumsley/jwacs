@@ -15,7 +15,7 @@
 ;;; 2. Explicitization transformation has been performed (and therefore all result values are unique)
 
 ;; These elements should have been removed by LOOP-TO-FUNCTION
-(forbid-transformation-elements cps (while do-statement for for-in))
+(forbid-transformation-elements cps (do-statement for for-in))
 
 (defun assignment-operator-p (elm)
   "Returns non-NIL if ELM represents an operation with an assignment side-effect"
@@ -356,4 +356,92 @@
           (special-value-symbol elm))
     *cont-id*
     (call-next-method)))
-          
+
+
+;;;; loop transformation
+
+;; while loops only
+;; break needs to call some break continuation (which is essentially the statement-tail)
+;; continue needs to call some continue continuation
+
+;; these can be labelled! So an inner loop can call a break or continue continuation created earlier in the chain
+
+;; from example
+;; function fun1(x)
+;; {
+;;   while(f(g(x)))
+;;   {
+;;     var fooResult = foo();
+;;     bar();
+;;   }
+;;   baz();
+;;   return quux(fooResult);
+;; }
+
+;; ===> (canonicalization, explicitization, cps)
+
+
+;; function fun1(x, $k)
+;; {
+;;   var fooResult;
+;;   function continue_k()
+;;   {
+;;     return g(x, function(JW0) {
+;;       return f(JW0, function(JW1) {
+;;         if(!JW1)
+;;           return break_k();
+;;         return foo(function(fooResult$2) {
+;;           fooResult = fooResult$2;  // footnote 1
+;;           return bar(function() {
+;;             return continue_k();
+;;           });
+;;         });
+;;       });
+;;     });
+;;   }
+;;   function break_k()
+;;   {
+;;     return baz(function() {
+;;       return quux(function() {
+;;         return $k(fooResult);
+;;       });
+;;     });
+;;   }
+;;   return continue_k();
+;; }
+
+
+(defparameter *nearest-continue* nil)
+(defparameter *nearest-break* nil)
+
+
+(defmethod transform ((xform (eql 'cps)) (elm while))
+  (let* ((break-k (genvar "break"))
+         (continue-k (genvar "continue"))
+         (break-k-fn  (make-function-decl 
+                       :name break-k
+                       :body (consume-statement-tail (statement-tail) (transform xform statement-tail))))
+         (*nearest-break* break-k)
+         (*nearest-continue* continue-k))
+    (single-statement
+     (make-function-decl :name continue-k :body (transform xform (while-body elm)))
+     break-k-fn
+     (make-fn-call :fn (make-identifier :name continue-k)))))
+
+(defmethod transform ((xform (eql 'cps)) (elm break-statement))
+  (aif (break-statement-label elm)
+       (assert nil) ; finish -- add label support    
+       (make-return-statement :arg (make-fn-call :fn (make-identifier :name *nearest-break*)))))
+    
+
+(defmethod transform ((xform (eql 'cps)) (elm continue-statement))
+  (aif (continue-statement-label elm)
+       (assert nil) ; finish -- add label support
+       (make-return-statement :arg (make-fn-call :fn (make-identifier :name *nearest-continue*)))))
+
+
+
+
+
+
+

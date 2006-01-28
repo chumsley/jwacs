@@ -28,6 +28,13 @@
                (parse "while(x<4) { var y=0; foo(); while(y<5) { var z=0; bar(); } }"))
     #.(parse "{ var y,z; while(true) { if(!(x<4)) break; y=0; foo(); while(true) { if(!(y<5)) break; z=0; bar(); continue; } continue; } }"))
 
+(deftest canonicalize/while/labelled :notes  loop-canonicalize
+    (transform 'loop-canonicalize
+               (parse "x=0; labelled: while(x<4) { foo(); x++; }"))
+  #.(parse "x=0; labelled: while(true) { if(!(x<4)) break; foo(); x++; continue; }"))
+
+
+
 
 ;; ====================================
 ;; FOR LOOPS

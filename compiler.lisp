@@ -8,7 +8,7 @@
 (defparameter *compiler-pipeline*
   '(shift-function-decls                ; Move function-decls to front of each scope
     uniquify                            ; TODO we should talk about whether this step is necessary/desirable
-;    loop-canonicalize                   ; Convert loops to a canonical form for easier CPS conversion
+    loop-canonicalize                   ; Convert loops to a canonical form for easier CPS conversion
     explicitize                         ; Give all intermediate values a name
     cps                                 ; Convert functions and loops to continuation-passing style functions
     trampoline                          ; Convert functions to trampoline-style functions
