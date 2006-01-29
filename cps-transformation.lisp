@@ -416,28 +416,34 @@
 
 
 (defmethod transform ((xform (eql 'cps)) (elm while))
-  (let* ((break-k (genvar "break"))
-         (continue-k (genvar "continue"))
-         (break-k-fn  (make-function-decl 
-                       :name break-k
-                       :body (consume-statement-tail (statement-tail) (transform xform statement-tail))))
-         (*nearest-break* break-k)
-         (*nearest-continue* continue-k))
-    (single-statement
-     (make-function-decl :name continue-k :body (transform xform (while-body elm)))
-     break-k-fn
-     (make-fn-call :fn (make-identifier :name continue-k)))))
+  (with-added-environment 
+    (let* ((break-k (genvar "break"))
+           (continue-k (genvar "continue"))
+           (break-k-fn  (make-function-decl 
+                         :name break-k
+                         :body (consume-statement-tail (statement-tail) (transform xform statement-tail))))
+           (*nearest-break* break-k)
+           (*nearest-continue* continue-k))
+      (awhen (source-element-label elm)
+        (add-binding (concatenate 'string it "$break") break-k)
+        (add-binding (concatenate 'string it "$continue") continue-k))
+      (single-statement
+       (make-function-decl :name continue-k :body (transform xform (while-body elm)))
+       break-k-fn
+       (make-fn-call :fn (make-identifier :name continue-k))))))
 
 (defmethod transform ((xform (eql 'cps)) (elm break-statement))
-  (aif (break-statement-label elm)
-       (assert nil) ; finish -- add label support    
-       (make-return-statement :arg (make-fn-call :fn (make-identifier :name *nearest-break*)))))
+  (let ((break-name (aif (break-statement-target-label elm)
+                         (find-binding (concatenate 'string it "$break"))
+                         *nearest-break*)))
+       (make-return-statement :arg (make-fn-call :fn (make-identifier :name break-name)))))
     
 
 (defmethod transform ((xform (eql 'cps)) (elm continue-statement))
-  (aif (continue-statement-label elm)
-       (assert nil) ; finish -- add label support
-       (make-return-statement :arg (make-fn-call :fn (make-identifier :name *nearest-continue*)))))
+  (let ((continue-name (aif (continue-statement-target-label elm)
+                            (find-binding (concatenate 'string it "$continue"))
+                            *nearest-continue*)))
+       (make-return-statement :arg (make-fn-call :fn (make-identifier :name continue-name)))))
 
 
 
