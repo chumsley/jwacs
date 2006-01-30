@@ -46,6 +46,20 @@
                       (error "~A source-element encountered during ~A transformation!" ',elm-type ',xform)))))
                    
 
+;;;; Scope tracking 
+
+;;; Some transformations need to keep track of toplevel vs. local scopes.
+;;; They should use this macro and variable.
+
+(defparameter *in-local-scope* nil
+  "T when the lexical scope is currently inside a function decl, NIL when the
+   lexical scope is currently the global scope")
+
+(defmacro in-local-scope (&body body)
+  "Execute BODY with *IN-LOCAL-SCOPE* bound to T"
+  `(let ((*in-local-scope* t))
+    ,@body))
+
 ;;;; Collection within a single scope  
 (defgeneric collect-in-scope (elm target-type)
   (:documentation

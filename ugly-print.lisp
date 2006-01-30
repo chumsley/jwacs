@@ -55,11 +55,22 @@
   "Add a binding to the environment. In our case, name and new name"
   (push (cons var-name var-newname) (car *environment*)))
 
-(defun add-ugly-binding (var-name)
-  "Takes a variable name and creates a new ugly name and adds that to the environment. Returns the ugly name"
-  (let ((ugly-name (genvar var-name)))
-    (add-binding var-name ugly-name)
-    ugly-name))
+(defun ensure-unique-binding (var-name)
+  "Adds a unique name for VAR-NAME to the environment, and returns the unique name.
+   The unique name will be uglified or otherwise 'uniquified' for non-toplevel
+   identifiers; toplevel identifiers will be left as-is."
+  (cond
+    (*in-local-scope*
+     (let ((ugly-name (genvar var-name)))
+       (add-binding var-name ugly-name)
+       ugly-name))
+    (t
+     ;;TODO Warnings may have to be done differently once compiler errors are
+     ;; being properly reported.
+     (when (find-binding var-name)
+       (warn "Duplicate top-level identifier '~A'" var-name))
+     (add-binding var-name var-name)
+     var-name)))
 
 (defparameter *genvar-counter* 0)
 
@@ -94,9 +105,9 @@
    and transforms identifiers + names in said environment. This calls into the main
    uniquify transform methods, and subsequently will recurse through the tree"
   (dolist (var-decl (collect-in-scope elm 'var-decl)) 
-    (add-ugly-binding (var-decl-name var-decl)))
+    (ensure-unique-binding (var-decl-name var-decl)))
   (dolist (fun-decl (collect-in-scope elm 'function-decl))
-    (add-ugly-binding (function-decl-name fun-decl)))
+    (ensure-unique-binding (function-decl-name fun-decl)))
   (transform 'uniquify elm))
 
 ;;; Guarantee that we will always have an environment available
@@ -121,23 +132,25 @@
     ;; (It will if this source-element was part of a list, but it won't if this
     ;; is a singleton source element)
     (unless (find-binding (function-decl-name elm))
-      (add-ugly-binding (function-decl-name elm)))
+      (ensure-unique-binding (function-decl-name elm)))
 
-    (let ((new-params (mapcar #'add-ugly-binding (function-decl-parameters elm))))
-      (make-function-decl :name (find-binding (function-decl-name elm))
-                          :parameters new-params
-                          :body (transform-in-scope (function-decl-body elm))))))
+    (in-local-scope
+      (let ((new-params (mapcar #'ensure-unique-binding (function-decl-parameters elm))))
+        (make-function-decl :name (find-binding (function-decl-name elm))
+                            :parameters new-params
+                            :body (transform-in-scope (function-decl-body elm)))))))
   
 (defmethod transform ((xform (eql 'uniquify)) (elm function-expression))
   (with-added-environment
-    (let* ((new-name (add-ugly-binding (function-expression-name elm)))
-           (new-params (mapcar #'add-ugly-binding (function-expression-parameters elm))))
-      (make-function-expression :name new-name
-                                :parameters new-params
-                                :body (transform-in-scope (function-expression-body elm))))))
+    (in-local-scope
+      (let* ((new-name (ensure-unique-binding (function-expression-name elm)))
+             (new-params (mapcar #'ensure-unique-binding (function-expression-parameters elm))))
+        (make-function-expression :name new-name
+                                  :parameters new-params
+                                  :body (transform-in-scope (function-expression-body elm)))))))
   
 (defmethod transform ((xform (eql 'uniquify)) (elm var-decl))
   (unless (find-binding (var-decl-name elm))
-    (add-ugly-binding (var-decl-name elm)))
+    (ensure-unique-binding (var-decl-name elm)))
   (make-var-decl :name (find-binding (var-decl-name elm))
                  :initializer (transform xform (var-decl-initializer elm))))

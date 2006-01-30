@@ -36,17 +36,6 @@
 ;;; When we refer to runtime functions, we indirect through parameters to make it easy to
 ;;; factor the runtime (and also to save having to contantly type (MAKE-STRING-LITERAL ...))
 
-;;;; Scope tracking 
-
-(defparameter *in-local-scope* nil
-  "T when the lexical scope is currently inside a function decl, NIL when the
-   lexical scope is currently the global scope")
-
-(defmacro in-local-scope (&body body)
-  "Execute BODY with *IN-LOCAL-SCOPE* bound to T"
-  `(let ((*in-local-scope* t))
-    ,@body))
-
 ;;;; Statement tails 
 ;;;
 ;;; A "statement tail" is a list of the statements that follow the current

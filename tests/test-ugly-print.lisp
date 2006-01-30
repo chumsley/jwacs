@@ -21,43 +21,48 @@
 
 (deftest ugly-print/var-decl/1 :notes ugly-print
   (with-fresh-genvar
-      (ugly-string (parse "var x = 3;")))
+    (in-local-scope
+      (ugly-string (parse "var x = 3;"))))
     "var JW0=3;")
 
 (deftest ugly-print/function-decl/1 :notes ugly-print
   (with-fresh-genvar
-    (ugly-string (parse "function FOO(){;}")))
+    (in-local-scope
+      (ugly-string (parse "function FOO(){;}"))))
   "function JW0(){;}")
 
 (deftest ugly-print/function-decl/2 :notes ugly-print
   (with-fresh-genvar
-    (ugly-string (parse "function FOO(x){;}")))
+    (in-local-scope
+      (ugly-string (parse "function FOO(x){;}"))))
   "function JW0(JW1){;}")
 
 (deftest ugly-print/function-decl/3 :notes ugly-print
   (with-fresh-genvar
     (ugly-string (parse "function FOO(x){ var y = x; }")))
-  "function JW0(JW1){var JW2=JW1;}")
+  "function FOO(JW0){var JW1=JW0;}")
 
 (deftest ugly-print/function-decl/4 :notes ugly-print
   (with-fresh-genvar
-    (ugly-string (parse "function FOO(){ FOO(); }")))
+    (in-local-scope
+      (ugly-string (parse "function FOO(){ FOO(); }"))))
   "function JW0(){JW0();}")
 
 (deftest ugly-print/function-decl/5 :notes ugly-print
   (with-fresh-genvar
-    (let ((jw::*pretty-mode* nil))
-      (jw::uglify-vars (parse "
-        function recursiveCount(i, n)
-        {
-          if(i > n)
-            return i - 1;
-          else
+    (in-local-scope
+      (let ((jw::*pretty-mode* nil))
+        (jw::uglify-vars (parse "
+          function recursiveCount(i, n)
           {
-            WScript.echo(i + '/' + n);
-            return recursiveCount(i + 1, n);
-          }
-        }"))))
+            if(i > n)
+              return i - 1;
+            else
+            {
+              WScript.echo(i + '/' + n);
+              return recursiveCount(i + 1, n);
+            }
+          }")))))
   #.(parse "
       function JW0(JW1, JW2)
       {
@@ -81,12 +86,13 @@
 (deftest ugly-print/function-decl-arg-shadow/1 :notes ugly-print
   (with-fresh-genvar
     (ugly-string (parse "function FOO(x){ var x = 3; }")))
-  "function JW0(JW1){var JW2=3;}")
+  "function FOO(JW0){var JW1=3;}")
     
 
 (deftest ugly-print/function-decl-arg-shadow/2 :notes ugly-print
   (with-fresh-genvar
-    (ugly-string (parse "function FOO(x){ var x = 3; FOO(x);}")))
+    (in-local-scope
+      (ugly-string (parse "function FOO(x){ var x = 3; FOO(x);}"))))
   "function JW0(JW1){var JW2=3;JW0(JW2);}")
 
 (deftest ugly-print/function-in-function/1 :notes ugly-print
@@ -98,7 +104,7 @@
                           var y = 3;
                           bar(3); 
                          }")))
-  "function JW0(JW1){function JW3(JW4){return JW4+JW2;}var JW2=3;JW3(3);}")
+  "function FOO(JW0){function JW2(JW3){return JW3+JW1;}var JW1=3;JW2(3);}")
 
 (deftest ugly-print/function-in-function/2 :notes ugly-print
   (with-fresh-genvar
@@ -109,7 +115,7 @@
                           }
                           bar(3); 
                          }")))
-  "function JW0(JW1){var JW2=3;function JW3(JW4){return JW4+JW2;}JW3(3);}")
+  "function FOO(JW0){var JW1=3;function JW2(JW3){return JW3+JW1;}JW2(3);}")
 
 (deftest ugly-print/function-in-function-in-function/1 :notes ugly-print
   (with-fresh-genvar
@@ -123,22 +129,24 @@
                           var y = 3;
                           bar(3); 
                          }")))
-"function JW0(JW1){function JW3(JW4){function JW5(JW6){return 3+JW2;}return JW4+JW2+JW5(3);}var JW2=3;JW3(3);}")
+"function FOO(JW0){function JW2(JW3){function JW4(JW5){return 3+JW1;}return JW3+JW1+JW4(3);}var JW1=3;JW2(3);}")
 
 (deftest ugly-print/blocks/1 :notes ugly-print
  (with-fresh-genvar
-   (ugly-string (parse "{ var y = 3;
-                           {
-                              var x = 1;
-                           }
-                          x + y;
-                        }")))
+   (in-local-scope
+     (ugly-string (parse "{ var y = 3;
+                             {
+                                var x = 1;
+                             }
+                            x + y;
+                          }"))))
    "{var JW0=3;{var JW1=1;};JW1+JW0;};")
 
 (deftest ugly-print/free-variables/1 :notes ugly-print
   (with-fresh-genvar
-    (ugly-string (parse "var x = 10;
-                         var y = x + z;")))
+    (in-local-scope
+      (ugly-string (parse "var x = 10;
+                           var y = x + z;"))))
     "var JW0=10;var JW1=JW0+z;")
 
 (deftest ugly-print/free-variables/2 :notes ugly-print
@@ -152,7 +160,7 @@
                            else
                              return m;
                          }")))
-  "var JW0=foo;function JW1(JW2){var JW3=JW2*2;if(JW3>JW0)return JW1(JW2--);else return JW2;}")
+  "var x=foo;function bar(JW0){var JW1=JW0*2;if(JW1>x)return bar(JW0--);else return JW0;}")
 
 (deftest ugly-print/pretty-variable/1 :notes ugly-print
   (with-fresh-genvar
@@ -160,13 +168,34 @@
       (jw::uglify-vars (parse "
         function fn(arg1, arg2)
         {
+          function bar() { return 7; }
           var foo = 10;
           WScript.echo(foo + arg2);
         }"))))
   #.(parse "
-        function fn$0(arg1$1, arg2$2)
+        function fn(arg1$0, arg2$1)
         {
-          var foo$3 = 10;
-          WScript.echo(foo$3 + arg2$2);
+          function bar$3() { return 7; }
+          var foo$2 = 10;
+          WScript.echo(foo$2 + arg2$1);
         }"))
-       
+
+(deftest ugly-print/for-loop-does-not-create-new-scope/1 :notes ugly-print
+  (with-fresh-genvar
+    (ugly-string (parse "
+        var top = 10;
+        for(var top = 0; top < 100; top++)
+        {
+          echo(top);
+        }")))
+   "var top=10;for(var top=0;top<100;top++){echo(top);};")
+
+(deftest ugly-print/for-loop-does-not-create-new-scope/2 :notes ugly-print
+  (with-fresh-genvar
+    (ugly-string (parse "
+        var top = 10;
+        for(var top in topVars)
+        {
+          echo(top);
+        }")))
+   "var top=10;for(var top in topVars){echo(top);};")
