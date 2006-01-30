@@ -24,6 +24,10 @@
                             :parameters (jw::function-expression-parameters elm)
                             :body (transform xform (jw::function-expression-body elm))))
 
+(defmethod transform ((xform (eql 'remove-administratives)) (elm continuation-call))
+  (make-fn-call :fn (jw::fn-call-fn elm)
+                :args (jw::fn-call-args elm)))
+
 (defun test-transform (xform elm)
   "Return the results of applying XFORM to ELM with any administrative source-elements
    converted to their non-administrative equivalents"

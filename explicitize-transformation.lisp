@@ -210,7 +210,7 @@
                          (append body-prereqs (list body-proxy)))))))                        
 
 (defmethod tx-explicitize ((elm while))
-  (assert (idempotent-expression-p (while-condition elm))) ; LOOP-CANONICALIZATION should reduce all while loops to idempotent conditions
+  (assert (idempotent-expression-p (while-condition elm))) ; LOOP-CANONICALIZATION should reduce all while loops to idempotent conditions (viz. `true`)
   (multiple-value-bind (body-proxy body-prereqs)
       (tx-explicitize (while-body elm))
     (values (make-while :label (source-element-label elm)

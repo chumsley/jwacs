@@ -66,6 +66,10 @@
 
 (defmethod transform ((xform (eql 'trampoline)) (elm resume-statement))
   (with-slots (target arg) elm
-    (make-return-statement :arg (make-fn-call :fn (transform 'cps target)
-                                              :args (when arg
-                                                      (list arg))))))
+    (make-return-statement
+     :arg
+     (make-thunk (make-return-statement
+                  :arg
+                  (make-continuation-call :fn (transform 'trampoline target)
+                                          :args (when arg
+                                                  (list arg))))))))

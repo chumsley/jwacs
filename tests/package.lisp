@@ -50,6 +50,7 @@
                 function-expression
                 continuation-function
                 thunk-function
+                continuation-call
                 suspend-statement
                 resume-statement
                 

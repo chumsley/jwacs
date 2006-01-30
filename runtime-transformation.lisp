@@ -167,3 +167,9 @@
                            (make-array-literal :elements
                                                (mapcar #'runtime-transform
                                                        (cdr (fn-call-args elm)))))))))
+
+;; We can be sure that we don't need to indirect through $call for a continuation-call, because those
+;; are only produced by resume statements.
+(defmethod transform ((xform (eql 'runtime)) (elm continuation-call))
+  (make-fn-call :fn (transform 'runtime (fn-call-fn elm))
+                :args (mapcar (lambda (arg) (transform 'runtime arg)) (fn-call-args elm))))

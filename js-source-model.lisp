@@ -167,6 +167,9 @@
 (defstruct (thunk-function (:include function-expression))
   "A function expression that is used as a thunk in a boxed trampoline result")
 
+(defstruct (continuation-call (:include fn-call))
+  "A call to a continuation (as opposed to a call to any other sort of function)")
+
 ;;;; JWACS extended syntax  
 (defstruct (suspend-statement (:include source-element)))
 
