@@ -103,7 +103,7 @@
 (defmethod transform :around ((xform (eql 'uniquify)) elm)
   (if (null *environment*)
     (with-added-environment
-      (call-next-method))
+      (transform-in-scope elm))
     (call-next-method)))
 
 (defmethod transform ((xform (eql 'uniquify)) (elm identifier))

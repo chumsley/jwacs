@@ -52,9 +52,12 @@
    original incoming parameters"
   (assert (not (null fn-name)))
   (make-if-statement
-   :condition (make-unary-operator :op-symbol :logical-not
-                                   :arg (make-property-access :target *cont-id*
-                                                              :field *continuation-property*))
+   :condition (make-binary-operator :op-symbol :logical-or
+                                    :left-arg (make-unary-operator :op-symbol :logical-not
+                                                                   :arg *cont-id*)
+                                    :right-arg (make-unary-operator :op-symbol :logical-not
+                                                                   :arg (make-property-access :target *cont-id*
+                                                                                              :field *continuation-property*)))
    :then-statement (make-return-statement
                     :arg
                     (make-fn-call :fn *callFromDirect-fn*

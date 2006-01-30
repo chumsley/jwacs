@@ -18,7 +18,7 @@
   #.(parse "
         function foo($k)
         {
-            if(!$k.$isK)
+            if(!$k || !$k.$isK)
               return $callFromDirect(foo, this, arguments);
             return bar($makeK(function (dummy$0) { return baz($k); }));
         }
@@ -30,7 +30,7 @@
       var x = function($k) { return $k(21); };")))
   #.(parse "
       var x = $lambda(function lambda$0($k) {
-                        if(!$k.$isK)
+                        if(!$k || !$k.$isK)
                           return $callFromDirect(lambda$0, this, arguments);
                         return $k(21); });"))
 
@@ -48,7 +48,7 @@
   #.(parse "
       function fact($k, x)
       {
-        if(!$k.$isK)
+        if(!$k || !$k.$isK)
           return $callFromDirect(fact, this, arguments);
         if(x == 0)
           return {done:false, thunk: function() { return $k(1); }};
@@ -70,7 +70,7 @@
   #.(parse "
         function bar($k, x)
         {
-          if(!$k.$isK)
+          if(!$k || !$k.$isK)
             return $callFromDirect(bar, this, arguments);
           return $k(x);
         }
@@ -78,7 +78,7 @@
 
         function foo($k)
         {
-          if(!$k.$isK)
+          if(!$k || !$k.$isK)
             return $callFromDirect(foo, this, arguments);
           return bar($makeK(function(dummy$0) {
                               return $call(baz, $k, this, [100]);
