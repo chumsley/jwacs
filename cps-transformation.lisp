@@ -417,22 +417,22 @@
         (add-binding (concatenate 'string it "$break") break-k)
         (add-binding (concatenate 'string it "$continue") continue-k))
       (single-statement
-       (make-function-decl :name continue-k :body (transform xform (while-body elm)))
+       (make-function-decl :name continue-k :body (transform xform (statement-block-statements (while-body elm))))
        break-k-fn
-       (make-fn-call :fn (make-identifier :name continue-k))))))
+       (make-resume-statement :target (make-identifier :name continue-k))))))
 
 (defmethod transform ((xform (eql 'cps)) (elm break-statement))
   (let ((break-name (aif (break-statement-target-label elm)
                          (find-binding (concatenate 'string it "$break"))
                          *nearest-break*)))
-       (make-return-statement :arg (make-fn-call :fn (make-identifier :name break-name)))))
+    (make-resume-statement :target (make-identifier :name break-name))))
     
 
 (defmethod transform ((xform (eql 'cps)) (elm continue-statement))
   (let ((continue-name (aif (continue-statement-target-label elm)
                             (find-binding (concatenate 'string it "$continue"))
                             *nearest-continue*)))
-       (make-return-statement :arg (make-fn-call :fn (make-identifier :name continue-name)))))
+    (make-resume-statement :target (make-identifier :name continue-name))))
 
 
 
