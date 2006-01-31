@@ -108,17 +108,22 @@
   (let ((*nested-context* t))
     (tx-explicitize elm)))
 
+(defun unnested-explicitize (elm)
+  "Call TX-EXPLICITIZE on ELM in an unnested context (ie, with *NESTED-CONTEXT* bound to NIL)"
+  (let ((*nested-context* nil))
+    (tx-explicitize elm)))
+
 (defmacro with-nesting (&body body)
   "Execute the forms of BODY with *NESTED-CONTEXT* bound to T."
   `(let ((*nested-context* t))
     ,@body))
-    
+
 ;;================================================================================
 ;;;; TRANSFORM method
 
 (defmethod transform ((xform (eql 'explicitize)) elm)
   (multiple-value-bind (proxy prereqs)
-      (tx-explicitize elm)
+      (unnested-explicitize elm)
     (if (null prereqs)
       proxy
       (append prereqs (list proxy)))))
@@ -177,9 +182,9 @@
   (multiple-value-bind (cond-proxy cond-prereqs)
       (nested-explicitize (if-statement-condition elm))
     (multiple-value-bind (then-proxy then-prereqs)
-        (tx-explicitize (if-statement-then-statement elm))
+        (unnested-explicitize (if-statement-then-statement elm))
       (multiple-value-bind (else-proxy else-prereqs)
-          (tx-explicitize (if-statement-else-statement elm))
+          (unnested-explicitize (if-statement-else-statement elm))
         (values (make-if-statement :condition cond-proxy
                                    :then-statement (single-statement then-prereqs then-proxy)
                                    :else-statement (single-statement else-prereqs else-proxy))
@@ -191,13 +196,13 @@
     (values
      (make-switch :value cond-proxy
                   :clauses (mapcar (lambda (clause) ; Clauses never have prereqs, so a simple mapcar is fine
-                                     (tx-explicitize clause))
+                                     (unnested-explicitize clause))
                                    (switch-clauses elm)))
      cond-prereqs)))
 
 (defmethod tx-explicitize ((elm case-clause))
   (multiple-value-bind (body-proxy body-prereqs)
-      (tx-explicitize (case-clause-body elm))
+      (unnested-explicitize (case-clause-body elm))
     (make-case-clause :value (case-clause-value elm)
                       :body
                       (cond
@@ -212,7 +217,7 @@
 (defmethod tx-explicitize ((elm while))
   (assert (idempotent-expression-p (while-condition elm))) ; LOOP-CANONICALIZATION should reduce all while loops to idempotent conditions (viz. `true`)
   (multiple-value-bind (body-proxy body-prereqs)
-      (tx-explicitize (while-body elm))
+      (unnested-explicitize (while-body elm))
     (values (make-while :label (source-element-label elm)
                         :condition (while-condition elm)
                         :body (single-statement body-prereqs body-proxy))
@@ -222,7 +227,7 @@
   (multiple-value-bind (collection-proxy collection-prereqs)
       (nested-explicitize (for-in-collection elm))
     (multiple-value-bind (body-proxy body-prereqs)
-        (tx-explicitize (for-in-body elm))
+        (unnested-explicitize (for-in-body elm))
       (values (make-for-in :binding (for-in-binding elm)
                            :collection collection-proxy
                            :body (single-statement body-prereqs body-proxy))
@@ -337,7 +342,7 @@
 
 (defmethod tx-explicitize ((elm-list list))
   (loop for elm in elm-list
-        for (proxy prereqs) = (multiple-value-list (tx-explicitize elm))
+        for (proxy prereqs) = (multiple-value-list (unnested-explicitize elm))
         append prereqs
         if (listp proxy)
           append proxy

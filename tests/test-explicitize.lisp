@@ -327,3 +327,36 @@
           var JW3 = z();
       }      
       foo(JW4 || JW2 && JW3);"))
+
+(deftest explicitize/bare-fn-call/1 :notes explicitize
+  (with-fresh-genvar
+    (transform 'explicitize (parse "
+      foo(50);")))
+  #.(parse "
+      foo(50);"))
+
+(deftest explicitize/bare-fn-call/2 :notes explicitize
+  (with-fresh-genvar
+    (transform 'explicitize (parse "
+      function foo()
+      {
+        bar(50);
+      }")))
+  #.(parse "
+      function foo()
+      {
+        bar(50);
+      }"))
+
+(deftest explicitize/bare-fn-call/3 :notes explicitize
+  (with-fresh-genvar
+    (transform 'explicitize (parse "
+      x = function()
+      {
+        bar(50);
+      };")))
+  #.(parse "
+      x = function()
+      {
+        bar(50);
+      };"))
