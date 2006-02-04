@@ -1,3 +1,20 @@
+Feb 4/2006
+Backfill tasks
+  * redo if-statements to make them non-exponential
+  * switch statements
+  * single/multi statement rationalization
+  * verify that comma expressions are adequately supported
+
+James
+  * type and context analysis
+
+Greg
+  * cps/while tests
+  * lexer/parser improvements (for source position ranges)
+
+Major tasks (pending)
+  * exception support
+
 Jan 3/2006
 To think about:
   * Think about adding '#argument' to the end of the browser URL; newPage could take
