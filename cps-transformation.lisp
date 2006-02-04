@@ -184,7 +184,7 @@
   ;; has an explicit return.
   (let ((body (if (explicit-return-p (function-decl-body elm))
                 (function-decl-body elm)
-                (append (function-decl-body elm) (list #s(return-statement))))))
+                (postpend (function-decl-body elm) #s(return-statement)))))
     (without-statement-tail             ; Each function starts with a fresh statement-tail
       (make-function-decl :name (function-decl-name elm)
                           :parameters (cons *cont-name* (function-decl-parameters elm))
@@ -198,7 +198,7 @@
   (let ((new-parameters (cons *cont-name* (function-expression-parameters elm)))
         (body (if (explicit-return-p (function-expression-body elm))
                 (function-expression-body elm)
-                (append (function-expression-body elm) (list #s(return-statement))))))
+                (postpend (function-expression-body elm) #s(return-statement)))))
     (without-statement-tail             ; Each function starts with a fresh statement-tail
       (make-function-expression :name (function-expression-name elm)
                                 :parameters new-parameters

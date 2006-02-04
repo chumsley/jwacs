@@ -52,6 +52,7 @@
                         ((:file "yacc")))
                (:js-file "jw-runtime")
                (:file "package")
+               (:file "general-utilities")
                (:file "lexer-macros")
                (:file "lex-javascript")
                (:file "js-source-model")

@@ -126,7 +126,7 @@
       (unnested-explicitize elm)
     (if (null prereqs)
       proxy
-      (append prereqs (list proxy)))))
+      (postpend prereqs proxy))))
 
 ;; These elements should have been removed by LOOP-TO-FUNCTION
 (forbid-transformation-elements explicitize (do-statement for))
@@ -160,7 +160,7 @@
             (if *nested-context*
               (let ((new-var (genvar)))
                 (return (values (make-identifier :name new-var)
-                                (append new-stmts (list (make-var-init new-var new-elm))))))
+                                (postpend new-stmts (make-var-init new-var new-elm)))))
               (return (values new-elm
                               new-stmts)))))))
 
@@ -212,7 +212,7 @@
                         ((listp body-proxy)
                          (append body-prereqs body-proxy))
                         (t
-                         (append body-prereqs (list body-proxy)))))))                        
+                         (postpend body-prereqs body-proxy))))))
 
 (defmethod tx-explicitize ((elm while))
   (assert (idempotent-expression-p (while-condition elm))) ; LOOP-CANONICALIZATION should reduce all while loops to idempotent conditions (viz. `true`)
@@ -255,27 +255,27 @@
            (values (make-conditional :condition cond-proxy
                                      :true-arg then-proxy
                                      :false-arg else-proxy)
-                   (append cond-prereqs
-                           ;;TODO make an if with a negated conditional if there are only else-prereqs
-                           (list (make-if-statement :condition cond-proxy
-                                                    :then-statement (single-statement then-prereqs)
-                                                    :else-statement (single-statement else-prereqs))))))
+                   (postpend cond-prereqs
+                             ;;TODO make an if with a negated conditional if there are only else-prereqs
+                             (make-if-statement :condition cond-proxy
+                                                :then-statement (single-statement then-prereqs)
+                                                :else-statement (single-statement else-prereqs)))))
           ;; Non-idempotent cond proxy with at least
           ;; one non-guaranteed prereq
           (t
            (let* ((cond-proxy-name (genvar))
-                  (cond-prereqs (append cond-prereqs
-                                        (list (make-var-init cond-proxy-name cond-proxy))))
+                  (cond-prereqs (postpend cond-prereqs
+                                          (make-var-init cond-proxy-name cond-proxy)))
                   (cond-proxy (make-identifier :name cond-proxy-name)))
              (values (make-conditional :condition cond-proxy
                                      :true-arg then-proxy
                                      :false-arg else-proxy)
-                   (append cond-prereqs
-                           ;;TODO make an if with a negated conditional if there are only else-prereqs
-                           (list (make-if-statement :condition cond-proxy
-                                                    :then-statement (single-statement then-prereqs)
-                                                    :else-statement (single-statement else-prereqs))))))))))))
-          
+                   (postpend cond-prereqs
+                             ;;TODO make an if with a negated conditional if there are only else-prereqs
+                             (make-if-statement :condition cond-proxy
+                                                :then-statement (single-statement then-prereqs)
+                                                :else-statement (single-statement else-prereqs)))))))))))
+
 
 (defun explicitize-short-circuit-operator (elm)
   "Transforms ELM (should be a BINARY-OPERATOR) in a way that preserves the short-circuit semantics"
@@ -306,20 +306,20 @@
            (values (make-binary-operator :op-symbol (binary-operator-op-symbol elm)
                                          :left-arg left-proxy
                                          :right-arg right-proxy)
-                   (append left-prereqs
-                           (list (make-if-wrapper left-proxy right-prereqs)))))
+                   (postpend left-prereqs
+                             (make-if-wrapper left-proxy right-prereqs))))
           ;; If the right arg has prereqs and the left proxy is not idempotent, we need to
           ;; construct a left proxy and use it to wrap the right prereqs.
           (t
            (let* ((left-proxy-name (genvar))
-                  (left-prereqs (append left-prereqs
-                                        (list (make-var-init left-proxy-name left-proxy))))
+                  (left-prereqs (postpend left-prereqs
+                                          (make-var-init left-proxy-name left-proxy)))
                   (left-proxy (make-identifier :name left-proxy-name)))
              (values (make-binary-operator :op-symbol (binary-operator-op-symbol elm)
                                            :left-arg left-proxy
                                            :right-arg right-proxy)
-                     (append left-prereqs
-                             (list (make-if-wrapper left-proxy right-prereqs)))))))))))
+                     (postpend left-prereqs
+                               (make-if-wrapper left-proxy right-prereqs))))))))))
 
 (defmethod tx-explicitize ((elm binary-operator))
   (if (member (binary-operator-op-symbol elm)
