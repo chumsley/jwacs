@@ -352,14 +352,17 @@
 ;; For the EXPLICITIZE transformation, the default behaviour must collect prerequisite
 ;; statements as well as proxies.
 (defmethod tx-explicitize ((elm source-element))
-  (let ((fresh-elm (funcall (get-constructor elm))))
-    (loop for slot in (structure-slots elm)
-          for (proxy prereqs) = (multiple-value-list (tx-explicitize (slot-value elm slot)))
-          do
-          (setf (slot-value fresh-elm slot)
-                proxy)
-          append prereqs into pre-stmts
-          finally (return (values fresh-elm pre-stmts)))))
+  (let ((pre-stmts '()))
+    (values
+     (apply
+      (get-constructor elm)
+      (loop for slot in (structure-slots elm)
+            for (proxy prereqs) = (multiple-value-list (tx-explicitize (slot-value elm slot)))
+           collect (make-keyword slot)
+           collect proxy
+           do (setf pre-stmts (append pre-stmts prereqs))))
+     pre-stmts)))
+
 
 (defmethod tx-explicitize (elm)
   elm)

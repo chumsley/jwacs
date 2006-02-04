@@ -119,14 +119,18 @@
 (defmethod transform (xform elm)
   elm)
 
+(defun make-keyword (x)
+  "Makes a keyword out of a symbol."
+  (if (keywordp x) x (intern (symbol-name x) 'keyword)))
+
 ;; The default behaviour for any transformation on a source-element that has children
 ;; is to return a new source-element whose children have been transformed.
 (defmethod transform (xform (elm source-element))
-  (let ((fresh-elm (funcall (get-constructor elm))))
-    (dolist (slot (structure-slots elm))
-      (setf (slot-value fresh-elm slot)
-            (transform xform (slot-value elm slot))))
-    fresh-elm))
+  (apply
+   (get-constructor elm)
+   (loop for slot in (structure-slots elm)
+         collect (make-keyword slot)
+         collect (transform xform (slot-value elm slot)))))
 
 (defmethod transform (xform (elm list))
   (mapcar (lambda (arg)

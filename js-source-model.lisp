@@ -22,103 +22,108 @@
 
 ;;;; Standard Javascript 
 
+; GS- i've added types, but should make a virtual "expressions" type to be used where appropriate
+; instead of source-element
+; perhaps also one for statement?
+
+
 (defstruct source-element
   "A common base type for all source elements"
-  label)
+  (label nil :type (or string null)))
 
 (defstruct (special-value (:include source-element))
-  symbol)
+  (symbol nil :type symbol))
 
 (defstruct (identifier (:include source-element))
-  name)
+  (name nil :type string))
 
 (defstruct (numeric-literal (:include source-element))
-  value)
+  (value nil :type number))
 
 (defstruct (string-literal (:include source-element))
-  value)
+  (value nil :type string))
 
 (defstruct (array-literal (:include source-element))
-  elements)
+  (elements nil :type list))
 
 (defstruct (object-literal (:include source-element))
-  properties)  ; List of (PROPERTY-NAME . PROPERTY-VALUE)
+  (properties nil :type list))  ; List of (PROPERTY-NAME . PROPERTY-VALUE)
 
 (defstruct (re-literal (:include source-element))
   pattern
   options)
 
 (defstruct (new-expr (:include source-element))
-  object-name
-  args)
+  (object-name nil :type (or identifier string-literal))
+  (args nil :type (or (cons source-element) null)))
 
 (defstruct (fn-call (:include source-element))
-  fn
-  args)
+  (fn nil :type (or identifier property-access))
+  (args nil :type (or (cons source-element) null)))
 
 (defstruct (property-access (:include source-element))
-  target
-  field)
+  (target nil :type source-element)
+  (field nil :type source-element))
 
 (defstruct (unary-operator (:include source-element))
-  op-symbol
-  arg)
+  (op-symbol nil :type symbol)
+  (arg nil :type source-element))
 
 (defstruct (binary-operator (:include source-element))
-  op-symbol
-  left-arg
-  right-arg)
+  (op-symbol nil :type symbol)
+  (left-arg nil :type source-element)
+  (right-arg nil :type source-element))
 
 (defstruct (conditional (:include source-element))
-  condition
-  true-arg
-  false-arg)
+  (condition nil :type source-element)
+  (true-arg nil :type source-element)
+  (false-arg nil :type source-element))
 
 (defstruct (comma-expr (:include source-element))
   exprs)
 
 (defstruct (var-decl-statement (:include source-element))
-  var-decls)
+  (var-decls nil :type (cons var-decl)))
 
 (defstruct (var-decl (:include source-element))
-  name
-  initializer)
+  (name nil :type string)
+  (initializer nil :type (or source-element null)))
 
 (defstruct (statement-block (:include source-element))
-  statements)
+  (statements nil :type (or (cons source-element) null)))
 
 (defstruct (if-statement (:include source-element))
-  condition
-  then-statement
-  else-statement)
+  (condition nil :type source-element)
+  (then-statement nil :type (or source-element null))
+  (else-statement nil :type (or source-element null)))
 
 (defstruct (do-statement (:include source-element))
-  condition
-  body)
+  (condition nil :type source-element)
+  (body nil :type source-element))
 
 (defstruct (while (:include source-element))
-  condition
-  body)
+  (condition nil :type source-element)
+  (body nil :type (or source-element null)))
 
 (defstruct (for (:include source-element))
-  initializer
-  condition
-  step
-  body)
+  (initializer nil :type (or source-element null))
+  (condition nil :type (or source-element null))
+  (step nil :type (or source-element null))
+  (body nil :type (or source-element null)))
 
 (defstruct (for-in (:include source-element))
-  binding
-  collection
-  body)
+  (binding nil :type source-element)
+  (collection nil :type source-element)
+  (body nil :type (or source-element null)))
 
 (defstruct (continue-statement (:include source-element))
-  target-label)
+  (target-label nil :type (or string null)))
 
 (defstruct (break-statement (:include source-element))
-  target-label)
+  (target-label nil :type (or string null)))
 
 (defstruct (return-statement (:include source-element))
-  arg)
+  (arg nil :type (or source-element null)))
 
 (defstruct (with (:include source-element))
   scope-object
@@ -151,14 +156,14 @@
   body)
 
 (defstruct (function-decl (:include source-element))
-  name
-  parameters
-  body)
+  (name nil :type string)
+  (parameters nil :type (or (cons string) null))
+  (body nil :type (or (cons source-element) (cons null) null)))
 
 (defstruct (function-expression (:include source-element))
-  name
-  parameters
-  body)
+  (name nil :type (or string null))
+  (parameters nil :type (or (cons string) null))
+  (body nil :type (or (cons source-element) null)))
 
 ;;;; "Administrative lambda" source elements
 (defstruct (continuation-function (:include function-expression))
@@ -174,8 +179,8 @@
 (defstruct (suspend-statement (:include source-element)))
 
 (defstruct (resume-statement (:include source-element))
-  target
-  arg)
+  (target nil :type source-element)
+  (arg nil :type (or source-element null)))
 
 ;;;; Operator precedence and associativity 
 (defgeneric elm-precedence (elm)

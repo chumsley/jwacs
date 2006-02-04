@@ -30,14 +30,12 @@
              other-statements))))
 
 (defmethod transform ((xform (eql 'shift-function-decls)) (elm source-element))
-  (let ((fresh-elm (funcall (get-constructor elm))))
-    (dolist (slot (structure-slots elm))
-      (if (function-decl-p (slot-value elm slot))
-        (setf (slot-value fresh-elm slot)
-              nil)
-        (setf (slot-value fresh-elm slot)
-              (transform 'shift-function-decls (slot-value elm slot)))))
-    fresh-elm))
+  (apply
+   (get-constructor elm)
+   (loop for slot in (structure-slots elm)
+         unless (function-decl-p (slot-value elm slot)) collect (make-keyword slot)
+         unless (function-decl-p (slot-value elm slot)) collect (transform xform (slot-value elm slot)))))
+
 
 (defmethod transform ((xform (eql 'shift-function-decls)) (elm object-literal))
   (make-object-literal
