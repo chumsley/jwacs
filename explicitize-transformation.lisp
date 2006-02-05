@@ -270,11 +270,11 @@
              (values (make-conditional :condition cond-proxy
                                      :true-arg then-proxy
                                      :false-arg else-proxy)
-                   (postpend cond-prereqs
-                             ;;TODO make an if with a negated conditional if there are only else-prereqs
-                             (make-if-statement :condition cond-proxy
-                                                :then-statement (single-statement then-prereqs)
-                                                :else-statement (single-statement else-prereqs)))))))))))
+                     (postpend cond-prereqs
+                               ;;TODO make an if with a negated conditional if there are only else-prereqs
+                               (make-if-statement :condition cond-proxy
+                                                  :then-statement (single-statement then-prereqs)
+                                                  :else-statement (single-statement else-prereqs)))))))))))
 
 
 (defun explicitize-short-circuit-operator (elm)
