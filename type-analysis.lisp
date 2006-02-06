@@ -116,8 +116,6 @@
        left-node)
 
       ((:multiply :divide :modulo :subtract)
-       (setf *h* *type-graph*)
-       ;;HERE For some reason this is returning NIL.  WTF?
        (get-type-node "Number"))
 
       ((:equals :strict-equals :not-equals :strict-not-equals)
@@ -170,7 +168,7 @@
   "A container for a list of already-visited nodes"
   node-list)
 
-(defgeneric compute-node-types (node type-map &optional (node-history (make-node-history)))
+(defgeneric compute-node-types (node type-map &optional node-history)
   (:documentation
    "Return all the possible types for NODE based upon TYPE-MAP"))
 
