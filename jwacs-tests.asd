@@ -24,6 +24,7 @@
                (:file "test-lexer")
                (:file "test-parser")
                (:file "test-pretty-print")
+               (:file "test-type-analysis")
                (:file "test-ugly-print")
                (:file "test-source-transformations")
                (:file "test-shift-function-decls")

@@ -119,5 +119,12 @@
                 in-local-scope
                 trampoline
                 runtime
+
+                ;; type-analysis symbols
+                type-analyze
+                find-type
+                compute-types
+                type-node
+                value-node
                 ))
                 
