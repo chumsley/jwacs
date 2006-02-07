@@ -14,6 +14,12 @@
   `(aif ,test-form
 	(progn ,@body)))
 
+(defmacro when-let ((bind-var test-form) &body body)
+  "Anaphoric WHEN expression that allows the caller to specify the name of the bound variable"
+  `(let ((,bind-var ,test-form))
+    (when ,bind-var
+      ,@body)))
+
 (defun postpend (list-arg atom-arg)
   "Appends a list containing ATOM-ARG to LIST-ARG.
    eg: (POSTPEND '(1 2) 3) ===> '(1 2 3)"
