@@ -40,11 +40,16 @@
         (setf (gethash name *type-graph*)
               (make-value-node :name name)))))
 
+(defun find-node-property (node name)
+  "Return the value node pointed to by NODE's NAME property if
+   one already exists, or NIL otherwise"
+  (cdr (assoc name (type-graph-node-properties node) :test 'equal)))
+
 (defun get-node-property (node name)
   "Return the value node pointed to by NODE's NAME property, creating
    it if necessary"
-  (aif (assoc name (type-graph-node-properties node) :test 'equal)
-    (cdr it)
+  (aif (find-node-property node name)
+    it
     (let ((new-cell (cons name (get-value-node (gensym (format nil "prop$~A" name))))))
       (push new-cell (type-graph-node-properties node))
       (cdr new-cell))))
@@ -89,6 +94,7 @@
       it
       (let ((new-type-node (make-type-node :name name)))
         (add-assignment-edge value-node new-type-node)
+;        (add-assignment-edge (get-node-property new-type-node "prototype") new-type-node)
         new-type-node))))
 
 (defun min* (left right)
@@ -139,8 +145,8 @@
 
 (defmethod internal-analyze ((elm special-value))
   (ecase (special-value-symbol elm)
-    (:this ;TODO
-     nil)
+    (:this ;TODO - this deals properly with "declared inside function" but not "set to prototype fields" methods
+     *innermost-function-node*)
     ((:false :true)
      (get-type-node "Boolean"))
     (:null
@@ -198,7 +204,8 @@
 (defmethod internal-analyze ((elm function-decl))
   (let ((*innermost-function-node* (get-type-node (function-decl-name elm))))
     ;; Redefining functions is legal, but probably not what we wanted
-    (unless (null (type-node-parameters *innermost-function-node*))
+    (unless (or (null (type-node-return-node *innermost-function-node*))
+                (null (type-node-parameters *innermost-function-node*)))
       (warn "Type-analysis encountered function ~A multiple times" (function-decl-name elm)))
 
     (loop for param in (function-decl-parameters elm)
@@ -209,9 +216,9 @@
     (internal-analyze (function-decl-body elm))))
 
 (defmethod internal-analyze ((elm function-expression))
-  (let ((*innermost-function-node* (aif (function-expression-name elm)
-                                     (get-type-node it)
-                                     (get-type-node (gensym "function")))))
+  (let ((*innermost-function-node* (get-type-node (aif (function-expression-name elm)
+                                                    it
+                                                    (gensym "function-expression")))))
     (loop for param in (function-expression-parameters elm)
           collect (get-value-node param) into param-list
           finally (setf (type-node-parameters *innermost-function-node*)
@@ -226,7 +233,37 @@
                          (internal-analyze (return-statement-arg elm)))
     (error "Type-analysis found a return statement at topmost scope")))
    
-;;HERE              
+(defun compute-property-name (field-elm)
+  (if (or (string-literal-p field-elm)
+          (numeric-literal-p field-elm))
+    (slot-value field-elm 'value)
+    'any))
+
+(defmethod internal-analyze ((elm property-access))
+  (let ((target-node (internal-analyze (property-access-target elm)))
+        (field-elm (property-access-field elm)))
+
+    (internal-analyze field-elm)
+    (get-node-property target-node (compute-property-name field-elm))))
+    
+(defmethod internal-analyze ((elm new-expr))
+  (when (identifier-p (new-expr-object-name elm))
+    (get-type-node (identifier-name (new-expr-object-name elm))))
+  (internal-analyze (new-expr-object-name elm)))
+
+(defmethod internal-analyze ((elm object-literal))
+  (let ((prop-cells (mapcar (lambda (cell)
+                              (cons (if (identifier-p (car cell))
+                                      (identifier-name (car cell)) ;TODO Temporary HACK to get around the fact that we use identifiers instead of strings as the keys for object literals
+                                      (compute-property-name (car cell)))
+                                    (internal-analyze (cdr cell))))
+                            (object-literal-properties elm)))
+        (literal-node (get-type-node (gensym "object-literal"))))
+
+    (setf (type-node-properties literal-node)
+          prop-cells)
+    literal-node))
+
 ;;TODO all the other source-element types (primarily the expressions)
 
 ;;; ======================================================================
@@ -236,7 +273,17 @@
   "Perform type analysis on ELM and return the corresponding type-map."
   (let ((*type-graph* (make-hash-table :test 'equal)))
     (internal-analyze elm)
-    (collapse-function-calls)
+
+    ;; TODO Oh crap.  If we can't share history between interations, we're in
+    ;; big trouble (ie, may wind up walking the graph |v| times, for a grand total
+    ;; of |v| visits per node, or |v|^2 total visits).
+    ;; Do we need to sort the vertices?
+    (loop for node being each hash-value of *type-graph*
+          do (collapse-function-calls node (make-node-history) nil nil nil))
+
+    (loop for node being each hash-value of *type-graph*
+          do (collapse-property-accesses node (make-node-history) nil))
+
     *type-graph*))
 
 (defun find-node (name type-map)
@@ -248,13 +295,32 @@
   (awhen (find-node name type-map)
     (find-type-node-named name (value-node-assignments it))))
 
-(defgeneric compute-types (expression-elm type-map)
-  (:documentation
-   "Return all possible types for the expression represented by EXPRESSION-ELM
-    based upon the analysis recorded in TYPE-MAP"))
+(defun compute-types (expression-elm type-map)
+  "Return all possible types for the expression represented by EXPRESSION-ELM
+   based upon the analysis recorded in TYPE-MAP"
+  (multiple-value-bind (root-node prop-stack)
+      (find-root-for-expression expression-elm nil type-map)
+    (compute-node-types root-node prop-stack type-map (make-node-history))))
 
-(defmethod compute-types ((elm identifier) type-map)
-  (compute-node-types (find-node (identifier-name elm) type-map) type-map))
+;; TODO maybe this wants to take arguments indicating how to find nodes, one of which
+;; adds to the hash and one of which does not.  That way we can combine the duplicate
+;; functionality between here and INTERNAL-ANALYZE.
+(defgeneric find-root-for-expression (expression-elm prop-stack type-map)
+  (:documentation
+   "Find (or construct) an appropriate root node for determining the possible types
+    of the expression represented by EXPRESSION-ELM by walking TYPE-MAP.
+    First value is root nodes, second value is a stack of property names."))
+
+(defmethod find-root-for-expression ((elm identifier) prop-stack type-map)
+  (values (find-node (identifier-name elm) type-map)
+          prop-stack))
+
+(defmethod find-root-for-expression ((elm property-access) prop-stack type-map)
+  (with-slots (target field) elm
+    (let ((prop-name (compute-property-name field)))
+      (multiple-value-bind (target-node own-prop-stack)
+          (find-root-for-expression (property-access-target elm) (cons prop-name prop-stack) type-map)
+        (values target-node own-prop-stack)))))
 
 ;;; ======================================================================
 ;;;; COMPUTE-NODE-TYPES generic function
@@ -263,52 +329,58 @@
   "A container for a list of already-visited nodes"
   node-list)
 
-(defgeneric compute-node-types (node type-map &optional node-history)
+;;TODO prop-stack handling
+(defgeneric compute-node-types (node prop-stack type-map node-history)
   (:documentation
-   "Return all the possible types for NODE based upon TYPE-MAP"))
+   "Return all the possible types for NODE based upon TYPE-MAP.
+    PROP-STACK contains a stack of properties to follow as well, if any."))
 
-(defmethod compute-node-types :around (node type-map &optional (node-history (make-node-history)))
+(defmethod compute-node-types :around (node prop-stack type-map node-history)
   (unless (member node (node-history-node-list node-history))
     (push node (node-history-node-list node-history))
     (call-next-method)))
 
-(defmethod compute-node-types ((node value-node) type-map &optional (node-history (make-node-history)))
-  (mapcan (lambda (node)
-            (compute-node-types node type-map node-history))
-          (value-node-assignments node)))
+(defmethod compute-node-types ((node value-node) prop-stack type-map node-history)
+  (let ((simple-recursion (remove-duplicates
+                           (mapcan (lambda (n)
+                                    (compute-node-types n prop-stack type-map node-history))
+                                  (value-node-assignments node)))))
 
-(defmethod compute-node-types ((node type-node) type-map &optional (node-history (make-node-history)))
-  (list node))
+    (aif (and (consp prop-stack)
+              (find-node-property node (car prop-stack)))
+      (union (compute-node-types it (cdr prop-stack) type-map (make-node-history))
+              simple-recursion)
+      simple-recursion)))
 
-(defmethod compute-node-types ((node null) type-map &optional (node-history (make-node-history)))
-  (declare (ignore type-map))
+(defmethod compute-node-types ((node type-node) prop-stack type-map node-history)
+  (aif (and (consp prop-stack)
+            (find-node-property node (car prop-stack)))
+    (compute-node-types it (cdr prop-stack) type-map (make-node-history))
+    (list node)))
+
+(defmethod compute-node-types ((node null) prop-stack type-map node-history)
+  (declare (ignore prop-stack type-map node-history))
   nil)
 
 ;;; ======================================================================
-;;;; COLLAPSE-FUNCTION-CALLS function and supporting generic function
+;;;; COLLAPSE-FUNCTION-CALLS generic function
 
-(defun collapse-function-calls ()
-  "Add extra edges between return nodes and argument/parameter nodes in *TYPE-GRAPH*"
-  (let ((history (make-node-history)))
-    (loop for node being each hash-value of *type-graph*
-          do (collapse-function-calls-walk node history nil nil nil))))
-
-(defgeneric collapse-function-calls-walk (node node-history
-                                               env-rets env-args env-min)
+(defgeneric collapse-function-calls (node node-history
+                                          env-rets env-args env-min)
   (:documentation
-   "Visits type-graph-node NODE and its assignment-descendents and adds links between
-    return nodes of caller and callees, and between corresponding argument/parameter nodes.
+   "Adds extra edges between return nodes an argument/parameter nodes among all of the
+    descendant nodes of NODE.
     ENV-RETS is a list of return nodes of ancestors.
     ENV-ARGS is a list of assoc-cells (INDEX . NODE) of ancestor arguments nodes.  Note that
     there may be more than one entry per index in ENV-ARGS, so don't actually use ASSOC on it.
     ENV-MIN is the minimum of all ancestor nodes' MIN-CALL-ARITY."))
 
-(defmethod collapse-function-calls-walk :around (node node-history env-rets env-args env-min)
+(defmethod collapse-function-calls :around (node node-history env-rets env-args env-min)
   (unless (member node (node-history-node-list node-history))
     (push node (node-history-node-list node-history))
     (call-next-method)))
 
-(defmethod collapse-function-calls-walk ((node value-node) node-history env-rets env-args env-min)
+(defmethod collapse-function-calls ((node value-node) node-history env-rets env-args env-min)
   (let ((own-rets (aif (value-node-return-node node)
                     (cons it env-rets)
                     env-rets))
@@ -316,9 +388,9 @@
                           env-args))
         (own-min (min* (value-node-min-call-arity node) env-min)))
     (loop for descendent in (value-node-assignments node)
-          do (collapse-function-calls-walk descendent node-history own-rets own-args own-min))))
+          do (collapse-function-calls descendent node-history own-rets own-args own-min))))
 
-(defmethod collapse-function-calls-walk ((node type-node) node-history env-rets env-args env-min)
+(defmethod collapse-function-calls ((node type-node) node-history env-rets env-args env-min)
   (when-let (own-ret (type-node-return-node node))
     (loop for caller-ret in env-rets
           do (add-assignment-edge caller-ret own-ret)))
@@ -331,4 +403,112 @@
            (loop for cell in env-args
                  when (= idx (car cell))
                  do (add-assignment-edge param (cdr cell)))))
-                      
+
+;;; ======================================================================
+;;;; COLLAPSE-PROPERTY-ACCESSES generic function
+
+(defgeneric collapse-property-accesses (node node-history env-props)
+  (:documentation
+   "Adds edges to ensure that property-nodes of value-nodes always have a
+    path to property-nodes of descendant types and vice versa amongst the
+    descendant nodes of NODE.
+    ENV-PROPS is a list of assoc-cells (PROP-NAME . NODE).  Note that there
+    may be more than one cell for a given property name, so it's not safe
+    to use ASSOC."))
+
+(defmethod collapse-property-accesses :around (node node-history env-props)
+  (unless (member node (node-history-node-list node-history))
+    (push node (node-history-node-list node-history))
+    (call-next-method)))
+
+(defmethod collapse-property-accesses ((node value-node) node-history env-props)
+  (let ((own-props (append (value-node-properties node) env-props)))
+    (loop for descendant in (value-node-assignments node)
+          do (collapse-property-accesses descendant node-history own-props))))
+
+(defmethod collapse-property-accesses ((node type-node) node-history env-props)
+  ;; TODO Currently O(n^2)
+  (loop for env-cell in env-props
+        for own-node = (get-node-property node (car env-cell))
+        do (add-assignment-edge own-node (cdr env-cell))))
+
+
+;;;; Debugging helper
+;;TODO Move this somewhere else
+(defun make-dot-graph (type-graph)
+  (with-open-file (s "c:/temp/types.dot" :direction :output :if-exists :supersede)
+    (let ((node-history nil))
+      (labels ((get-name (node)
+                 (substitute #\_ #\-
+                             (substitute #\_ #\$
+                                         (string
+                                          (if (type-node-p node)
+                                            (format nil "type_~A" (type-node-name node))
+                                            (type-graph-node-name node))))))
+               (print-edges (node-list)
+                 (when node-list
+                   (unless (find (car node-list) node-history)
+                     (let ((node (car node-list)))
+                       (push node node-history)
+
+                       (format t "~&visit ~A~%" (get-name node));;TEST
+                   
+                       (loop for (prop-name . prop-node) in (type-graph-node-properties node)
+                             do
+                             (format s "  ~A -> ~A [style=dashed, label=\"~A\"];~%"
+                                     (get-name node)
+                                     (get-name prop-node)
+                                     prop-name)
+                             (unless (find prop-node node-list)
+                               (push prop-node node-history)
+                               (setf node-list (postpend node-list prop-node))))
+
+                       (when (value-node-p node)
+                         (loop for child in (value-node-assignments node)
+                               do
+                               (format s "  ~A -> ~A;~%"
+                                       (get-name node)
+                                       (get-name child))
+                               (unless (find child node-list)
+                                 (push child node-history)
+                                 (setf node-list (postpend node-list child))))
+
+                         (loop for (arg-name . arg-node) in (value-node-arguments node)
+                               do
+                               (format s "  ~A -> ~A [style=dashed, label=\"~A\"];;~%"
+                                       (get-name node)
+                                       (get-name arg-node)
+                                       arg-name)
+                               (unless (find arg-node node-list)
+                                 (push arg-node node-history)
+                                 (setf node-list (postpend node-list arg-node)))))
+
+                       (when (type-node-p node)
+                         (loop for (param-name . param-node) in (type-node-parameters node)
+                               do
+                               (format s "  ~A -> ~A [style=dashed, label=\"~A\"];~%"
+                                       (get-name node)
+                                       (get-name param-node)
+                                       param-name)
+                               (unless (find param-node node-list)
+                                 (push param-node node-history)
+                                 (setf node-list (postpend node-list param-node)))))
+                     
+                       (when-let (ret-node (type-graph-node-return-node node))
+                         (format s "  ~A -> ~A [style=dashed, label=\"$ret\"];~%"
+                                 (get-name node)
+                                 (get-name ret-node))
+                         (unless (find ret-node node-list)
+                           (push ret-node node-history)
+                           (setf node-list (postpend node-list ret-node))))
+
+                       (print-edges (cdr node-list)))))))
+                                
+        (format s "digraph {~%  node [shape=box];~%")
+    
+        (print-edges 
+         (loop for node being each hash-value in type-graph
+               do (format s "  ~A [shape=ellipse];~%" (get-name node))
+               collect node))
+
+        (format s "}")))))

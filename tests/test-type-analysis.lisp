@@ -91,3 +91,84 @@
        return a;
      }")))
   (#s(type-node :name "String") #s(type-node :name "Number") #s(type-node :name "undefined")))
+
+(deftest type-analysis/property-access/1 :notes type-analysis
+  (compute-types
+   #s(property-access :target #s(identifier :name "x") :field #s(string-literal :value "foo"))
+   (type-analyze (parse "
+     x.foo = 20;")))
+  (#s(type-node :name "Number")))
+
+(deftest type-analysis/property-access/2 :notes type-analysis
+  (compute-types
+   #s(property-access :target #s(identifier :name "x") :field #s(string-literal :value "foo"))
+   (type-analyze (parse "
+     var x = new Object;
+     x.foo = 20;
+     var y = x;
+     y.foo = 'str';")))
+  (#s(type-node :name "String") #s(type-node :name "Number")))
+
+(deftest type-analysis/property-access/object-literals/1 :notes type-analysis
+  (compute-types
+   #s(property-access :target #s(property-access :target #s(identifier :name "x")
+                                                 :field #s(string-literal :value "foo"))
+                      :field #s(string-literal :value "a"))
+   (type-analyze (parse "
+     x.foo = {a: null, b: 20};")))
+  (#s(type-node :name "null")))
+
+(deftest type-analysis/property-access/object-literals/2 :notes type-analysis
+  (compute-types
+   #s(property-access :target #s(property-access :target #s(identifier :name "x")
+                                                 :field #s(string-literal :value "foo"))
+                      :field #s(string-literal :value "b"))
+   (type-analyze (parse "
+     x.foo = {a: null, b: 20};")))
+  (#s(type-node :name "Number")))
+
+(deftest type-analysis/property-access/function-calls/1 :notes type-analysis
+  (compute-types
+   #s(property-access :target #s(identifier :name "y")
+                      :field #s(string-literal :value "a"))
+   (type-analyze (parse "
+     x.foo = function() { return {a: null, b: 20}; };
+     y = x.foo();")))
+  (#s(type-node :name "null")))
+
+(deftest type-analysis/property-access/function-calls/2 :notes type-analysis
+  (compute-types
+   #s(property-access :target #s(identifier :name "y")
+                      :field #s(string-literal :value "a"))
+   (type-analyze (parse "
+     x.foo = function() { return {a: null, b: 20}; };
+     y = x.foo();")))
+  (#s(type-node :name "null")))
+
+;; JRW These two will work once I've added find-node support for function-expressions,
+;; which I won't do until after the refactoring.
+(flag-expected-failure 'type-analysis/property-access/function-expressions/1)
+(flag-expected-failure 'type-analysis/property-access/function-expressions/2)
+
+(deftest type-analysis/property-access/function-expressions/1 :notes type-analysis
+  (compute-types
+   #s(property-access :target  #s(fn-call :fn #s(property-access :target #s(identifier :name "x")
+                                                                 :field #s(string-literal :value "foo"))
+                                          :args nil)
+                      :field #s(string-literal :value "a"))
+   (type-analyze (parse "
+     x.foo = function() { return {a: null, b: 20}; };")))
+  (#s(type-node :name "null")))
+
+(deftest type-analysis/property-access/function-expressions/2 :notes type-analysis
+  (compute-types
+   #s(property-access :target  #s(fn-call :fn #s(property-access :target #s(identifier :name "x")
+                                                                 :field #s(string-literal :value "foo"))
+                                          :args nil)
+                      :field #s(string-literal :value "non-existo"))
+   (type-analyze (parse "
+     x.foo = function() { return {a: null, b: 20}; };")))
+  (#s(type-node :name "undefined")))
+
+
+  
