@@ -435,8 +435,8 @@
 
 ;;;; Debugging helper
 ;;TODO Move this somewhere else
-(defun make-dot-graph (type-graph)
-  (with-open-file (s "c:/temp/types.dot" :direction :output :if-exists :supersede)
+(defun make-dot-graph (type-graph &optional (fname "c:/temp/types.dot"))
+  (with-open-file (s fname :direction :output :if-exists :supersede)
     (let ((node-history nil))
       (labels ((get-name (node)
                  (substitute #\_ #\-
@@ -445,70 +445,50 @@
                                           (if (type-node-p node)
                                             (format nil "type_~A" (type-node-name node))
                                             (type-graph-node-name node))))))
-               (print-edges (node-list)
-                 (when node-list
-                   (unless (find (car node-list) node-history)
-                     (let ((node (car node-list)))
-                       (push node node-history)
 
-                       (format t "~&visit ~A~%" (get-name node));;TEST
+               (print-edge (from-node to-node label)
+                 (format s "  ~A -> ~A" (get-name from-node) (get-name to-node))
+                 (when label
+                   (format s " [style=dashed, label=\"~A\"]" label))
+                 (format s ";~%"))
+
+               (print-collection-edges (from-node to-collection-accessor)
+                 (loop for cell-or-node in (funcall to-collection-accessor from-node)
+                       for to-node = (if (consp cell-or-node)
+                                       (cdr cell-or-node)
+                                       cell-or-node)
+                       for label = (if (consp cell-or-node)
+                                     (car cell-or-node)
+                                     nil)
+                       do
+                       (print-edge from-node to-node label)
+                       (print-node-edges to-node)))
+
+               (print-node-edges (node)
+                 (unless (find node node-history)
+                   (push node node-history)
+
+                   (print-collection-edges node 'type-graph-node-properties)
                    
-                       (loop for (prop-name . prop-node) in (type-graph-node-properties node)
-                             do
-                             (format s "  ~A -> ~A [style=dashed, label=\"~A\"];~%"
-                                     (get-name node)
-                                     (get-name prop-node)
-                                     prop-name)
-                             (unless (find prop-node node-list)
-                               (push prop-node node-history)
-                               (setf node-list (postpend node-list prop-node))))
+                   (when (type-node-p node)
+                     (print-collection-edges node 'type-node-parameters))
 
-                       (when (value-node-p node)
-                         (loop for child in (value-node-assignments node)
-                               do
-                               (format s "  ~A -> ~A;~%"
-                                       (get-name node)
-                                       (get-name child))
-                               (unless (find child node-list)
-                                 (push child node-history)
-                                 (setf node-list (postpend node-list child))))
-
-                         (loop for (arg-name . arg-node) in (value-node-arguments node)
-                               do
-                               (format s "  ~A -> ~A [style=dashed, label=\"~A\"];;~%"
-                                       (get-name node)
-                                       (get-name arg-node)
-                                       arg-name)
-                               (unless (find arg-node node-list)
-                                 (push arg-node node-history)
-                                 (setf node-list (postpend node-list arg-node)))))
-
-                       (when (type-node-p node)
-                         (loop for (param-name . param-node) in (type-node-parameters node)
-                               do
-                               (format s "  ~A -> ~A [style=dashed, label=\"~A\"];~%"
-                                       (get-name node)
-                                       (get-name param-node)
-                                       param-name)
-                               (unless (find param-node node-list)
-                                 (push param-node node-history)
-                                 (setf node-list (postpend node-list param-node)))))
+                   (when (value-node-p node)
+                     (print-collection-edges node 'value-node-arguments)
+                     (print-collection-edges node 'value-node-assignments))
                      
-                       (when-let (ret-node (type-graph-node-return-node node))
-                         (format s "  ~A -> ~A [style=dashed, label=\"$ret\"];~%"
-                                 (get-name node)
-                                 (get-name ret-node))
-                         (unless (find ret-node node-list)
-                           (push ret-node node-history)
-                           (setf node-list (postpend node-list ret-node))))
+                   (when-let (ret-node (type-graph-node-return-node node))
+                     (print-edge node
+                                 ret-node
+                                 "$ret")
+                     (print-node-edges ret-node)))))
 
-                       (print-edges (cdr node-list)))))))
-                                
         (format s "digraph {~%  node [shape=box];~%")
-    
-        (print-edges 
-         (loop for node being each hash-value in type-graph
-               do (format s "  ~A [shape=ellipse];~%" (get-name node))
-               collect node))
+        
+        (loop for node being each hash-value in type-graph
+              do (format s "  ~A [shape=ellipse];~%" (get-name node)))
 
-        (format s "}")))))
+        (loop for node being each hash-value in type-graph
+              do (print-node-edges node))
+      
+      (format s "}")))))
