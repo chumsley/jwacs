@@ -6,7 +6,9 @@
 (defnote type-analysis "tests for the type-analysis functionality")
 
 (defun type-names (type-node-list)
-  (mapcar 'jw::type-node-name type-node-list))
+  (sort (copy-list 
+         (mapcar 'jw::type-node-name type-node-list))
+        'string<))
 
 (deftest type-analysis/simple-assignment/1 :notes type-analysis
   (type-names
@@ -24,7 +26,7 @@
     (type-names
      (compute-types #s(identifier :name "y")
                     (type-analyze (parse "var x; x = 5 / '2.5'; y = 'str'; y = x;"))))
-    ("Number" "undefined" "String"))
+    ("Number" "String" "undefined"))
 
 (deftest type-analysis/var-decl/2 :notes type-analysis
   (type-names
@@ -101,7 +103,7 @@
      {
        return a;
      }"))))
-  ("String" "Number" "undefined"))
+  ("Number" "String" "undefined"))
 
 (deftest type-analysis/property-access/1 :notes type-analysis
   (type-names
@@ -121,7 +123,7 @@
      x.foo = 20;
      var y = x;
      y.foo = 'str';"))))
-  ("String" "Number"))
+  ("Number" "String"))
 
 (deftest type-analysis/property-access/object-literals/1 :notes type-analysis
   (type-names
@@ -192,6 +194,34 @@
      x.foo = function() { return {a: null, b: 20}; };"))))
   ("undefined"))
 
+(deftest type-analysis/cycle/1 :notes type-analysis
+  (type-names
+   (compute-types
+    #s(identifier :name "w")
+    (type-analyze (parse "
+     x = 50;
+     x = y;
+     y = 'str';
+     y = z;
+     z = new Array;
+     z = w;
+     w = new Object;
+     w = x;"))))
+  ("Array" "Number" "Object" "String"))
+
+(deftest type-analysis/cycle/2 :notes type-analysis
+  (length
+   (jw::value-node-assignments
+    (gethash "x" (type-analyze (parse "
+                     x = 50;
+                     x = y;
+                     y = 'str';
+                     y = z;
+                     z = new Array;
+                     z = w;
+                     w = new Object;
+                     w = x;")))))
+  4)
 
 (defun benchmark/multi-property-cycle (fn &optional (n 1000) (repetitions 10))
   "Constructs a pathological case for collapsing property-accesses:
