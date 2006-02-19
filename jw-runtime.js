@@ -52,6 +52,33 @@ function $call(f, k, thisObj, args)
     return k(f.apply(thisObj, args));
 }
 
+// Call function `f` in either CPS or direct style, depending upon
+// the value of `f`'s  $jw property.  The continuation `k`
+// will be called with the results regardless of the style that
+// `f` is called in.  `thisObj` specifies the current `this`
+// context, and the arguments `a1` through `a8` will be passed as
+// regular arguments.  This function only works for target functions
+// of 8 arguments or fewer.  Indirect calls to functions of 9 or
+// more arguments must use $call instead.
+function $call0(f, k, thisObj, a1, a2, a3, a4, a5, a6, a7, a8)
+{
+  if(thisObj)
+  {
+    if(f.$jw)
+      return thisObj[f.name](k, a1, a2, a3, a4, a5, a6, a7, a8);
+    else
+      return k(thisObj[f.name](a1, a2, a3, a4, a5, a6, a7, a8));
+  }
+  else
+  {
+    if(f.$jw)
+      return f(k, a1, a2, a3, a4, a5, a6, a7, a8);
+    else
+      return k(f(a1, a2, a3, a4, a5, a6, a7, a8));
+  }
+}
+  
+
 // "Pogo-stick" function for running a call to a trampoline-style
 // function.
 function $trampoline(origThunk)

@@ -33,8 +33,16 @@
 (defparameter *callFromDirect-fn* (make-identifier :name "$callFromDirect")
   "Runtime function which will call a transformed function with a trampoline loop and identity continuation")
 
+(defparameter *call0-fn* (make-identifier :name "$call0")
+  "Runtime function that we use to make indirect calls with a small number of arguments
+   to targets that may not be transformed")
+
+(defparameter *max-call0-args* 8
+  "Maximum number of arguments that can be passed to a function using $call0")
+  
 (defparameter *call-fn* (make-identifier :name "$call")
-  "Runtime function that we use to make indirect calls to targets that may not be transformed")
+  "Runtime function that we use to make indirect calls with large numbers of arguments
+   to targets that may not be transformed")
 
 ;;;; Call-style guards
 ;;;
@@ -155,21 +163,35 @@
 (defmethod transform ((xform (eql 'runtime)) (elm fn-call))
   (flet ((runtime-transform (elm)
            (transform 'runtime elm)))
-    (assert (or (continuation-function-p (first (fn-call-args elm))) ; First argument is a new continuation
-                (equalp *cont-id* (first (fn-call-args elm))) ; First argument is the function's continuation
-                (equalp *cont-id* (fn-call-fn elm)))) ; Call's target is the function's continuation
+    (let ((this-obj (if (property-access-p (fn-call-fn elm))
+                      (runtime-transform (property-access-target (fn-call-fn elm)))
+                      (make-special-value :symbol :null))))
+      (assert (or (continuation-function-p (first (fn-call-args elm))) ; First argument is a new continuation
+                  (equalp *cont-id* (first (fn-call-args elm))) ; First argument is the function's continuation
+                  (equalp *cont-id* (fn-call-fn elm)))) ; Call's target is the function's continuation
     
-    (if (inlineable-call-target (fn-call-fn elm))
-      (make-fn-call :fn (runtime-transform (fn-call-fn elm))
-                    :args (mapcar #'runtime-transform (fn-call-args elm)))
-      (make-fn-call :fn *call-fn*
-                    :args (list
-                           (runtime-transform (fn-call-fn elm))
-                           (runtime-transform (first (fn-call-args elm)))
-                           (make-special-value :symbol :this)
-                           (make-array-literal :elements
-                                               (mapcar #'runtime-transform
-                                                       (cdr (fn-call-args elm)))))))))
+      (cond
+        ((inlineable-call-target (fn-call-fn elm))
+         (make-fn-call :fn (runtime-transform (fn-call-fn elm))
+                       :args (mapcar #'runtime-transform (fn-call-args elm))))
+        ((<= (length (fn-call-args elm)) *max-call0-args*)
+         (make-fn-call :fn *call0-fn*
+                       :args (append
+                              (list
+                               (runtime-transform (fn-call-fn elm))
+                               (runtime-transform (first (fn-call-args elm)))
+                               this-obj)
+                              (mapcar #'runtime-transform
+                                      (cdr (fn-call-args elm))))))
+        (t
+         (make-fn-call :fn *call-fn*
+                       :args (list
+                              (runtime-transform (fn-call-fn elm))
+                              (runtime-transform (first (fn-call-args elm)))
+                              this-obj
+                              (make-array-literal :elements
+                                                  (mapcar #'runtime-transform
+                                                          (cdr (fn-call-args elm)))))))))))
 
 ;; We can be sure that we don't need to indirect through $call for a continuation-call, because those
 ;; are only produced by resume statements.

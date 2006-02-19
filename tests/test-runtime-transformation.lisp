@@ -81,7 +81,36 @@
           if(!$k || !$k.$isK)
             return $callFromDirect(foo, this, arguments);
           return bar($makeK(function(dummy$0) {
-                              return $call(baz, $k, this, [100]);
+                              return $call0(baz, $k, null, 100);
+                              }), 50);
+        }
+        foo.$jw = true;"))
+
+(deftest runtime/indirected-call/2 :notes runtime
+  (with-fresh-genvar
+    (transform 'runtime
+               (transform 'cps (parse "
+        function bar(x) { return x; }
+        function foo()
+        {
+          bar(50);
+          return Foo.Bar.Baz.quux(100, 101, 102, 103, 104, 105, 106, 107, 108, 109);
+        }"))))
+  #.(parse "
+        function bar($k, x)
+        {
+          if(!$k || !$k.$isK)
+            return $callFromDirect(bar, this, arguments);
+          return $k(x);
+        }
+        bar.$jw = true;
+
+        function foo($k)
+        {
+          if(!$k || !$k.$isK)
+            return $callFromDirect(foo, this, arguments);
+          return bar($makeK(function(dummy$0) {
+                              return $call(Foo.Bar.Baz.quux, $k, Foo.Bar.Baz, [100, 101, 102, 103, 104, 105, 106, 107, 108, 109]); 
                               }), 50);
         }
         foo.$jw = true;"))

@@ -12,6 +12,7 @@
    of the type graph, with edges to all the value-nodes that it is
    assigned to.")
 ;;TODO Define a type-key more completely
+;;TODO Clarify (in the graph) the difference between types and constructor functions
 
 (defstruct type-graph-node
   "A node in the type graph"
@@ -324,7 +325,6 @@
   "A container for a list of already-visited nodes"
   node-list)
 
-;;TODO prop-stack handling
 (defgeneric compute-node-types (node prop-stack type-map node-history)
   (:documentation
    "Return all the possible types for NODE based upon TYPE-MAP.
