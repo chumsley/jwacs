@@ -1,0 +1,45 @@
+// TrivialHttpRequest.jw
+//
+// Demonstrates the motivating XmlHttpRequest usage pattern.
+// To use it:
+//
+//   1. Process this file using JW::PROCESS.  It will produce TrivialHttpRequest.js.
+//   2. Load TrivialHttpRequest.html.  
+//   3. The page should show three rows of 'data' (loaded from dataRows.txt using XMLHttpRequest).
+
+function getHttpObj()
+{
+	try
+	{
+		var http = new XMLHttpRequest;
+		if(http != null)
+			return http;
+	}
+	catch(e)
+	{ }
+
+	return new ActiveXObject("Msxml2.XMLHTTP");
+}
+
+function fetchData(method, url)
+{
+  var http = getHttpObj();
+  var k = function_continuation;
+
+  http.onreadystatechange = function()
+  {
+    if(http.readyState == 4)
+    {
+      resume k <- http.responseText;
+		}
+	};
+
+	http.open(method, url, true);
+	http.send(null);
+	suspend;
+}
+
+function handlePageLoad()
+{
+  document.getElementById('contentDiv').innerHTML = fetchData('GET', 'dataRows.txt');
+}
