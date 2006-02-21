@@ -81,11 +81,13 @@
                      (type-node-name node)))
             :test 'equal))
 
-(defun add-assignment-edge (left-node right-node)
-  "Add an assignment edge from LEFT-NODE to RIGHT-NODE in *TYPE-GRAPH*
-   if no such edge already exists"
+(defun add-assignment-edge (left-node right-node &optional queue)
+  "Add an assignment edge from LEFT-NODE to RIGHT-NODE if no such edge already exists.
+   If QUEUE is non-NIL, queues LEFT-NODE for further processing."
   (assert (value-node-p left-node))
-  (pushnew right-node (value-node-assignments left-node)))
+  (pushnew right-node (value-node-assignments left-node))
+  (when queue
+    (enqueue-node queue left-node)))
 
 (defun get-type-node (name)
   "Return the type node named NAME from *TYPE-GRAPH*, creating it
@@ -271,16 +273,16 @@
 ;;; ======================================================================
 ;;;; Interface functions
 
-(defun type-analyze (elm)
-  "Perform type analysis on ELM and return the corresponding type-map."
-  (let ((*type-graph* (make-hash-table :test 'equal)))
-    (internal-analyze elm)
+;(defun type-analyze (elm)
+;  "Perform type analysis on ELM and return the corresponding type-map."
+;  (let ((*type-graph* (make-hash-table :test 'equal)))
+;    (internal-analyze elm)
 
-    (loop with node-history = (make-node-history)
-          for node being each hash-value of *type-graph*
-          do (collapse-type-graph node (make-node-history) nil nil nil nil nil))
+;    (loop with node-history = (make-node-history)
+;          for node being each hash-value of *type-graph*
+;          do (collapse-type-graph node (make-node-history) nil nil nil nil nil))
     
-    *type-graph*))
+;    *type-graph*))
 
 (defun find-node (name type-map)
   "Find the value node named NAME in TYPE-MAP."
@@ -357,142 +359,142 @@
   (declare (ignore prop-stack type-map node-history))
   nil)
 
-;;; ======================================================================
-;;;; COLLAPSE-TYPE-GRAPH generic function
+;;;; ======================================================================
+;;;;; COLLAPSE-TYPE-GRAPH generic function
 
-;; COLLAPSE-TYPE-GRAPH removes outgoing "dotted edges" from value-nodes.
-;; When it has finished running, every value-node should have a set of
-;; assignment-edges pointing directly to its type-nodes, and nothing else.
-;;
-;; We keep a separate node-history and node-path TODO finish this description
+;;; COLLAPSE-TYPE-GRAPH removes outgoing "dotted edges" from value-nodes.
+;;; When it has finished running, every value-node should have a set of
+;;; assignment-edges pointing directly to its type-nodes, and nothing else.
+;;;
+;;; We keep a separate node-history and node-path TODO finish this description
 
-(defgeneric collapse-type-graph (node node-history node-path
-                                      env-rets env-args env-min
-                                      env-props)
-  (:documentation
-   "Informally, this function collects argument, property, and return nodes down assignment
-    paths and deposits them at each type-node that it encounters.
+;(defgeneric collapse-type-graph (node node-history node-path
+;                                      env-rets env-args env-min
+;                                      env-props)
+;  (:documentation
+;   "Informally, this function collects argument, property, and return nodes down assignment
+;    paths and deposits them at each type-node that it encounters.
 
-    NODE-PATH is the path followed to get to the current node.  Eg, if we have visited
-    X, Y, and Z, then upon entry to Z NODE-PATH will be '(Z Y X).
+;    NODE-PATH is the path followed to get to the current node.  Eg, if we have visited
+;    X, Y, and Z, then upon entry to Z NODE-PATH will be '(Z Y X).
 
-    ENV-RETS is a list of return nodes of ancestors.
-    ENV-ARGS is a list of assoc-cells (INDEX . NODE) of ancestor arguments nodes.  Note that
-    there may be more than one entry per index in ENV-ARGS, so don't actually use ASSOC on it.
-    ENV-MIN is the minimum of all ancestor nodes' MIN-CALL-ARITY.
+;    ENV-RETS is a list of return nodes of ancestors.
+;    ENV-ARGS is a list of assoc-cells (INDEX . NODE) of ancestor arguments nodes.  Note that
+;    there may be more than one entry per index in ENV-ARGS, so don't actually use ASSOC on it.
+;    ENV-MIN is the minimum of all ancestor nodes' MIN-CALL-ARITY.
 
-    ENV-PROPS is a list of assoc-cells (PROP-NAME . NODE).  Note that there
-    may be more than one cell for a given property name, so it's not safe
-    to use ASSOC.
+;    ENV-PROPS is a list of assoc-cells (PROP-NAME . NODE).  Note that there
+;    may be more than one cell for a given property name, so it's not safe
+;    to use ASSOC.
 
-    The first return value is a list of all the type-nodes that NODE has an assignment-path to.
-    The second return value is a list of cons-cells containing edges that should be retained in
-    the graph.  (This is necessary when a cycle has been encountered)."))
+;    The first return value is a list of all the type-nodes that NODE has an assignment-path to.
+;    The second return value is a list of cons-cells containing edges that should be retained in
+;    the graph.  (This is necessary when a cycle has been encountered)."))
 
-(defmethod collapse-type-graph :around ((node value-node) node-history node-path
-                                        env-rets env-args env-min
-                                        env-props)
-  (flet ((calc-retain-list ()
-           (loop with dst-node = node
-                 for src-node in node-path
-                 until (eq src-node node)
-                 collect (cons src-node dst-node)
-                 do (setf dst-node src-node))))
-    (cond
-      ((member node (node-history-node-list node-history))
-       (if (type-node-p node)
-         (values (list node) nil)
-         (values (value-node-assignments node) nil)))
-      ((member node node-path)
-       (values nil (calc-retain-list)))
-      (t
-       (multiple-value-bind (type-nodes retain-list)
-           (call-next-method)
-         (unless (find node retain-list :key 'car)
-           (push node (node-history-node-list node-history)))
-         (values type-nodes
-                 (remove node retain-list :key 'car)))))))
+;(defmethod collapse-type-graph :around ((node value-node) node-history node-path
+;                                        env-rets env-args env-min
+;                                        env-props)
+;  (flet ((calc-retain-list ()
+;           (loop with dst-node = node
+;                 for src-node in node-path
+;                 until (eq src-node node)
+;                 collect (cons src-node dst-node)
+;                 do (setf dst-node src-node))))
+;    (cond
+;      ((member node (node-history-node-list node-history))
+;       (if (type-node-p node)
+;         (values (list node) nil)
+;         (values (value-node-assignments node) nil)))
+;      ((member node node-path)
+;       (values nil (calc-retain-list)))
+;      (t
+;       (multiple-value-bind (type-nodes retain-list)
+;           (call-next-method)
+;         (unless (find node retain-list :key 'car)
+;           (push node (node-history-node-list node-history)))
+;         (values type-nodes
+;                 (remove node retain-list :key 'car)))))))
 
-;TEST
-(defun show-cells (cell-list)
-  (mapcar (lambda (cell)
-            (cons (type-graph-node-name (car cell))
-                  (type-graph-node-name (cdr cell))))
-          cell-list))
+;;TEST
+;(defun show-cells (cell-list)
+;  (mapcar (lambda (cell)
+;            (cons (type-graph-node-name (car cell))
+;                  (type-graph-node-name (cdr cell))))
+;          cell-list))
 
-(defmethod collapse-type-graph ((node value-node) node-history node-path
-                                      env-rets env-args env-min
-                                      env-props)
-  (let ((own-rets (aif (value-node-return-node node)
-                    (cons it env-rets)
-                    env-rets))
-        (own-args (append (value-node-arguments node)
-                          env-args))
-        (own-min (min* (value-node-min-call-arity node)
-                       env-min))
-        (own-props (append (value-node-properties node)
-                           env-props))
-        (own-path (cons node node-path))
-        (downstream-types nil)
-        (retain-list nil))
+;(defmethod collapse-type-graph ((node value-node) node-history node-path
+;                                      env-rets env-args env-min
+;                                      env-props)
+;  (let ((own-rets (aif (value-node-return-node node)
+;                    (cons it env-rets)
+;                    env-rets))
+;        (own-args (append (value-node-arguments node)
+;                          env-args))
+;        (own-min (min* (value-node-min-call-arity node)
+;                       env-min))
+;        (own-props (append (value-node-properties node)
+;                           env-props))
+;        (own-path (cons node node-path))
+;        (downstream-types nil)
+;        (retain-list nil))
 
-    (dolist (child (value-node-assignments node))
-      (multiple-value-bind (type-nodes retain-cells)
-          (collapse-type-graph child node-history own-path
-                               own-rets own-args own-min
-                               own-props)
-        (setf downstream-types (union type-nodes downstream-types))
-        (setf retain-list (append retain-list retain-cells))))
+;    (dolist (child (value-node-assignments node))
+;      (multiple-value-bind (type-nodes retain-cells)
+;          (collapse-type-graph child node-history own-path
+;                               own-rets own-args own-min
+;                               own-props)
+;        (setf downstream-types (union type-nodes downstream-types))
+;        (setf retain-list (append retain-list retain-cells))))
 
-    (let ((own-extra-edges (mapcar 'cdr (remove-if-not (lambda (cell)
-                                                         (eq node (car cell)))
-                                                       retain-list))))
-      (setf (value-node-assignments node)
-            (union downstream-types own-extra-edges))
-      (values downstream-types retain-list))))
+;    (let ((own-extra-edges (mapcar 'cdr (remove-if-not (lambda (cell)
+;                                                         (eq node (car cell)))
+;                                                       retain-list))))
+;      (setf (value-node-assignments node)
+;            (union downstream-types own-extra-edges))
+;      (values downstream-types retain-list))))
               
 
-(defmethod collapse-type-graph ((node type-node) node-history node-path
-                                      env-rets env-args env-min
-                                      env-props)
+;(defmethod collapse-type-graph ((node type-node) node-history node-path
+;                                      env-rets env-args env-min
+;                                      env-props)
 
-  ;; Return edges
-  (let ((own-ret (get-return-node node)))
-    (loop for caller-ret in env-rets
-          do (add-assignment-edge caller-ret own-ret)))
+;  ;; Return edges
+;  (let ((own-ret (get-return-node node)))
+;    (loop for caller-ret in env-rets
+;          do (add-assignment-edge caller-ret own-ret)))
 
-  ;; Undefined argument handling
-  (loop for param in (type-node-parameters node)
-        for idx upfrom 0
-        when (and (numberp env-min)
-                  (>= idx env-min))
-        do (add-assignment-edge param (get-type-node "undefined")))
+;  ;; Undefined argument handling
+;  (loop for param in (type-node-parameters node)
+;        for idx upfrom 0
+;        when (and (numberp env-min)
+;                  (>= idx env-min))
+;        do (add-assignment-edge param (get-type-node "undefined")))
 
-  ;; Link corresponding arguments and parameters
-  ;; TODO Deal with worse-than-quadratic nature of this operation, perhaps
-  ;; by using an array for parameters instead of a list.
-  (loop for (arg-idx . arg-node) in env-args
-        do (add-assignment-edge (nth arg-idx (type-node-parameters node)) arg-node))
+;  ;; Link corresponding arguments and parameters
+;  ;; TODO Deal with worse-than-quadratic nature of this operation, perhaps
+;  ;; by using an array for parameters instead of a list.
+;  (loop for (arg-idx . arg-node) in env-args
+;        do (add-assignment-edge (nth arg-idx (type-node-parameters node)) arg-node))
 
-  ;; Link corresponding properties
-  ;; TODO Currently O(n^2); fix by using hash-table for properties
-  (loop for (prop-name . prop-node) in env-props
-        for own-node = (get-node-property node prop-name)
-        do (add-assignment-edge own-node prop-node))
+;  ;; Link corresponding properties
+;  ;; TODO Currently O(n^2); fix by using hash-table for properties
+;  (loop for (prop-name . prop-node) in env-props
+;        for own-node = (get-node-property node prop-name)
+;        do (add-assignment-edge own-node prop-node))
 
-  ;; Process nodes connected by "dotted" (ie, non-assignment) edges
-  (loop for prop-cell in (type-node-properties node)
-        do (collapse-type-graph (cdr prop-cell) node-history nil
-                                nil nil nil nil))
+;  ;; Process nodes connected by "dotted" (ie, non-assignment) edges
+;  (loop for prop-cell in (type-node-properties node)
+;        do (collapse-type-graph (cdr prop-cell) node-history nil
+;                                nil nil nil nil))
 
-  (loop for param in (type-node-parameters node)
-        do (collapse-type-graph param node-history nil
-                                nil nil nil nil))
+;  (loop for param in (type-node-parameters node)
+;        do (collapse-type-graph param node-history nil
+;                                nil nil nil nil))
 
-  (collapse-type-graph (get-return-node node) node-history nil
-                       nil nil nil nil)
+;  (collapse-type-graph (get-return-node node) node-history nil
+;                       nil nil nil nil)
 
-  (values (list node) nil))
+;  (values (list node) nil))
 
   
 ;;; ======================================================================
@@ -592,14 +594,14 @@
                    (format s " [style=dashed, label=\"~A\"]" label))
                  (format s ";~%"))
 
-               (print-collection-edges (from-node to-collection-accessor)
+               (print-collection-edges (from-node to-collection-accessor &optional user-label)
                  (loop for cell-or-node in (funcall to-collection-accessor from-node)
                        for to-node = (if (consp cell-or-node)
                                        (cdr cell-or-node)
                                        cell-or-node)
                        for label = (if (consp cell-or-node)
                                      (car cell-or-node)
-                                     nil)
+                                     user-label)
                        do
                        (print-edge from-node to-node label)
                        (queue-node to-node)))
@@ -608,10 +610,14 @@
                  (unless (find node node-history)
                    (push node node-history)
 
+                   (if (value-node-p node)
+                     (format s "  ~A [shape=ellipse];~%" (get-name node))
+                     (format s "  ~A [shape=box];~%" (get-name node)))
+                   
                    (print-collection-edges node 'type-graph-node-properties)
                    
                    (when (type-node-p node)
-                     (print-collection-edges node 'type-node-parameters))
+                     (print-collection-edges node 'type-node-parameters ""))
 
                    (when (value-node-p node)
                      (print-collection-edges node 'value-node-arguments)
@@ -623,15 +629,234 @@
                                  "$ret")
                      (queue-node ret-node)))))
 
-        (format s "digraph {~%  node [shape=box];~%")
+        (format s "digraph {~%  ~%")
         
         (loop for node being each hash-value in type-graph
-              do
-              (format s "  ~A [shape=ellipse];~%" (get-name node))
-              (queue-node node))
+              do (queue-node node))
 
         (loop for idx upfrom 0
               while (< idx (fill-pointer node-queue))
               do (print-node-edges (aref node-queue idx)))
       
       (format s "}")))))
+
+;;; ======================================================================
+;;;; The NODE-QUEUE data-type (TODO move to general-utilities as editable-queue)
+(defstruct node-queue-entry
+  prev
+  next
+  item)
+
+(defstruct node-queue-container
+  root-entry
+  lookup)
+
+(defun make-node-queue (&key (test 'equal))
+  "Create an empty NODE-QUEUE"
+  (let ((container (make-node-queue-container :lookup (make-hash-table :test test)
+                                              :root-entry (make-node-queue-entry))))
+    (setf (node-queue-entry-prev (node-queue-container-root-entry container))
+          (node-queue-container-root-entry container))
+    (setf (node-queue-entry-next (node-queue-container-root-entry container))
+          (node-queue-container-root-entry container))
+    container))
+   
+(defun enqueue-node (queue node)
+  "Add NODE to the end of QUEUE"
+  (let* ((right (node-queue-container-root-entry queue))
+         (left (node-queue-entry-prev right))
+         (mid (make-node-queue-entry :prev left :next right :item node)))
+    (unless (gethash node (node-queue-container-lookup queue))
+      (setf (node-queue-entry-next left)
+            mid)
+      (setf (node-queue-entry-prev right)
+            mid)
+      (setf (gethash node (node-queue-container-lookup queue))
+            mid))
+    queue))
+
+(defun dequeue-node (queue)
+  "Remove and return a node from the front of QUEUE"
+  (let* ((left (node-queue-container-root-entry queue))
+         (mid (node-queue-entry-next left))
+         (right (node-queue-entry-next mid)))
+    (setf (node-queue-entry-next left) right)
+    (setf (node-queue-entry-prev right) left)
+    (remhash (node-queue-entry-item mid) (node-queue-container-lookup queue))
+    (node-queue-entry-item mid)))
+
+(defun remove-queued-node (queue node)
+  "Removes the specified NODE from QUEUE"
+  (when (gethash node (node-queue-container-lookup queue))
+    (let* ((mid (gethash node (node-queue-container-lookup queue)))
+           (left (node-queue-entry-prev mid))
+           (right (node-queue-entry-next mid)))
+      (setf (node-queue-entry-next left) right)
+      (setf (node-queue-entry-prev right) left)
+      (remhash (node-queue-entry-item mid) (node-queue-container-lookup queue))
+      (node-queue-entry-item mid))))
+
+(defun node-queue-size (queue)
+  "Return the number of nodes stored in QUEUE"
+  (hash-table-count (node-queue-container-lookup queue)))
+
+;;; ======================================================================
+;;;; POPULATE phase
+
+;; TODO - reimplement
+
+(defun populate-type-graph (elm)
+  "Populate a type-graph based on source-element ELM"
+  (let ((*type-graph* (make-hash-table :test 'equal)))
+    (internal-analyze elm)
+    *type-graph*))
+
+;;; ======================================================================
+;;;; CONNECT phase
+
+(defun add-assignment-edge (left-node right-node &optional queue)
+  "Add an assignment edge from LEFT-NODE to RIGHT-NODE if no such edge already exists.
+   If QUEUE is non-NIL, queues LEFT-NODE for further processing."
+  (assert (value-node-p left-node))
+  (pushnew right-node (value-node-assignments left-node))
+  (when queue
+    (enqueue-node queue left-node)))
+
+(defun connect-type-graph (graph)
+  (let ((*type-graph* graph)
+        (queue (make-node-queue)))
+
+    ;; Add all the value nodes to the processing queue
+    (loop for node being each hash-value of graph
+          do (enqueue-node queue node))
+
+    ;; Process the queue
+    (loop while (> (node-queue-size queue) 0)
+          for node = (dequeue-node queue)
+          do (connect-nodes node queue nil
+                            nil nil nil nil))
+    *type-graph*))
+          
+          
+(defgeneric connect-nodes (node queue path
+                                env-rets env-args env-min
+                                env-props)
+  (:documentation
+   "Adds extra connections NODE and its descendants to account for
+    function calls and property-accesses.
+
+    QUEUE is the queue of nodes to process; CONNECT-NODES may mutate its value.
+
+    ENV-RET is a list of RET nodes encountered so far; Every type-node that is
+    encountered will have an edge added from its ret-node to each of these nodes.
+
+    ENV-ARGS is a list of (ARG-INDEX . VALUE-NODE) cells of arg-bindings encountered
+    so far; Type-nodes that are encountered will add edges from their parameter nodes
+    to each of these nodes.
+    
+    ENV-MIN is the minimum of all ancestor nodes' MIN-CALL-ARITY.
+
+    ENV-PROPS is a list of assoc-cells (PROP-NAME . NODE).  Note that there
+    may be more than one cell for a given property name, so it's not safe
+    to use ASSOC."))
+
+(defmethod connect-nodes ((node value-node) queue path
+                            env-rets env-args env-min
+                            env-props)
+  (let ((own-rets (aif (value-node-return-node node)
+                    (cons it env-rets)
+                    env-rets))
+        (own-args (append (value-node-arguments node)
+                          env-args))
+        (own-min (min* (value-node-min-call-arity node)
+                       env-min))
+        (own-props (append (value-node-properties node)
+                           env-props))
+        (own-path (cons node path)))
+
+    ;; We're processing this node, so no need to process it later
+    (remove-queued-node queue node)
+
+    (dolist (child (value-node-assignments node))
+      (connect-nodes child queue own-path
+                     own-rets own-args own-min
+                     own-props))))
+
+(defmethod connect-nodes ((node type-node) queue path
+                            env-rets env-args env-min
+                            env-props)
+  
+  ;; Return edges
+  (let ((own-ret (get-return-node node)))
+    (loop for caller-ret in env-rets
+          do (add-assignment-edge caller-ret own-ret)))
+
+  ;; Undefined argument handling
+  (loop for param in (type-node-parameters node)
+        for idx upfrom 0
+        when (and (numberp env-min)
+                  (>= idx env-min))
+        do (add-assignment-edge param (get-type-node "undefined")))
+
+  ;; Link corresponding arguments and parameters
+  ;; TODO Deal with worse-than-quadratic nature of this operation, perhaps
+  ;; by using an array for parameters instead of a list.
+  (loop for (arg-idx . arg-node) in env-args
+        do (add-assignment-edge (nth arg-idx (type-node-parameters node)) arg-node))
+
+  ;; Link corresponding properties
+  ;; TODO Currently O(n^2); fix by using hash-table for properties
+  (loop for (prop-name . prop-node) in env-props
+        for own-node = (get-node-property node prop-name)
+        do (add-assignment-edge own-node prop-node)))
+
+(defun collapse-type-graph (graph)
+  "Adds an edge from each value-node in GRAPH to each type-node that it has a
+   path to, and removes all other assignment edges.  Removes all 'dotted' edges
+   (ie, args, ret, and props) from value-nodes; only type-nodes will have dotted
+   edges after this processing is done."
+  (let ((*type-graph* graph)
+        (history (make-hash-table :test 'eq)))
+
+    ;; Process each node in the graph, and then remove anonymous value-nodes
+    (maphash (lambda (name node)
+               (declare (ignore value))
+               (collapse-nodes node history)
+               (unless (or (type-node-p node)
+                           (stringp name))
+                 (remhash name graph)))
+             graph)
+    graph))
+
+(defgeneric collapse-nodes (node node-history)
+  (:documentation
+  "Adds an edge from NODE to each type-node that it has a
+   path to, and removes all other assignment edges.  Removes all 'dotted' edges
+   (ie, args, ret, and props) from value-nodes; only type-nodes will have dotted
+   edges after this processing is done.  Recursively processes all assignment-children.
+   NODE-HISTORY is a hash-table of already-processed nodes.
+   Returns all type-nodes encountered so far."))
+
+(defmethod collapse-nodes :around ((node value-node) node-history)
+  (if (gethash node node-history)
+    (value-node-assignments node)
+    (call-next-method)))
+
+(defmethod collapse-nodes ((node value-node) node-history)
+  (setf (gethash node node-history) t)
+  (let ((new-assignments (loop for child in (value-node-assignments node)
+                               append (collapse-nodes child node-history))))
+    (setf (value-node-properties node) nil)
+    (setf (value-node-arguments node) nil)
+    (setf (value-node-return-node node) nil)
+    (setf (value-node-assignments node) new-assignments)))
+
+(defmethod collapse-nodes ((node type-node) node-history)
+  (list node))
+    
+(defun type-analyze (elm)
+  "Perform type analysis on ELM and return the corresponding type-map."
+  (let ((graph (populate-type-graph elm)))
+    (connect-type-graph graph)
+    (collapse-type-graph graph)
+    graph))
