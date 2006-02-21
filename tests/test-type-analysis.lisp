@@ -223,16 +223,20 @@
                      w = x;")))))
   4)
 
+(defun %make-property-cycle (&optional (n 1000))
+  (append (parse "x0.foo = x1; x0 = x1;")
+                      (loop for idx from 1 upto (1- n)
+                            append (parse (format nil "x~D=new Object;x~D.foo~D = x~D; x~D = x~D;" idx idx idx (1+ idx) idx (1+ idx))))
+                      (parse (format nil "x~D = x0; x~D.foo = x0;" n n))))
+
+
 (defun benchmark/multi-property-cycle (fn &optional (n 1000) (repetitions 10))
   "Constructs a pathological case for collapsing property-accesses:
    a large cycle of value nodes, each of which has a property 'foo'
    that points to the next node.
 
    Times the application of FN to a cycle of N nodes REPETITIONS times."
-  (let ((ast (append (parse "x0.foo = x1; x0 = x1;")
-                      (loop for idx from 1 upto (1- n)
-                            append (parse (format nil "x~D.foo = x~D; x~D = x~d;" idx (1+ idx) idx (1+ idx))))
-                      (parse (format nil "x~D = x0; x~D.foo = x0;" n n))))
+  (let ((ast (%make-property-cycle n))
         (data (make-array repetitions)))
     (flet ((make-graph (idx)
              (let ((jw::*type-graph* (make-hash-table :test 'equal)))

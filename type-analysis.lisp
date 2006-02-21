@@ -359,215 +359,6 @@
   (declare (ignore prop-stack type-map node-history))
   nil)
 
-;;;; ======================================================================
-;;;;; COLLAPSE-TYPE-GRAPH generic function
-
-;;; COLLAPSE-TYPE-GRAPH removes outgoing "dotted edges" from value-nodes.
-;;; When it has finished running, every value-node should have a set of
-;;; assignment-edges pointing directly to its type-nodes, and nothing else.
-;;;
-;;; We keep a separate node-history and node-path TODO finish this description
-
-;(defgeneric collapse-type-graph (node node-history node-path
-;                                      env-rets env-args env-min
-;                                      env-props)
-;  (:documentation
-;   "Informally, this function collects argument, property, and return nodes down assignment
-;    paths and deposits them at each type-node that it encounters.
-
-;    NODE-PATH is the path followed to get to the current node.  Eg, if we have visited
-;    X, Y, and Z, then upon entry to Z NODE-PATH will be '(Z Y X).
-
-;    ENV-RETS is a list of return nodes of ancestors.
-;    ENV-ARGS is a list of assoc-cells (INDEX . NODE) of ancestor arguments nodes.  Note that
-;    there may be more than one entry per index in ENV-ARGS, so don't actually use ASSOC on it.
-;    ENV-MIN is the minimum of all ancestor nodes' MIN-CALL-ARITY.
-
-;    ENV-PROPS is a list of assoc-cells (PROP-NAME . NODE).  Note that there
-;    may be more than one cell for a given property name, so it's not safe
-;    to use ASSOC.
-
-;    The first return value is a list of all the type-nodes that NODE has an assignment-path to.
-;    The second return value is a list of cons-cells containing edges that should be retained in
-;    the graph.  (This is necessary when a cycle has been encountered)."))
-
-;(defmethod collapse-type-graph :around ((node value-node) node-history node-path
-;                                        env-rets env-args env-min
-;                                        env-props)
-;  (flet ((calc-retain-list ()
-;           (loop with dst-node = node
-;                 for src-node in node-path
-;                 until (eq src-node node)
-;                 collect (cons src-node dst-node)
-;                 do (setf dst-node src-node))))
-;    (cond
-;      ((member node (node-history-node-list node-history))
-;       (if (type-node-p node)
-;         (values (list node) nil)
-;         (values (value-node-assignments node) nil)))
-;      ((member node node-path)
-;       (values nil (calc-retain-list)))
-;      (t
-;       (multiple-value-bind (type-nodes retain-list)
-;           (call-next-method)
-;         (unless (find node retain-list :key 'car)
-;           (push node (node-history-node-list node-history)))
-;         (values type-nodes
-;                 (remove node retain-list :key 'car)))))))
-
-;;TEST
-;(defun show-cells (cell-list)
-;  (mapcar (lambda (cell)
-;            (cons (type-graph-node-name (car cell))
-;                  (type-graph-node-name (cdr cell))))
-;          cell-list))
-
-;(defmethod collapse-type-graph ((node value-node) node-history node-path
-;                                      env-rets env-args env-min
-;                                      env-props)
-;  (let ((own-rets (aif (value-node-return-node node)
-;                    (cons it env-rets)
-;                    env-rets))
-;        (own-args (append (value-node-arguments node)
-;                          env-args))
-;        (own-min (min* (value-node-min-call-arity node)
-;                       env-min))
-;        (own-props (append (value-node-properties node)
-;                           env-props))
-;        (own-path (cons node node-path))
-;        (downstream-types nil)
-;        (retain-list nil))
-
-;    (dolist (child (value-node-assignments node))
-;      (multiple-value-bind (type-nodes retain-cells)
-;          (collapse-type-graph child node-history own-path
-;                               own-rets own-args own-min
-;                               own-props)
-;        (setf downstream-types (union type-nodes downstream-types))
-;        (setf retain-list (append retain-list retain-cells))))
-
-;    (let ((own-extra-edges (mapcar 'cdr (remove-if-not (lambda (cell)
-;                                                         (eq node (car cell)))
-;                                                       retain-list))))
-;      (setf (value-node-assignments node)
-;            (union downstream-types own-extra-edges))
-;      (values downstream-types retain-list))))
-              
-
-;(defmethod collapse-type-graph ((node type-node) node-history node-path
-;                                      env-rets env-args env-min
-;                                      env-props)
-
-;  ;; Return edges
-;  (let ((own-ret (get-return-node node)))
-;    (loop for caller-ret in env-rets
-;          do (add-assignment-edge caller-ret own-ret)))
-
-;  ;; Undefined argument handling
-;  (loop for param in (type-node-parameters node)
-;        for idx upfrom 0
-;        when (and (numberp env-min)
-;                  (>= idx env-min))
-;        do (add-assignment-edge param (get-type-node "undefined")))
-
-;  ;; Link corresponding arguments and parameters
-;  ;; TODO Deal with worse-than-quadratic nature of this operation, perhaps
-;  ;; by using an array for parameters instead of a list.
-;  (loop for (arg-idx . arg-node) in env-args
-;        do (add-assignment-edge (nth arg-idx (type-node-parameters node)) arg-node))
-
-;  ;; Link corresponding properties
-;  ;; TODO Currently O(n^2); fix by using hash-table for properties
-;  (loop for (prop-name . prop-node) in env-props
-;        for own-node = (get-node-property node prop-name)
-;        do (add-assignment-edge own-node prop-node))
-
-;  ;; Process nodes connected by "dotted" (ie, non-assignment) edges
-;  (loop for prop-cell in (type-node-properties node)
-;        do (collapse-type-graph (cdr prop-cell) node-history nil
-;                                nil nil nil nil))
-
-;  (loop for param in (type-node-parameters node)
-;        do (collapse-type-graph param node-history nil
-;                                nil nil nil nil))
-
-;  (collapse-type-graph (get-return-node node) node-history nil
-;                       nil nil nil nil)
-
-;  (values (list node) nil))
-
-  
-;;; ======================================================================
-;;;; COLLAPSE-FUNCTION-CALLS generic function
-
-(defgeneric collapse-function-calls (node node-history
-                                          env-rets env-args env-min)
-  (:documentation
-   "Adds extra edges between return nodes an argument/parameter nodes among all of the
-    descendant nodes of NODE.
-    ENV-RETS is a list of return nodes of ancestors.
-    ENV-ARGS is a list of assoc-cells (INDEX . NODE) of ancestor arguments nodes.  Note that
-    there may be more than one entry per index in ENV-ARGS, so don't actually use ASSOC on it.
-    ENV-MIN is the minimum of all ancestor nodes' MIN-CALL-ARITY."))
-
-(defmethod collapse-function-calls :around (node node-history env-rets env-args env-min)
-  (unless (member node (node-history-node-list node-history))
-    (push node (node-history-node-list node-history))
-    (call-next-method)))
-
-(defmethod collapse-function-calls ((node value-node) node-history env-rets env-args env-min)
-  (let ((own-rets (aif (value-node-return-node node)
-                    (cons it env-rets)
-                    env-rets))
-        (own-args (append (value-node-arguments node)
-                          env-args))
-        (own-min (min* (value-node-min-call-arity node) env-min)))
-    (loop for descendent in (value-node-assignments node)
-          do (collapse-function-calls descendent node-history own-rets own-args own-min))))
-
-(defmethod collapse-function-calls ((node type-node) node-history env-rets env-args env-min)
-  (when-let (own-ret (type-node-return-node node))
-    (loop for caller-ret in env-rets
-          do (add-assignment-edge caller-ret own-ret)))
-
-  ;; TODO Currently O(n^2) in the number of env-args.
-  (loop for param in (type-node-parameters node)
-        for idx upfrom 0
-        do (when (and env-min (>= idx env-min))
-             (add-assignment-edge param (get-type-node "undefined")))
-           (loop for cell in env-args
-                 when (= idx (car cell))
-                 do (add-assignment-edge param (cdr cell)))))
-
-;;; ======================================================================
-;;;; COLLAPSE-PROPERTY-ACCESSES generic function
-
-(defgeneric collapse-property-accesses (node node-history env-props)
-  (:documentation
-   "Adds edges to ensure that property-nodes of value-nodes always have a
-    path to property-nodes of descendant types and vice versa amongst the
-    descendant nodes of NODE.
-    ENV-PROPS is a list of assoc-cells (PROP-NAME . NODE).  Note that there
-    may be more than one cell for a given property name, so it's not safe
-    to use ASSOC."))
-
-(defmethod collapse-property-accesses :around (node node-history env-props)
-  (unless (member node (node-history-node-list node-history))
-    (push node (node-history-node-list node-history))
-    (call-next-method)))
-
-(defmethod collapse-property-accesses ((node value-node) node-history env-props)
-  (let ((own-props (append (value-node-properties node) env-props)))
-    (loop for descendant in (value-node-assignments node)
-          do (collapse-property-accesses descendant node-history own-props))))
-
-(defmethod collapse-property-accesses ((node type-node) node-history env-props)
-  ;; TODO Currently O(n^2)
-  (loop for env-cell in env-props
-        for own-node = (get-node-property node (car env-cell))
-        do (add-assignment-edge own-node (cdr env-cell))))
-
-
 ;;;; Debugging helper
 ;;TODO Move this somewhere else
 (defun make-dot-graph (type-graph &optional (fname "c:/temp/types.dot"))
@@ -760,6 +551,12 @@
     may be more than one cell for a given property name, so it's not safe
     to use ASSOC."))
 
+(defmethod connect-nodes :around ((node value-node) queue path
+                                    env-rets env-args env-min
+                                    env-props)
+  (unless (member node path)
+    (call-next-method)))
+
 (defmethod connect-nodes ((node value-node) queue path
                             env-rets env-args env-min
                             env-props)
@@ -810,48 +607,53 @@
         for own-node = (get-node-property node prop-name)
         do (add-assignment-edge own-node prop-node)))
 
+(defparameter *cycle-free-collapse-pass* t
+  "T if no cycles were encountered on this pass of COLLAPSE-NODES")
+
 (defun collapse-type-graph (graph)
   "Adds an edge from each value-node in GRAPH to each type-node that it has a
    path to, and removes all other assignment edges.  Removes all 'dotted' edges
    (ie, args, ret, and props) from value-nodes; only type-nodes will have dotted
    edges after this processing is done."
-  (let ((*type-graph* graph)
-        (history (make-hash-table :test 'eq)))
+  (let ((*type-graph* graph))
 
     ;; Process each node in the graph, and then remove anonymous value-nodes
     (maphash (lambda (name node)
                (declare (ignore value))
-               (collapse-nodes node history)
+               (let ((*cycle-free-collapse-pass* t))
+                 (collapse-nodes node nil))
                (unless (or (type-node-p node)
                            (stringp name))
                  (remhash name graph)))
              graph)
     graph))
 
-(defgeneric collapse-nodes (node node-history)
+(defgeneric collapse-nodes (node path)
   (:documentation
   "Adds an edge from NODE to each type-node that it has a
    path to, and removes all other assignment edges.  Removes all 'dotted' edges
    (ie, args, ret, and props) from value-nodes; only type-nodes will have dotted
    edges after this processing is done.  Recursively processes all assignment-children.
-   NODE-HISTORY is a hash-table of already-processed nodes.
+   PATH is a list of nodes representing the path taken to get to this node.
    Returns all type-nodes encountered so far."))
 
-(defmethod collapse-nodes :around ((node value-node) node-history)
-  (if (gethash node node-history)
-    (value-node-assignments node)
-    (call-next-method)))
+(defmethod collapse-nodes ((node value-node) path)
+  (if (member node path)
+    (setf *cycle-free-collapse-pass* nil)
+    (let* ((own-path (cons node path))
+           (new-assignments (remove-duplicates
+                             (loop for child in (value-node-assignments node)
+                                  append (collapse-nodes child own-path)))))
+      (when (or *cycle-free-collapse-pass*
+                (null path))
+        (setf (value-node-properties node) nil)
+        (setf (value-node-arguments node) nil)
+        (setf (value-node-return-node node) nil)
+        (setf (value-node-assignments node) new-assignments))
+      new-assignments)))
 
-(defmethod collapse-nodes ((node value-node) node-history)
-  (setf (gethash node node-history) t)
-  (let ((new-assignments (loop for child in (value-node-assignments node)
-                               append (collapse-nodes child node-history))))
-    (setf (value-node-properties node) nil)
-    (setf (value-node-arguments node) nil)
-    (setf (value-node-return-node node) nil)
-    (setf (value-node-assignments node) new-assignments)))
 
-(defmethod collapse-nodes ((node type-node) node-history)
+(defmethod collapse-nodes ((node type-node) path)
   (list node))
     
 (defun type-analyze (elm)
