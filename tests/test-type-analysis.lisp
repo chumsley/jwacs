@@ -22,6 +22,12 @@
                   (type-analyze (parse "x = 5 / '2.5'; y = 'str'; y = x;"))))
    ("Number" "String"))
 
+(deftest type-analysis/simple-assignment/3 :note type-analysis
+  (type-names
+   (compute-types #s(identifier :name "non-existo")
+                  (type-analyze (parse "var x = 10; var y = str; y = x;"))))
+  ("undefined"))
+
 (deftest type-analysis/var-decl/1 :notes type-analysis
     (type-names
      (compute-types #s(identifier :name "y")
@@ -167,11 +173,6 @@
      y = x.foo();"))))
   ("null"))
 
-;; JRW These two will work once I've added find-node support for function-expressions,
-;; which I won't do until after the refactoring.
-(flag-expected-failure 'type-analysis/property-access/function-expressions/1)
-(flag-expected-failure 'type-analysis/property-access/function-expressions/2)
-
 (deftest type-analysis/property-access/function-expressions/1 :notes type-analysis
   (type-names
    (compute-types
@@ -180,6 +181,7 @@
                                            :args nil)
                        :field #s(string-literal :value "a"))
     (type-analyze (parse "
+     var x = new Object;
      x.foo = function() { return {a: null, b: 20}; };"))))
   ("null"))
 
@@ -191,6 +193,7 @@
                                            :args nil)
                        :field #s(string-literal :value "non-existo"))
     (type-analyze (parse "
+     var x = new Object;
      x.foo = function() { return {a: null, b: 20}; };"))))
   ("undefined"))
 
@@ -228,28 +231,3 @@
                       (loop for idx from 1 upto (1- n)
                             append (parse (format nil "x~D=new Object;x~D.foo~D = x~D; x~D = x~D;" idx idx idx (1+ idx) idx (1+ idx))))
                       (parse (format nil "x~D = x0; x~D.foo = x0;" n n))))
-
-
-(defun benchmark/multi-property-cycle (fn &optional (n 1000) (repetitions 10))
-  "Constructs a pathological case for collapsing property-accesses:
-   a large cycle of value nodes, each of which has a property 'foo'
-   that points to the next node.
-
-   Times the application of FN to a cycle of N nodes REPETITIONS times."
-  (let ((ast (%make-property-cycle n))
-        (data (make-array repetitions)))
-    (flet ((make-graph (idx)
-             (let ((jw::*type-graph* (make-hash-table :test 'equal)))
-               (jw::internal-analyze ast)
-               (setf (aref data idx)
-                     jw::*type-graph*)))
-           (process-data ()
-             (loop for idx from 0 to (1- repetitions)
-                   do (funcall fn (aref data idx)))))
-      (loop for idx from 0 to (1- repetitions)
-            do (make-graph idx))
-      (time (process-data)))))
-    
-  
-                   
-     
