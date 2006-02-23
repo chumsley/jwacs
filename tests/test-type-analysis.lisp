@@ -226,6 +226,60 @@
                      w = x;")))))
   4)
 
+(deftest type-analysis/simple-binary/1 :notes type-analysis
+  (type-names
+   (compute-types #s(binary-operator :left-arg #s(numeric-literal :value 3)
+                                     :right-arg #s(numeric-literal :value 10)
+                                     :op-symbol :add)
+                  (type-analyze nil)))
+  ("Number"))
+
+(deftest type-analysis/simple-binary/2 :notes type-analysis
+  (type-names
+   (compute-types #s(binary-operator :left-arg #s(string-literal :value "ten")
+                                     :right-arg #s(numeric-literal :value 10)
+                                     :op-symbol :add)
+                  (type-analyze nil)))
+  ("Number" "String"))
+
+(deftest type-analysis/simple-binary/3 :notes type-analysis
+  (type-names
+   (compute-types #s(binary-operator :left-arg #s(identifier :name "x")
+                                     :right-arg #s(numeric-literal :value 10)
+                                     :op-symbol :add)
+                  (type-analyze (parse "var x = 10;"))))
+  ("Number"))
+
+(deftest type-analysis/simple-binary/4 :notes type-analysis
+  (type-names
+   (compute-types #s(binary-operator :left-arg #s(identifier :name "x")
+                                     :right-arg #s(numeric-literal :value 10)
+                                     :op-symbol :add)
+                  (type-analyze (parse "var x = 'ten';"))))
+  ("Number" "String"))
+
+(deftest type-analysis/simple-binary/5 :notes type-analysis
+  (type-names
+   (compute-types #s(binary-operator :left-arg #s(identifier :name "x")
+                                     :right-arg #s(string-literal :value "fifteen")
+                                     :op-symbol :add)
+                  (type-analyze (parse "var x = 'ten';"))))
+  ("String"))
+
+(deftest type-analysis/simple-unary/1 :notes type-analysis
+  (type-names
+   (compute-types #s(unary-operator :arg #s(identifier :name "nonExisto")
+                                    :op-symbol :logical-not)
+                  (type-analyze nil)))
+  ("Boolean"))
+
+(deftest type-analysis/simple-unary/2 :notes type-analysis
+  (type-names
+   (compute-types #s(unary-operator :arg #s(identifier :name "nonExisto")
+                                    :op-symbol :bitwise-not)
+                  (type-analyze nil)))
+  ("Number"))
+
 (defun %make-property-cycle (&optional (n 1000))
   (append (parse "x0.foo = x1; x0 = x1;")
                       (loop for idx from 1 upto (1- n)

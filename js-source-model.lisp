@@ -25,7 +25,8 @@
 ; GS- i've added types, but should make a virtual "expressions" type to be used where appropriate
 ; instead of source-element
 ; perhaps also one for statement?
-
+; JRW - I think both of those are good ideas.  There's a couple of places in type-analysis where
+; that would be helpful.
 
 (defstruct source-element
   "A common base type for all source elements"

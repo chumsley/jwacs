@@ -192,6 +192,20 @@
          (add-assignment-edge expr-node right-node)
          expr-node)))))
 
+(defmethod populate-nodes (graph (elm unary-operator))
+  (populate-nodes graph (unary-operator-arg elm))
+  (case (unary-operator-op-symbol elm)
+    ((:pre-incr :post-incr :pre-decr :post-decr :unary-plus :unary-minus :bitwise-not)
+     (get-type-node graph "Number"))
+    ((:logical-not :delete)
+     (get-type-node graph "Boolean"))
+    (:typeof
+     (get-type-node graph "String"))
+    (:void
+     (get-type-node graph "undefined"))
+    (otherwise
+     (error "unrecognized unary operation ~A" (unary-operator-op-symbol elm)))))
+    
 (defmethod populate-nodes (graph (elm var-decl))
   (let ((left-node (get-value-node graph (var-decl-name elm))))
     (if (var-decl-initializer elm)
@@ -498,11 +512,31 @@
 ;(defmethod compute-types (graph (elm expression))
 ;  nil)
 
+(defmethod compute-types ((elm numeric-literal) graph)
+  (list (get-type-node graph "Number")))
+
+(defmethod compute-types ((elm string-literal) graph)
+  (list (get-type-node graph "String")))
+
+(defmethod compute-types ((elm re-literal) graph)
+  (list (get-type-node graph "RegExp")))
+
 (defmethod compute-types ((elm identifier) graph)
   (let ((node (find-value-node graph (identifier-name elm))))
     (if node
       (value-node-assignments node)
       (list (get-type-node graph "undefined")))))
+
+(defmethod compute-types ((elm special-value) graph)
+  (ecase (special-value-symbol elm)
+    (:this ;TODO
+     (error "this contexts not fully handled yet"))
+    ((:false :true)
+     (list (get-type-node graph "Boolean")))
+    (:null
+     (list (get-type-node graph "null")))
+    (:undefined
+     (list (get-type-node graph "undefined")))))
 
 (defmethod compute-types ((elm property-access) graph)
   (let ((target-types (compute-types (property-access-target elm) graph))
@@ -517,6 +551,41 @@
   (let ((fn-types (compute-types (fn-call-fn elm) graph)))
     (loop for type-node in fn-types
           append (value-node-assignments (type-node-return-node type-node)))))
+
+(defmethod compute-types ((elm binary-operator) graph)
+  (let ((left-types (compute-types (binary-operator-left-arg elm) graph))
+        (right-types (compute-types (binary-operator-right-arg elm) graph)))
+    (case (binary-operator-op-symbol elm)
+      ((:assign :plus-equals
+        :and-equals :xor-equals :or-equals)
+       (union left-types right-types))
+
+      ((:times-equals :divide-equals :mod-equals :minus-equals
+        :lshift-equals :rshift-equals :urshift-equals)
+       (adjoin (get-type-node graph "Number") left-types))
+
+      ((:multiply :divide :modulo :subtract)
+       (list (get-type-node graph "Number")))
+
+      ((:equals :strict-equals :not-equals :strict-not-equals)
+       (list (get-type-node graph "Boolean")))
+
+      (otherwise
+       (union left-types right-types)))))
+
+(defmethod compute-types ((elm unary-operator) graph)
+  (case (unary-operator-op-symbol elm)
+    ((:pre-incr :post-incr :pre-decr :post-decr :unary-plus :unary-minus :bitwise-not)
+     (list (get-type-node graph "Number")))
+    ((:logical-not :delete)
+     (list (get-type-node graph "Boolean")))
+    (:typeof
+     (list (get-type-node graph "String")))
+    (:void
+     (list (get-type-node graph "undefined")))
+    (otherwise
+     (error "unrecognized unary operation ~A" (unary-operator-op-symbol elm)))))
+
 
 ;;HERE other elm types
 
