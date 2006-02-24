@@ -5,9 +5,9 @@
 
 (defnote type-analysis "tests for the type-analysis functionality")
 
-(defun type-names (type-node-list)
+(defun type-names (value-node-list)
   (sort (copy-list 
-         (mapcar 'jw::type-node-name type-node-list))
+         (mapcar 'jw::value-node-name value-node-list))
         'string<))
 
 (deftest type-analysis/simple-assignment/1 :notes type-analysis
@@ -214,7 +214,7 @@
 
 (deftest type-analysis/cycle/2 :notes type-analysis
   (length
-   (jw::value-node-assignments
+   (jw::location-node-assignments
     (gethash "x" (type-analyze (parse "
                      x = 50;
                      x = y;
