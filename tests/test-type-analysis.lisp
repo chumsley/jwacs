@@ -7,7 +7,7 @@
 
 (defun type-names (value-node-list)
   (sort (copy-list 
-         (mapcar 'jw::value-node-name value-node-list))
+         (mapcar 'jw::value-node-constructor-name value-node-list))
         'string<))
 
 (deftest type-analysis/simple-assignment/1 :notes type-analysis
@@ -279,6 +279,54 @@
                                     :op-symbol :bitwise-not)
                   (type-analyze nil)))
   ("Number"))
+
+(deftest type-analysis/simple-prototype/1 :notes type-analysis
+  (type-names
+   (compute-types #s(property-access :target #s(identifier :name "x")
+                                     :field #s(string-literal :value "foo"))
+                  (type-analyze (parse "
+        function MyType() {}
+        MyType.prototype.foo = 100;
+        var x = new MyType();"))))
+  ("Number"))
+
+(deftest type-analysis/separate-object-values/1 :notes type-analysis
+  (type-names
+   (compute-types #s(property-access :target #s(identifier :name "y")
+                                     :field #s(string-literal :value "foo"))
+                  (type-analyze (parse "
+        var x = new Object;
+        var y = new Object;
+        x.foo = 'str';
+        y.foo = 42;"))))
+  ("Number"))
+
+(deftest type-analysis/this-context/1 :notes type-analysis
+  (type-names
+   (compute-types #s(property-access :target #s(identifier :name "x")
+                                     :field #s(string-literal :value "bar"))
+                  (type-analyze (parse "
+        function MyType()
+        {
+          this.bar = /bar/gi;
+        }
+        var x = new MyType();"))))
+  ("RegExp"))
+
+(deftest type-analysis/this-context/2 :notes type-analysis
+  (type-names
+   (compute-types #s(property-access :target #s(identifier :name "x")
+                                     :field #s(string-literal :value "bar"))
+                  (type-analyze (parse "
+        function MyType()
+        {
+          this.bar = /bar/gi;
+        }
+        function AnotherType() {}
+        AnotherType.prototype.baz = MyType;
+        var x = new AnotherType();
+        x.baz();"))))
+  ("RegExp"))
 
 (defun %make-property-cycle (&optional (n 1000))
   (append (parse "x0.foo = x1; x0 = x1;")

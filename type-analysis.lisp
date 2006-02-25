@@ -10,19 +10,21 @@
 (defstruct type-graph-node
   "A node in the type graph"
   name
-  properties      ; Assoc list of (string . node), with 'ANY as a special case
-  return-node)    ; location-node
+  properties       ; Assoc list of (string . node), with 'ANY as a special case
+  return-node)     ; location-node
 
 (defstruct (location-node (:include type-graph-node))
   "A type graph node that represents a location (eg variable, return
    value, parameter, intermediate value)"
-  assignments     ; List of type-graph-nodes
-  arguments       ; Assoc list of (index . node)
-  min-call-arity) ; The smallest numbers of arguments that this function has ever been called with
+  assignments      ; List of type-graph-nodes
+  arguments        ; Assoc list of (index . node)
+  min-call-arity)  ; The smallest numbers of arguments that this function has ever been called with
   
 (defstruct (value-node (:include type-graph-node))
   "A node in the type graph that represents a value (object, function, number, etc.)"
-  parameters)     ; List of location-nodes
+  constructor-name ; Name of the constructor for this type, if any
+  parameters       ; List of location-nodes
+  prototype-node)  ; location-node
 
 (defun find-location-node (graph name)
   "Return the location node named NAME from GRAPH if one
@@ -88,19 +90,73 @@
     (enqueue-node queue left-node)))
 
 (defun find-value-node (graph name)
-  "Return the type named NAME from GRAPH"
+  "Return the value named NAME from GRAPH"
   (awhen (find-location-node graph name)
     (find-value-node-named name (location-node-assignments it))))
 
-(defun get-value-node (graph name)
-  "Return the type node named NAME from GRAPH, creating it
-   if necessary."
-  (let ((location-node (get-location-node graph name)))
-    (aif (find-value-node-named name (location-node-assignments location-node))
-      it
-      (let ((new-value-node (make-value-node :name name)))
-        (add-assignment-edge location-node new-value-node)
-        new-value-node))))
+(defun setup-function-node (graph node &key link-prototype-to-value-node)
+  "Sets up a location-node to point to a value-node of the same name.
+   The existence of three nodes will be guaranteed:
+     (1) A location node pointed to by the 'prototype' property of either NODE or (2)
+         (depending upon the value of LINK-PROTOTYPE-TO-VALUE-NODE)
+     (2) A value-node with an assignment edge from NODE and the same name as NODE
+     (3) A value-node named #:|NAME-prototype| with an assignment edge from (1).
+
+   Returns the function value-node (2)"
+  (let* ((name (location-node-name node))
+         (function-value (aif (find-value-node-named name (location-node-assignments node))
+                           it
+                           (make-value-node :name name :constructor-name "Function")))
+         (prototype-node (if link-prototype-to-value-node
+                           (get-node-property graph function-value "prototype")
+                           (get-node-property graph node "prototype")))) ;(1)
+
+    ;; Ensure (2)
+    (pushnew function-value (location-node-assignments node))
+    
+    ;; Ensure (3)
+    (when (null (remove-if-not 'value-node-p (location-node-assignments prototype-node)))
+      (push (make-value-node :name (gensym (format nil "~A_proto" name))
+                             :constructor-name name)
+            (location-node-assignments prototype-node)))
+
+    function-value))
+
+(defun get-exemplar-value-nodes (graph constructor-name)
+  "Returns a list containing a value-node for an exemplar value
+   of a type created by constructor CONSTRUCTOR-NAME (which will
+   usually be the name of a built-in type such as Number)"
+  (let ((location-node (get-location-node graph constructor-name)))
+    (setup-function-node graph location-node :link-prototype-to-value-node t)
+    (remove-duplicates
+     (loop for type-node in (location-node-assignments location-node)
+           for prototype-node = (find-node-property type-node "prototype")
+           when prototype-node
+           append (location-node-assignments prototype-node)))))
+
+(defun get-instance-node (graph constructor)
+  "Returns a node representing an instance of the type(s) constructed by
+   CONSTRUCTOR.  CONSTRUCTOR is either the name of a location-node to
+   retrieve from GRAPH, or a node in GRAPH representing the constructor.
+
+   For Object and Array types, a new instance node is
+   created.  For all other types, the same 'exemplar node' is used for
+   all instances."
+  (let* ((ctor-node (if (type-graph-node-p constructor)
+                            constructor
+                            (get-location-node graph constructor)))
+         (ctor-name (type-graph-node-name ctor-node)))
+         
+    (setup-function-node graph ctor-node)
+    (cond
+      ((or (equal "Object" ctor-name)
+           (equal "Array" ctor-name))
+       
+       (make-value-node :name (gensym ctor-name)
+                        :constructor-name ctor-name
+                        :prototype-node (car (get-exemplar-value-nodes graph ctor-name))))
+      (t
+       (get-node-property graph ctor-node "prototype")))))
 
 (defun min* (left right)
   "Returns the minimum of LEFT and RIGHT.  Either or both arguments may
@@ -147,24 +203,24 @@
   (get-location-node graph (identifier-name elm)))
 
 (defmethod populate-nodes (graph (elm string-literal))
-  (get-value-node graph "String"))
+  (get-instance-node graph "String"))
 
 (defmethod populate-nodes (graph (elm re-literal))
-  (get-value-node graph "RegExp"))
+  (get-instance-node graph "RegExp"))
 
 (defmethod populate-nodes (graph (elm numeric-literal))
-  (get-value-node graph "Number"))
+  (get-instance-node graph "Number"))
 
 (defmethod populate-nodes (graph (elm special-value))
   (ecase (special-value-symbol elm)
     (:this ;TODO - this deals properly with "declared inside function" but not "set to prototype fields" methods
      *innermost-function-node*)
     ((:false :true)
-     (get-value-node graph "Boolean"))
+     (get-instance-node graph "Boolean"))
     (:null
-     (get-value-node graph "null"))
+     (get-instance-node graph "null"))
     (:undefined
-     (get-value-node graph "undefined"))))
+     (get-instance-node graph "undefined"))))
 
 (defmethod populate-nodes (graph (elm binary-operator))
   (let ((left-node (populate-nodes graph (binary-operator-left-arg elm)))
@@ -177,14 +233,14 @@
 
       ((:times-equals :divide-equals :mod-equals :minus-equals
         :lshift-equals :rshift-equals :urshift-equals)
-       (add-assignment-edge left-node (get-value-node graph "Number"))
+       (add-assignment-edge left-node (get-instance-node graph "Number"))
        left-node)
 
       ((:multiply :divide :modulo :subtract)
-       (get-value-node graph "Number"))
+       (get-instance-node graph "Number"))
 
       ((:equals :strict-equals :not-equals :strict-not-equals)
-       (get-value-node graph "Boolean"))
+       (get-instance-node graph "Boolean"))
 
       (otherwise
        (let ((expr-node (get-location-node graph (gensym "expr"))))
@@ -196,13 +252,13 @@
   (populate-nodes graph (unary-operator-arg elm))
   (case (unary-operator-op-symbol elm)
     ((:pre-incr :post-incr :pre-decr :post-decr :unary-plus :unary-minus :bitwise-not)
-     (get-value-node graph "Number"))
+     (get-instance-node graph "Number"))
     ((:logical-not :delete)
-     (get-value-node graph "Boolean"))
+     (get-instance-node graph "Boolean"))
     (:typeof
-     (get-value-node graph "String"))
+     (get-instance-node graph "String"))
     (:void
-     (get-value-node graph "undefined"))
+     (get-instance-node graph "undefined"))
     (otherwise
      (error "unrecognized unary operation ~A" (unary-operator-op-symbol elm)))))
     
@@ -210,7 +266,7 @@
   (let ((left-node (get-location-node graph (var-decl-name elm))))
     (if (var-decl-initializer elm)
       (add-assignment-edge left-node (populate-nodes graph (var-decl-initializer elm)))
-      (add-assignment-edge left-node (get-value-node graph "undefined")))))
+      (add-assignment-edge left-node (get-instance-node graph "undefined")))))
 
 (defmethod populate-nodes (graph (elm fn-call))
   (let* ((target-node (populate-nodes graph (fn-call-fn elm)))
@@ -228,7 +284,10 @@
     ret-node))
 
 (defmethod populate-nodes (graph (elm function-decl))
-  (let ((*innermost-function-node* (get-value-node graph (function-decl-name elm))))
+  (let ((*innermost-function-node* (setup-function-node
+                                    graph
+                                    (get-location-node graph (function-decl-name elm)))))
+
     ;; Redefining functions is legal, but probably not what we wanted
     (unless (or (null (value-node-return-node *innermost-function-node*))
                 (null (value-node-parameters *innermost-function-node*)))
@@ -242,9 +301,12 @@
     (populate-nodes graph (function-decl-body elm))))
 
 (defmethod populate-nodes (graph (elm function-expression))
-  (let ((*innermost-function-node* (get-value-node graph (aif (function-expression-name elm)
-                                                          it
-                                                          (gensym "function-expression")))))
+  (let* ((function-name (aif (function-expression-name elm)
+                          it
+                          (gensym "function-expression")))
+         (*innermost-function-node* (setup-function-node
+                                     graph
+                                     (get-location-node graph function-name))))
     (loop for param in (function-expression-parameters elm)
           collect (get-location-node graph param) into param-list
           finally (setf (value-node-parameters *innermost-function-node*)
@@ -276,12 +338,11 @@
     (get-node-property graph target-node (compute-field-name field-elm))))
     
 (defmethod populate-nodes (graph (elm new-expr))
-  (when (identifier-p (new-expr-object-name elm))
-    (get-value-node graph (identifier-name (new-expr-object-name elm))))
-  (populate-nodes graph (new-expr-object-name elm)))
+  (let ((ctor-node (populate-nodes graph (new-expr-object-name elm))))
+    (get-instance-node graph ctor-node)))
 
 (defmethod populate-nodes (graph (elm object-literal))
-  (let ((literal-node (get-value-node graph (gensym "object-literal"))))
+  (let ((literal-node (get-instance-node graph "Object")))
     (loop for (prop-name . prop-elm) in (object-literal-properties elm)
           for field-name = (if (identifier-p prop-name)
                              (identifier-name prop-name) ;TODO Temporary HACK to get around the fact that we use identifiers instead of strings as the keys for object literals
@@ -296,6 +357,7 @@
 ; with stmt
 ; catch
 ; function_continuation (special value)
+; array-literal
 
 ;;; ======================================================================
 ;;;; The NODE-QUEUE data-type (TODO move to general-utilities as editable-queue)
@@ -439,7 +501,7 @@
         for idx upfrom 0
         when (and (numberp env-min)
                   (>= idx env-min))
-        do (add-assignment-edge param (get-value-node graph "undefined")))
+        do (add-assignment-edge param (get-instance-node graph "undefined")))
 
   ;; Link corresponding arguments and parameters
   ;; TODO Deal with worse-than-quadratic nature of this operation, perhaps
@@ -517,30 +579,30 @@
 ;  nil)
 
 (defmethod compute-types ((elm numeric-literal) graph)
-  (list (get-value-node graph "Number")))
+  (get-exemplar-value-nodes graph "Number"))
 
 (defmethod compute-types ((elm string-literal) graph)
-  (list (get-value-node graph "String")))
+  (get-exemplar-value-nodes graph "String"))
 
 (defmethod compute-types ((elm re-literal) graph)
-  (list (get-value-node graph "RegExp")))
+  (get-exemplar-value-nodes graph "RegExp"))
 
 (defmethod compute-types ((elm identifier) graph)
   (let ((node (find-location-node graph (identifier-name elm))))
     (if node
       (location-node-assignments node)
-      (list (get-value-node graph "undefined")))))
+      (get-exemplar-value-nodes graph "undefined"))))
 
 (defmethod compute-types ((elm special-value) graph)
   (ecase (special-value-symbol elm)
     (:this ;TODO
      (error "this contexts not fully handled yet"))
     ((:false :true)
-     (list (get-value-node graph "Boolean")))
+     (get-exemplar-value-nodes graph "Boolean"))
     (:null
-     (list (get-value-node graph "null")))
+     (get-exemplar-value-nodes graph "null"))
     (:undefined
-     (list (get-value-node graph "undefined")))))
+     (get-exemplar-value-nodes graph "undefined"))))
 
 (defmethod compute-types ((elm property-access) graph)
   (let ((target-types (compute-types (property-access-target elm) graph))
@@ -549,7 +611,7 @@
           for property-node = (find-node-property value-node field-name)
           append (if property-node
                    (location-node-assignments property-node)
-                   (list (get-value-node graph "undefined"))))))
+                   (get-exemplar-value-nodes graph "undefined")))))
 
 (defmethod compute-types ((elm fn-call) graph)
   (let ((fn-types (compute-types (fn-call-fn elm) graph)))
@@ -566,13 +628,13 @@
 
       ((:times-equals :divide-equals :mod-equals :minus-equals
         :lshift-equals :rshift-equals :urshift-equals)
-       (adjoin (get-value-node graph "Number") left-types))
+       (union (get-exemplar-value-nodes graph "Number") left-types))
 
       ((:multiply :divide :modulo :subtract)
-       (list (get-value-node graph "Number")))
+       (get-exemplar-value-nodes graph "Number"))
 
       ((:equals :strict-equals :not-equals :strict-not-equals)
-       (list (get-value-node graph "Boolean")))
+       (get-exemplar-value-nodes graph "Boolean"))
 
       (otherwise
        (union left-types right-types)))))
@@ -580,13 +642,13 @@
 (defmethod compute-types ((elm unary-operator) graph)
   (case (unary-operator-op-symbol elm)
     ((:pre-incr :post-incr :pre-decr :post-decr :unary-plus :unary-minus :bitwise-not)
-     (list (get-value-node graph "Number")))
+     (get-exemplar-value-nodes graph "Number"))
     ((:logical-not :delete)
-     (list (get-value-node graph "Boolean")))
+     (get-exemplar-value-nodes graph "Boolean"))
     (:typeof
-     (list (get-value-node graph "String")))
+     (get-exemplar-value-nodes graph "String"))
     (:void
-     (list (get-value-node graph "undefined")))
+     (get-exemplar-value-nodes graph "undefined"))
     (otherwise
      (error "unrecognized unary operation ~A" (unary-operator-op-symbol elm)))))
 

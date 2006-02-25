@@ -123,7 +123,7 @@
                 ;; type-analysis symbols
                 type-analyze
                 compute-types
-                type-node
                 value-node
+                location-node
                 ))
                 
