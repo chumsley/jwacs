@@ -31,15 +31,18 @@
    already exists, or NIL otherwise"
   (gethash name graph))
 
-(defun get-location-node (graph name)
+(defun get-location-node (graph name &optional queue)
   "Return the location node named NAME from GRAPH, creating it
-   if necessary"
+   if necessary.  If the node is created and QUEUE is non-NIL,
+   then the new node will be queued for processing."
   (multiple-value-bind (node found-p)
       (gethash name graph)
     (if found-p
-        node
-        (setf (gethash name graph)
-              (make-location-node :name name)))))
+      node
+      (let ((node (make-location-node :name name)))
+        (when queue
+          (enqueue-node queue node))
+        (setf (gethash name graph) node)))))
 
 (defun find-node-property (node name)
   "Return the location node pointed to by NODE's NAME property if
@@ -94,24 +97,21 @@
   (awhen (find-location-node graph name)
     (find-value-node-named name (location-node-assignments it))))
 
-(defun setup-function-node (graph node &key link-prototype-to-value-node)
+(defun setup-function-node (graph node)
   "Sets up a location-node to point to a value-node of the same name.
    The existence of three nodes will be guaranteed:
-     (1) A location node pointed to by the 'prototype' property of either NODE or (2)
-         (depending upon the value of LINK-PROTOTYPE-TO-VALUE-NODE)
-     (2) A value-node with an assignment edge from NODE and the same name as NODE
-     (3) A value-node named #:|NAME-prototype| with an assignment edge from (1).
+     (1) A value-node with an assignment edge from NODE and the same name as NODE
+     (2) A location node pointed to by the 'prototype' property of (1)
+     (3) A value-node named #:|NAME-prototype| with an assignment edge from (3).
 
    Returns the function value-node (2)"
   (let* ((name (location-node-name node))
          (function-value (aif (find-value-node-named name (location-node-assignments node))
                            it
-                           (make-value-node :name name :constructor-name "Function")))
-         (prototype-node (if link-prototype-to-value-node
-                           (get-node-property graph function-value "prototype")
-                           (get-node-property graph node "prototype")))) ;(1)
+                           (make-value-node :name name :constructor-name "Function"))) ;(1)
+         (prototype-node (get-node-property graph function-value "prototype"))) ;(2)
 
-    ;; Ensure (2)
+    ;; Ensure edge from NODE to (1)
     (pushnew function-value (location-node-assignments node))
     
     ;; Ensure (3)
@@ -127,24 +127,27 @@
    of a type created by constructor CONSTRUCTOR-NAME (which will
    usually be the name of a built-in type such as Number)"
   (let ((location-node (get-location-node graph constructor-name)))
-    (setup-function-node graph location-node :link-prototype-to-value-node t)
+    (setup-function-node graph location-node)
     (remove-duplicates
      (loop for type-node in (location-node-assignments location-node)
            for prototype-node = (find-node-property type-node "prototype")
            when prototype-node
            append (location-node-assignments prototype-node)))))
 
-(defun get-instance-node (graph constructor)
+(defun get-instance-node (graph constructor &optional queue)
   "Returns a node representing an instance of the type(s) constructed by
    CONSTRUCTOR.  CONSTRUCTOR is either the name of a location-node to
    retrieve from GRAPH, or a node in GRAPH representing the constructor.
 
    For Object and Array types, a new instance node is
    created.  For all other types, the same 'exemplar node' is used for
-   all instances."
+   all instances.
+
+   If QUEUE is non-NIL and the constructor node had to be created, then
+   the new node will be queued for processing."
   (let* ((ctor-node (if (type-graph-node-p constructor)
                             constructor
-                            (get-location-node graph constructor)))
+                            (get-location-node graph constructor queue)))
          (ctor-name (type-graph-node-name ctor-node)))
          
     (setup-function-node graph ctor-node)
@@ -494,26 +497,28 @@
   ;; Return edges
   (let ((own-ret (get-return-node graph node)))
     (loop for caller-ret in env-rets
-          do (add-assignment-edge caller-ret own-ret)))
+          do (add-assignment-edge caller-ret own-ret queue)))
 
   ;; Undefined argument handling
   (loop for param in (value-node-parameters node)
         for idx upfrom 0
         when (and (numberp env-min)
                   (>= idx env-min))
-        do (add-assignment-edge param (get-instance-node graph "undefined")))
+        do (add-assignment-edge param (get-instance-node graph "undefined" queue) queue))
 
   ;; Link corresponding arguments and parameters
   ;; TODO Deal with worse-than-quadratic nature of this operation, perhaps
   ;; by using an array for parameters instead of a list.
   (loop for (arg-idx . arg-node) in env-args
-        do (add-assignment-edge (nth arg-idx (value-node-parameters node)) arg-node))
+        do (add-assignment-edge (nth arg-idx (value-node-parameters node)) arg-node queue))
 
   ;; Link corresponding properties
   ;; TODO Currently O(n^2); fix by using hash-table for properties
   (loop for (prop-name . prop-node) in env-props
         for own-node = (get-node-property graph node prop-name)
-        do (add-assignment-edge own-node prop-node)))
+        do
+        (add-assignment-edge own-node prop-node queue)
+        (add-assignment-edge prop-node own-node queue)))
 
 ;;; ======================================================================
 ;;;; COLLAPSE phase
