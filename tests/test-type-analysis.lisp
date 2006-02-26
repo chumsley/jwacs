@@ -131,6 +131,85 @@
      y.foo = 'str';"))))
   ("Number" "String"))
 
+(deftest type-analysis/new-expr/1 :notes type-analysis
+  (type-names
+   (compute-types
+    #s(identifier :name "x")
+    (type-analyze (parse "
+     var ctors = new Object;
+     ctors.num = Number;
+     ctors.str = String;
+     ctors.foo = Foo;
+     var x = new ctors.str;"))))
+  ("String"))
+
+(deftest type-analysis/new-expr/2 :notes type-analysis
+  (type-names
+   (compute-types
+    #s(identifier :name "x")
+    (type-analyze (parse "
+     function randCtor()
+     {
+        if(rand() % 2)
+          return String;
+        else
+          return Number;
+     }
+     var x = new (randCtor());"))))
+  ("Number" "String"))
+
+(deftest type-analysis/new-expr/3 :notes type-analysis
+  (type-names
+   (compute-types
+    #s(identifier :name "x")
+    (type-analyze (parse "
+     function id(a)
+     {
+        return a;
+     }
+     var x = new (id(String))();
+     var y = new (id(RegExp))();"))))
+  ("RegExp" "String"))
+  
+(deftest type-analysis/new-expr/arguments/1 :notes type-analysis
+  (type-names
+   (compute-types
+    #s(property-access :target #s(identifier :name "x")
+                       :field #s(string-literal :value "foo"))
+    (type-analyze (parse "
+     var x = new FooObj(55);
+     var y = new FooObj('str');
+     function FooObj(arg)
+     {
+        this.foo = arg;
+     }"))))
+  ("Number" "String"))
+
+(deftest type-analysis/new-expr/arguments/2 :notes type-analysis
+  (type-names
+   (compute-types
+    #s(property-access :target #s(identifier :name "x")
+                       :field #s(string-literal :value "foo"))
+    (type-analyze (parse "
+     var x = new (FooFactory(80))('str');
+     function FooFactory(ctor)
+     {
+        if(ctor == 1)
+          return FooObj;
+        else
+          return BarObj;
+     }
+     function FooObj(a)
+     {
+        this.foo = a;
+     }
+     function BarObj(b)
+     {
+        this.foo = null;
+        this.bar = b;
+     }"))))
+  ("String" "null"))
+  
 (deftest type-analysis/property-access/object-literals/1 :notes type-analysis
   (type-names
    (compute-types

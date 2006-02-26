@@ -35,14 +35,24 @@
   "Return the location node named NAME from GRAPH, creating it
    if necessary.  If the node is created and QUEUE is non-NIL,
    then the new node will be queued for processing."
-  (multiple-value-bind (node found-p)
-      (gethash name graph)
-    (if found-p
-      node
-      (let ((node (make-location-node :name name)))
-        (when queue
-          (enqueue-node queue node))
-        (setf (gethash name graph) node)))))
+
+  (let ((ret-node 
+         (multiple-value-bind (node found-p)
+             (gethash name graph)
+           (if found-p
+             node
+             (let ((node (make-location-node :name name)))
+               (when queue
+                 (enqueue-node queue node))
+               (setf (gethash name graph) node))))))
+
+    ;;TODO This might be the sort of thing that gets declared in a "prelude" of
+    ;; type-declarations, but for now we'll ensure that built-in types have their
+    ;; constructors set up on demand.
+    (when (find name '("Array" "Boolean" "Function" "null" "Number" "Object" "RegExp" "String" "undefined")
+                :test 'equal)
+      (setup-function-node graph ret-node))
+    ret-node))
 
 (defun find-node-property (node name)
   "Return the location node pointed to by NODE's NAME property if
@@ -149,8 +159,7 @@
                             constructor
                             (get-location-node graph constructor queue)))
          (ctor-name (type-graph-node-name ctor-node)))
-         
-    (setup-function-node graph ctor-node)
+
     (cond
       ((or (equal "Object" ctor-name)
            (equal "Array" ctor-name))
@@ -217,7 +226,7 @@
 (defmethod populate-nodes (graph (elm special-value))
   (ecase (special-value-symbol elm)
     (:this ;TODO - this deals properly with "declared inside function" but not "set to prototype fields" methods
-     *innermost-function-node*)
+     (get-node-property graph *innermost-function-node* "prototype"))
     ((:false :true)
      (get-instance-node graph "Boolean"))
     (:null
@@ -342,6 +351,16 @@
     
 (defmethod populate-nodes (graph (elm new-expr))
   (let ((ctor-node (populate-nodes graph (new-expr-constructor elm))))
+
+    (setf (location-node-min-call-arity ctor-node)
+          (min* (location-node-min-call-arity ctor-node)
+                (length (new-expr-args elm))))
+
+    (loop for arg in (new-expr-args elm)
+          for idx upfrom 0
+          do (add-assignment-edge (get-node-argument graph ctor-node idx)
+                                  (populate-nodes graph arg)))
+
     (get-instance-node graph ctor-node)))
 
 (defmethod populate-nodes (graph (elm object-literal))
@@ -610,16 +629,18 @@
 (defmethod compute-types ((elm property-access) graph)
   (let ((target-types (compute-types (property-access-target elm) graph))
         (field-name (compute-field-name (property-access-field elm))))
-    (loop for value-node in target-types
-          for property-node = (find-node-property value-node field-name)
-          append (if property-node
-                   (location-node-assignments property-node)
-                   (get-exemplar-value-nodes graph "undefined")))))
+    (remove-duplicates
+     (loop for value-node in target-types
+           for property-node = (find-node-property value-node field-name)
+           append (if property-node
+                    (location-node-assignments property-node)
+                    (get-exemplar-value-nodes graph "undefined"))))))
 
 (defmethod compute-types ((elm fn-call) graph)
   (let ((fn-types (compute-types (fn-call-fn elm) graph)))
-    (loop for value-node in fn-types
-          append (location-node-assignments (value-node-return-node value-node)))))
+    (remove-duplicates
+     (loop for value-node in fn-types
+           append (location-node-assignments (value-node-return-node value-node))))))
 
 (defmethod compute-types ((elm binary-operator) graph)
   (let ((left-types (compute-types (binary-operator-left-arg elm) graph))
