@@ -33,12 +33,21 @@
   "/avast/gi")
 
 (deftest pretty-print/new-expr/1 :notes pretty-print
-  (pretty-string (make-new-expr :object-name foo-id :args nil))
+  (pretty-string (make-new-expr :constructor foo-id :args nil))
   "new foo")
 
 (deftest pretty-print/new-expr/2 :notes pretty-print
-  (pretty-string (make-new-expr :object-name foo-id :args (list bar-id baz-id)))
+  (pretty-string (make-new-expr :constructor foo-id :args (list bar-id baz-id)))
   "new foo(bar, baz)")
+
+(deftest pretty-print/new-expr/3 :notes pretty-print
+  (pretty-string (make-new-expr :constructor (make-fn-call :fn foo-id)))
+  "new (foo())")
+
+(deftest pretty-print/new-expr/4 :notes pretty-print
+  (pretty-string (make-new-expr :constructor (make-fn-call :fn foo-id :args (list bar-id))
+                                :args (list baz-id)))
+  "new (foo(bar))(baz)")
 
 (deftest pretty-print/special-value/1 :notes pretty-print
   (pretty-string (make-special-value :symbol :this))

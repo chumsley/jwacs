@@ -30,8 +30,8 @@
   (#s(return-statement
       :arg
       #S(object-literal :properties
-                        ((#s(identifier :name "done") . #S(special-value :symbol :false))
-                         (#s(identifier :name "thunk") . #S(thunk-function
+                        ((#s(string-literal :value "done") . #S(special-value :symbol :false))
+                         (#s(string-literal :value "thunk") . #S(thunk-function
                                                             :body
                                                             (#s(return-statement
                                                                 :arg

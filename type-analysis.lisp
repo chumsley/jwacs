@@ -341,15 +341,13 @@
     (get-node-property graph target-node (compute-field-name field-elm))))
     
 (defmethod populate-nodes (graph (elm new-expr))
-  (let ((ctor-node (populate-nodes graph (new-expr-object-name elm))))
+  (let ((ctor-node (populate-nodes graph (new-expr-constructor elm))))
     (get-instance-node graph ctor-node)))
 
 (defmethod populate-nodes (graph (elm object-literal))
   (let ((literal-node (get-instance-node graph "Object")))
     (loop for (prop-name . prop-elm) in (object-literal-properties elm)
-          for field-name = (if (identifier-p prop-name)
-                             (identifier-name prop-name) ;TODO Temporary HACK to get around the fact that we use identifiers instead of strings as the keys for object literals
-                             (compute-field-name prop-name))
+          for field-name = (compute-field-name prop-name)
           do (pushnew (populate-nodes graph prop-elm)
                       (location-node-assignments (get-node-property graph literal-node field-name))))
 

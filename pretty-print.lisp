@@ -135,16 +135,24 @@
   (format s "}"))
 
 (defmethod pretty-print ((elm new-expr) s)
-  (cond
-    ((null (new-expr-args elm))
-     (format s "new ")
-     (pretty-print (new-expr-object-name elm) s))
-    (t
-     (format s "new ")
-     (pretty-print (new-expr-object-name elm) s)
-     (format s "(")
-     (pretty-print-separated-list (new-expr-args elm) s)
-     (format s ")"))))
+  (flet ((pretty-print-ctor ()
+           (cond
+             ((fn-call-p (new-expr-constructor elm))
+              (format s "(")
+              (pretty-print (new-expr-constructor elm) s)
+              (format s ")"))
+             (t
+              (pretty-print (new-expr-constructor elm) s)))))
+    (cond
+      ((null (new-expr-args elm))
+       (format s "new ")
+       (pretty-print-ctor))
+      (t
+       (format s "new ")
+       (pretty-print-ctor)
+       (format s "(")
+       (pretty-print-separated-list (new-expr-args elm) s)
+       (format s ")")))))
 
 (defmethod pretty-print ((elm fn-call) s)
   (pretty-print (fn-call-fn elm) s)

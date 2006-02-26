@@ -51,7 +51,7 @@
   ((property/value-list property-name :colon assignment-expression) (list (cons $1 $3)))
   ((property/value-list property/value-list :comma property-name :colon assignment-expression) (append $1 (list (cons $3 $5))))
 
-  ((property-name :identifier) (make-identifier :name $1))
+  ((property-name :identifier) (make-string-literal :value $1))
   ((property-name :string-literal) (make-string-literal :value $1))
   ((property-name :number) (make-numeric-literal :value $1))
 
@@ -60,18 +60,18 @@
   ((member-expression function-expression) $1)
   ((member-expression member-expression :left-bracket expression :right-bracket) (make-property-access :target $1 :field $3))
   ((member-expression member-expression :dot :identifier) (make-property-access :target $1 :field (make-string-literal :value $3)))
-  ((member-expression :new member-expression arguments) (make-new-expr :object-name $2 :args $3))
+  ((member-expression :new member-expression arguments) (make-new-expr :constructor $2 :args $3))
 
   ((member-expression-no-lbf primary-expression-no-lbf) $1)
   ((member-expression-no-lbf member-expression-no-lbf :left-bracket expression :right-bracket) (make-property-access :target $1 :field $3))
   ((member-expression-no-lbf member-expression-no-lbf :dot :identifier) (make-property-access :target $1 :field (make-string-literal :value $3)))
-  ((member-expression-no-lbf :new member-expression arguments) (make-new-expr :object-name $2 :args $3))
+  ((member-expression-no-lbf :new member-expression arguments) (make-new-expr :constructor $2 :args $3))
 
   ((new-expression member-expression) $1)
-  ((new-expression :new new-expression) (make-new-expr :object-name $2))
+  ((new-expression :new new-expression) (make-new-expr :constructor $2))
 
   ((new-expression-no-lbf member-expression-no-lbf) $1)
-  ((new-expression-no-lbf :new new-expression) (make-new-expr :object-name $2))
+  ((new-expression-no-lbf :new new-expression) (make-new-expr :constructor $2))
 
 
   ((call-expression member-expression arguments) (make-fn-call :fn $1 :args $2))

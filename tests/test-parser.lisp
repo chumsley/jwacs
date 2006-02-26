@@ -25,7 +25,7 @@
   (parse-only "foo = {a:10};")
   (#S(binary-operator :op-symbol :assign 
 		      :left-arg #S(identifier :name "foo")
-		      :right-arg #S(object-literal :properties ((#S(identifier :name "a") . #S(numeric-literal :value 10)))))))
+		      :right-arg #S(object-literal :properties ((#S(string-literal :value "a") . #S(numeric-literal :value 10)))))))
 
 (deftest parser/object-literal/2 :notes parser
  (parse-only "foo = {a: 10, b: \"Ten\"};")
@@ -33,8 +33,8 @@
     :OP-SYMBOL :ASSIGN
     :LEFT-ARG #S(IDENTIFIER :NAME "foo")
     :RIGHT-ARG #S(OBJECT-LITERAL
-                  :PROPERTIES ((#S(IDENTIFIER :NAME "a") . #S(NUMERIC-LITERAL :VALUE 10))
-                               (#S(IDENTIFIER :NAME "b") . #S(STRING-LITERAL :VALUE "Ten")))))))
+                  :PROPERTIES ((#S(STRING-LITERAL :VALUE "a") . #S(NUMERIC-LITERAL :VALUE 10))
+                               (#S(STRING-LITERAL :VALUE "b") . #S(STRING-LITERAL :VALUE "Ten")))))))
 
 (deftest parser/object-literal/3 :notes parser
   (parse-only "foo = {a: 10, b: {c: 10, d: 10}};")
@@ -42,10 +42,10 @@
     :OP-SYMBOL :ASSIGN
     :LEFT-ARG #S(IDENTIFIER :NAME "foo")
     :RIGHT-ARG #S(OBJECT-LITERAL
-                  :PROPERTIES ((#S(IDENTIFIER :NAME "a") . #S(NUMERIC-LITERAL :VALUE 10))
-                               (#S(IDENTIFIER :NAME "b") . #S(OBJECT-LITERAL
-							      :PROPERTIES ((#S(IDENTIFIER :NAME "c") . #S(NUMERIC-LITERAL :VALUE 10))
-									   (#S(IDENTIFIER :NAME "d") . #S(NUMERIC-LITERAL :VALUE 10))))))))))
+                  :PROPERTIES ((#S(STRING-LITERAL :VALUE "a") . #S(NUMERIC-LITERAL :VALUE 10))
+                               (#S(STRING-LITERAL :VALUE "b") . #S(OBJECT-LITERAL
+                                                                   :PROPERTIES ((#S(STRING-LITERAL :VALUE "c") . #S(NUMERIC-LITERAL :VALUE 10))
+                                                                                (#S(STRING-LITERAL :VALUE "d") . #S(NUMERIC-LITERAL :VALUE 10))))))))))
 
 (deftest parser/re-literal/1 :notes parser
   (parse-only "/hello/;")
@@ -56,7 +56,7 @@
   (#S(re-literal :pattern "hello" :options "ig")))
 
 (deftest parser/property-access/1 :notes parser
-  (parse-only "var x = y[44];" )
+  (parse-only "var x = y[44];")
   (#S(var-decl-statement :var-decls
                         (#S(var-decl :name "x"
                                     :initializer #S(property-access :target #S(identifier :name "y")
@@ -72,7 +72,7 @@
   (parse-only "var x = new ObjectName(10, 20);")
   (#S(var-decl-statement :var-decls
                         (#S(var-decl :name "x"
-                                    :initializer #S(new-expr :object-name #S(identifier :name "ObjectName")
+                                     :initializer #S(new-expr :constructor #S(identifier :name "ObjectName")
                                                             :args (#S(numeric-literal :value 10)
                                                                    #S(numeric-literal :value 20))))))))
 (deftest parser/new-expr/2 :notes parser
@@ -80,20 +80,38 @@
   (#S(var-decl-statement :var-decls
                         (#S(var-decl :name "x"
                                     :initializer #S(new-expr
-                                                  :object-name #S(string-literal :value "strtype")
+                                                  :constructor #S(string-literal :value "strtype")
                                                   :args nil))))))
 
 (deftest parser/new-expr/3 :notes parser
   (parse-only "new fcn;")
-  (#S(new-expr :object-name #S(identifier :name "fcn")
+  (#S(new-expr :constructor #S(identifier :name "fcn")
               :args nil)))
 
 (deftest parser/new-expr/4 :notes parser
   (parse-only "new fcn (ahoy1, ahoy2);")
-  (#S(new-expr :object-name #S(identifier :name "fcn")
+  (#S(new-expr :constructor #S(identifier :name "fcn")
               :args (#S(identifier :name "ahoy1")
                      #S(identifier :name "ahoy2")))))
 
+(deftest parser/new-expr/5 :notes parser
+  (parse-only "new (foo())(baz);")
+  (#S(new-expr :constructor #S(fn-call :fn #s(identifier :name "foo"))
+               :args (#s(identifier :name "baz")))))
+
+(deftest parser/new-expr/6 :notes parser
+  (parse-only "new foo.bar[baz]();")
+  (#S(new-expr :constructor #s(property-access
+                               :target #s(property-access :target #s(identifier :name "foo")
+                                                          :field #s(string-literal :value "bar"))
+                               :field #s(identifier :name "baz")))))
+
+(deftest parser/new-expr/7 :notes parser
+  (parse-only "new (foo.bar[baz]());")
+  (#S(new-expr :constructor #S(fn-call :fn #s(property-access
+                                              :target #s(property-access :target #s(identifier :name "foo")
+                                                                         :field #s(string-literal :value "bar"))
+                                              :field #s(identifier :name "baz"))))))
 
 (deftest parser/new-expr-and-nested-property-access/1 :notes parser
   (parse-only "var x = (new 'strtype').field[20];")
@@ -103,7 +121,7 @@
                                     #S(property-access 
                                      :target #S(property-access 
                                               :target #S(new-expr
-                                                       :object-name #S(string-literal :value "strtype")
+                                                       :constructor #S(string-literal :value "strtype")
                                                        :args nil)
                                               :field #S(string-literal :value "field"))
                                      :field #S(numeric-literal :value 20)))))))

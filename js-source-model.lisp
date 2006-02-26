@@ -3,8 +3,6 @@
 ;;; Defines the data structures that are used for the internal representation
 ;;; of parsed Javascript source files.
 
-;;TODO Type declarations on slots (for documentation as much as efficiency)
-
 (in-package :jwacs)
 
 #+(or sbcl cmu)
@@ -49,17 +47,18 @@
 
 (defstruct (object-literal (:include source-element))
   (properties nil :type list))  ; List of (PROPERTY-NAME . PROPERTY-VALUE)
+                                ; PROPERTY-NAME is a STRING-LITERAL
 
 (defstruct (re-literal (:include source-element))
   pattern
   options)
 
 (defstruct (new-expr (:include source-element))
-  (object-name nil :type (or identifier string-literal))
+  (constructor nil :type (or identifier property-access fn-call))
   (args nil :type (or (cons source-element) null)))
 
 (defstruct (fn-call (:include source-element))
-  (fn nil :type (or identifier property-access))
+  (fn nil :type (or identifier property-access fn-call))
   (args nil :type (or (cons source-element) null)))
 
 (defstruct (property-access (:include source-element))

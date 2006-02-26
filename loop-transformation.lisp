@@ -238,7 +238,7 @@
      :statements
      (list (make-var-decl-statement 
             :var-decls (list (make-var-decl :name new-array :initializer (make-new-expr 
-                                                                          :object-name (make-identifier :name "Array") 
+                                                                          :constructor (make-identifier :name "Array") 
                                                                           :args nil))
                              (make-var-decl :name new-count :initializer (make-numeric-literal :value 0))
                              (make-var-decl :name new-count-rec :initializer (make-numeric-literal :value 0))))           

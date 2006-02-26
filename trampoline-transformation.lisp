@@ -21,14 +21,14 @@
 ;;; tail calls; the above two rules are obviously not sufficient when
 ;;; this condition doesn't hold.
 
-(defparameter *thunk-id* (make-identifier :name "thunk")
-  "identifier for the thunk field of a boxed result object")
+(defparameter *thunk-prop* (make-string-literal :value "thunk")
+  "property name for the thunk field of a boxed result object")
 
-(defparameter *done-id* (make-identifier :name "done")
-  "identifier for the done field of a boxed result object")
+(defparameter *done-prop* (make-string-literal :value "done")
+  "property name for the done field of a boxed result object")
 
-(defparameter *result-id* (make-identifier :name "result")
-  "identifier for the result field of a boxed result object")
+(defparameter *result-prop* (make-string-literal :value "result")
+  "property name for the result field of a boxed result object")
 
 (defun make-thunk (ret-elm)
   "Returns an object literal whose `done` field is `false` and whose
@@ -37,8 +37,8 @@
   (assert (return-statement-p ret-elm))
   (make-object-literal :properties
                        (list
-                        (cons *done-id* (make-special-value :symbol :false))
-                        (cons *thunk-id*
+                        (cons *done-prop* (make-special-value :symbol :false))
+                        (cons *thunk-prop*
                               (make-thunk-function :body (list ret-elm))))))
 
 (defun make-result (elm)
@@ -47,11 +47,11 @@
    be left undefined."
   (if (null elm)
     (make-object-literal :properties
-                         (list (cons *done-id* (make-special-value :symbol :true))))
+                         (list (cons *done-prop* (make-special-value :symbol :true))))
     (make-object-literal :properties
                          (list
-                          (cons *done-id* (make-special-value :symbol :true))
-                          (cons *result-id* elm)))))     
+                          (cons *done-prop* (make-special-value :symbol :true))
+                          (cons *result-prop* elm)))))     
 
 (defmethod transform ((xform (eql 'trampoline)) (elm return-statement))
   (with-slots (arg) elm
