@@ -35,24 +35,30 @@
   "Return the location node named NAME from GRAPH, creating it
    if necessary.  If the node is created and QUEUE is non-NIL,
    then the new node will be queued for processing."
+  (flet ((maybe-setup-builtin (node)
+           ;;TODO This might be the sort of thing that gets declared in a "prelude" of
+           ;; type-declarations, but for now we'll ensure that built-in types have their
+           ;; constructors set up on demand.
+           (when (find name '("Array" "Boolean" "Function" "Number" "Object" "RegExp" "String")
+                       :test #'equal)
+             (setup-function-node graph node))
 
-  (let ((ret-node 
-         (multiple-value-bind (node found-p)
-             (gethash name graph)
-           (if found-p
-             node
-             (let ((node (make-location-node :name name)))
-               (when queue
-                 (enqueue-node queue node))
-               (setf (gethash name graph) node))))))
+           (when (find name '("null" "undefined") :test #'equal)
+             (unless (find-value-node-named name (location-node-assignments node))
+               (push (make-value-node :name name :constructor-name name)
+                     (location-node-assignments node))))
 
-    ;;TODO This might be the sort of thing that gets declared in a "prelude" of
-    ;; type-declarations, but for now we'll ensure that built-in types have their
-    ;; constructors set up on demand.
-    (when (find name '("Array" "Boolean" "Function" "null" "Number" "Object" "RegExp" "String" "undefined")
-                :test 'equal)
-      (setup-function-node graph ret-node))
-    ret-node))
+           node))
+    
+    (multiple-value-bind (node found-p)
+        (gethash name graph)
+      (if found-p
+        (maybe-setup-builtin node)
+        (let ((node (make-location-node :name name)))
+          (when queue
+            (enqueue-node queue node))
+          (setf (gethash name graph) node)
+          (maybe-setup-builtin node))))))
 
 (defun find-node-property (node name)
   "Return the location node pointed to by NODE's NAME property if
@@ -230,9 +236,9 @@
     ((:false :true)
      (get-instance-node graph "Boolean"))
     (:null
-     (get-instance-node graph "null"))
+     (get-location-node graph "null"))
     (:undefined
-     (get-instance-node graph "undefined"))))
+     (get-location-node graph "undefined"))))
 
 (defmethod populate-nodes (graph (elm binary-operator))
   (let ((left-node (populate-nodes graph (binary-operator-left-arg elm)))
@@ -270,7 +276,7 @@
     (:typeof
      (get-instance-node graph "String"))
     (:void
-     (get-instance-node graph "undefined"))
+     (get-location-node graph "undefined"))
     (otherwise
      (error "unrecognized unary operation ~A" (unary-operator-op-symbol elm)))))
     
@@ -278,7 +284,7 @@
   (let ((left-node (get-location-node graph (var-decl-name elm))))
     (if (var-decl-initializer elm)
       (add-assignment-edge left-node (populate-nodes graph (var-decl-initializer elm)))
-      (add-assignment-edge left-node (get-instance-node graph "undefined")))))
+      (add-assignment-edge left-node (get-location-node graph "undefined")))))
 
 (defmethod populate-nodes (graph (elm fn-call))
   (let* ((target-node (populate-nodes graph (fn-call-fn elm)))
@@ -521,7 +527,7 @@
         for idx upfrom 0
         when (and (numberp env-min)
                   (>= idx env-min))
-        do (add-assignment-edge param (get-instance-node graph "undefined" queue) queue))
+        do (add-assignment-edge param (get-location-node graph "undefined" queue) queue))
 
   ;; Link corresponding arguments and parameters
   ;; TODO Deal with worse-than-quadratic nature of this operation, perhaps
@@ -613,7 +619,7 @@
   (let ((node (find-location-node graph (identifier-name elm))))
     (if node
       (location-node-assignments node)
-      (get-exemplar-value-nodes graph "undefined"))))
+      (compute-types #s(special-value :symbol :undefined) graph))))
 
 (defmethod compute-types ((elm special-value) graph)
   (ecase (special-value-symbol elm)
@@ -622,9 +628,9 @@
     ((:false :true)
      (get-exemplar-value-nodes graph "Boolean"))
     (:null
-     (get-exemplar-value-nodes graph "null"))
+     (location-node-assignments (get-location-node graph "null")))
     (:undefined
-     (get-exemplar-value-nodes graph "undefined"))))
+     (location-node-assignments (get-location-node graph "undefined")))))
 
 (defmethod compute-types ((elm property-access) graph)
   (let ((target-types (compute-types (property-access-target elm) graph))
@@ -634,7 +640,7 @@
            for property-node = (find-node-property value-node field-name)
            append (if property-node
                     (location-node-assignments property-node)
-                    (get-exemplar-value-nodes graph "undefined"))))))
+                    (compute-types #s(special-value :symbol :undefined) graph))))))
 
 (defmethod compute-types ((elm fn-call) graph)
   (let ((fn-types (compute-types (fn-call-fn elm) graph)))
@@ -672,7 +678,7 @@
     (:typeof
      (get-exemplar-value-nodes graph "String"))
     (:void
-     (get-exemplar-value-nodes graph "undefined"))
+     (compute-types #s(special-value :symbol :undefined) graph))
     (otherwise
      (error "unrecognized unary operation ~A" (unary-operator-op-symbol elm)))))
 
