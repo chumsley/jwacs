@@ -76,37 +76,29 @@
                                                             :args (#S(numeric-literal :value 10)
                                                                    #S(numeric-literal :value 20))))))))
 (deftest parser/new-expr/2 :notes parser
-  (parse-only "var x = new 'strtype';")
-  (#S(var-decl-statement :var-decls
-                        (#S(var-decl :name "x"
-                                    :initializer #S(new-expr
-                                                  :constructor #S(string-literal :value "strtype")
-                                                  :args nil))))))
-
-(deftest parser/new-expr/3 :notes parser
   (parse-only "new fcn;")
   (#S(new-expr :constructor #S(identifier :name "fcn")
               :args nil)))
 
-(deftest parser/new-expr/4 :notes parser
+(deftest parser/new-expr/3 :notes parser
   (parse-only "new fcn (ahoy1, ahoy2);")
   (#S(new-expr :constructor #S(identifier :name "fcn")
               :args (#S(identifier :name "ahoy1")
                      #S(identifier :name "ahoy2")))))
 
-(deftest parser/new-expr/5 :notes parser
+(deftest parser/new-expr/4 :notes parser
   (parse-only "new (foo())(baz);")
   (#S(new-expr :constructor #S(fn-call :fn #s(identifier :name "foo"))
                :args (#s(identifier :name "baz")))))
 
-(deftest parser/new-expr/6 :notes parser
+(deftest parser/new-expr/5 :notes parser
   (parse-only "new foo.bar[baz]();")
   (#S(new-expr :constructor #s(property-access
                                :target #s(property-access :target #s(identifier :name "foo")
                                                           :field #s(string-literal :value "bar"))
                                :field #s(identifier :name "baz")))))
 
-(deftest parser/new-expr/7 :notes parser
+(deftest parser/new-expr/6 :notes parser
   (parse-only "new (foo.bar[baz]());")
   (#S(new-expr :constructor #S(fn-call :fn #s(property-access
                                               :target #s(property-access :target #s(identifier :name "foo")
@@ -114,14 +106,14 @@
                                               :field #s(identifier :name "baz"))))))
 
 (deftest parser/new-expr-and-nested-property-access/1 :notes parser
-  (parse-only "var x = (new 'strtype').field[20];")
+  (parse-only "var x = (new Foo).field[20];")
   (#S(var-decl-statement :var-decls
                         (#S(var-decl :name "x" 
                                     :initializer
                                     #S(property-access 
                                      :target #S(property-access 
                                               :target #S(new-expr
-                                                       :constructor #S(string-literal :value "strtype")
+                                                       :constructor #S(identifier :name "Foo")
                                                        :args nil)
                                               :field #S(string-literal :value "field"))
                                      :field #S(numeric-literal :value 20)))))))
