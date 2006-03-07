@@ -957,33 +957,3 @@
       
           (format s "}"))))))
 
-(defun r ()
-  "Generate a failing case and a successful case"
-  (let ((ast (parse "
-        function MyType()
-        {
-          this.bar = /bar/gi;
-        }
-        function AnotherType() {}
-        AnotherType.prototype.baz = MyType;
-        var x = new AnotherType();
-        x.baz();"))
-        (fail nil)
-        (success nil))
-    (labels ((run-trial ()
-               (let* ((g (populate-type-graph ast))
-                      (g1 (connect-type-graph (copy-type-graph g)))
-                      (g2 (collapse-type-graph g1)))
-                 (if (equal '("undefined")
-                            (jw-tests::type-names
-                             (compute-types #s(property-access :target #s(identifier :name "x")
-                                                               :field #s(string-literal :value "bar"))
-                                            g2)))
-                   (setf fail g)
-                   (setf success g)))))
-      (loop while (or (null fail)
-                      (null success))
-        do (run-trial)
-        (format t "~&no success? ~A" (null success)))
-
-      (cons fail success))))
