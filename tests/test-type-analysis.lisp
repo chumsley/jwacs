@@ -131,6 +131,24 @@
      y.foo = 'str';"))))
   ("Number" "String"))
 
+(deftest type-analysis/property-access/3 :notes type-analysis
+  (type-names
+   (compute-types
+    #s(property-access :target #s(identifier :name "x") :field #s(string-literal :value "foo"))
+    (type-analyze (parse "
+     function Foo()
+     {
+        this.foo = 55;
+     }
+     function Bar()
+     {
+        this.bar = 'str';
+     }
+     var x = new Foo;
+     var y = new Bar;
+     x = y;"))))
+  ("Number" "undefined"))
+  
 (deftest type-analysis/new-expr/1 :notes type-analysis
   (type-names
    (compute-types
@@ -406,6 +424,8 @@
         var x = new AnotherType();
         x.baz();"))))
   ("RegExp"))
+
+
 
 (defun %make-property-cycle (&optional (n 1000))
   (append (parse "x0.foo = x1; x0 = x1;")
