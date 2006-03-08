@@ -425,6 +425,39 @@
         x.baz();"))))
   ("RegExp"))
 
+(deftest type-analysis/this-context/3 :notes type-analysis
+  (type-names
+   (let ((graph (type-analyze (parse "
+        function foo()
+        {  }
+        var x = new Object;
+        x.mtd = foo;
+        this.bar = 100;
+        x.bar = 'shfifty';
+        x.mtd();
+        "))))
+     (compute-types #s(property-access :target #s(special-value :symbol :this)
+                                       :field #s(string-literal :value "bar"))
+                    graph)))
+  ("Number"))
+
+(deftest type-analysis/this-context/4 :notes type-analysis
+  (type-names
+   (let ((graph (type-analyze (parse "
+        function foo()
+        {  }
+        var x = new Object;
+        x.mtd = foo;
+        this.bar = 100;
+        x.bar = 'shfifty';
+        x.mtd();
+        "))))
+     (compute-types #s(property-access :target #s(special-value :symbol :this)
+                                       :field #s(string-literal :value "bar"))
+                    graph
+                    (jw::find-value-node graph "foo"))))
+  ("String"))
+                  
 
 
 (defun %make-property-cycle (&optional (n 1000))

@@ -46,7 +46,7 @@
                        :test #'equal)
              (setup-function-node graph node))
 
-           (when (find name '("null" "undefined") :test #'equal)
+           (when (find name '("null" "undefined" global-context) :test #'equal)
              (unless (find-value-node-named name (location-node-assignments node))
                (add-assignment-edge node (make-value-node :name name :constructor-name name) queue)))
            node))
@@ -102,7 +102,6 @@
     it
     (let ((new-this-context-node (get-location-node graph (gensym (format nil "~A$this" (value-node-name node))) queue)))
       (setf (value-node-this-context-node node) new-this-context-node)
-      (add-assignment-edge new-this-context-node (get-node-property graph node "prototype") queue)
       new-this-context-node)))
 
 (defun find-value-node-named (name node-list)
@@ -255,7 +254,9 @@
 (defmethod populate-nodes (graph (elm special-value))
   (ecase (special-value-symbol elm)
     (:this
-     (get-this-context-node graph *innermost-function-node*))
+     (if (null *innermost-function-node*)
+       (get-location-node graph 'global-context)
+       (get-this-context-node graph *innermost-function-node*)))
     ((:false :true)
      (get-instance-node graph "Boolean"))
     (:null
@@ -314,8 +315,11 @@
       (populate-nodes graph (fn-call-fn elm))
   (let ((ret-node (get-return-node graph fn-node)))
 
-    (when (property-access-p (fn-call-fn elm))
-      (pushnew prop-target-node (location-node-this-bindings fn-node)))
+    (if (property-access-p (fn-call-fn elm))
+      (pushnew prop-target-node
+               (location-node-this-bindings fn-node))
+      (pushnew (get-location-node graph 'global-context)
+               (location-node-this-bindings fn-node)))
 
     (setf (location-node-min-call-arity fn-node)
           (min* (location-node-min-call-arity fn-node)
@@ -391,6 +395,9 @@
           (min* (location-node-min-call-arity ctor-node)
                 (length (new-expr-args elm))))
 
+    (pushnew (get-node-property graph ctor-node "prototype")
+             (location-node-this-bindings ctor-node))
+    
     (loop for arg in (new-expr-args elm)
           for idx upfrom 0
           do (add-assignment-edge (get-node-argument graph ctor-node idx)
@@ -597,11 +604,17 @@
              (declare (ignore value))
              (let ((*cycle-free-collapse-pass* t))
                (collapse-nodes node nil)
-               (unless (or (value-node-p node)
-                           (stringp name))
+               (when (anonymous-node-p node)
                  (remhash name graph))))
            graph)
   graph)
+
+(defun anonymous-node-p (node)
+  "Return T if NODE is an 'anonymous' node (ie, one whose name is an uninterned
+   symbol)."
+  (and (symbolp (type-graph-node-name node))
+       (null (symbol-package (type-graph-node-name node)))))
+    
 
 (defgeneric collapse-nodes (node path)
   (:documentation
@@ -636,35 +649,45 @@
 ;;; ======================================================================
 ;;;; Interface functions
 
-(defgeneric compute-types (expression-elm graph)
+(defgeneric compute-types (expression-elm graph &optional execution-context)
   (:documentation
   "Returns a list of value-nodes representing a set of possible types for
    the expression represented by EXPRESSION-ELM based on the type-graph
-   GRAPH."))
+   GRAPH.
+
+   EXPRESSION-ELM is evaluated in the global execution context unless EXECUTION-CONTEXT
+   is specified.  EXECUTION-CONTEXT can be either NIL (for global context), the name of a function,
+   or a value-node that represents a function."))
 
 ;;TODO When the expression type is added to js-source-model
 ;(defmethod compute-types (graph (elm expression))
 ;  nil)
 
-(defmethod compute-types ((elm numeric-literal) graph)
+(defmethod compute-types ((elm numeric-literal) graph &optional execution-context)
   (get-exemplar-value-nodes graph "Number"))
 
-(defmethod compute-types ((elm string-literal) graph)
+(defmethod compute-types ((elm string-literal) graph &optional execution-context)
   (get-exemplar-value-nodes graph "String"))
 
-(defmethod compute-types ((elm re-literal) graph)
+(defmethod compute-types ((elm re-literal) graph &optional execution-context)
   (get-exemplar-value-nodes graph "RegExp"))
 
-(defmethod compute-types ((elm identifier) graph)
+(defmethod compute-types ((elm identifier) graph &optional execution-context)
   (let ((node (find-location-node graph (identifier-name elm))))
     (if node
       (location-node-assignments node)
-      (compute-types #s(special-value :symbol :undefined) graph))))
+      (compute-types #s(special-value :symbol :undefined) graph execution-context))))
 
-(defmethod compute-types ((elm special-value) graph)
+(defmethod compute-types ((elm special-value) graph &optional execution-context)
   (ecase (special-value-symbol elm)
-    (:this ;TODO
-     (error "this contexts not fully handled yet"))
+    (:this
+     (cond
+       ((value-node-p execution-context)
+        (location-node-assignments (get-this-context-node graph execution-context)))
+       ((null execution-context)
+        (location-node-assignments (get-location-node graph 'global-context)))
+       (t
+        (location-node-assignments (get-location-node graph execution-context)))))
     ((:false :true)
      (get-exemplar-value-nodes graph "Boolean"))
     (:null
@@ -672,25 +695,25 @@
     (:undefined
      (location-node-assignments (get-location-node graph "undefined")))))
 
-(defmethod compute-types ((elm property-access) graph)
-  (let ((target-types (compute-types (property-access-target elm) graph))
+(defmethod compute-types ((elm property-access) graph &optional execution-context)
+  (let ((target-types (compute-types (property-access-target elm) graph execution-context))
         (field-name (compute-field-name (property-access-field elm))))
     (remove-duplicates
      (loop for value-node in target-types
            for property-node = (find-node-property value-node field-name)
            append (if property-node
                     (location-node-assignments property-node)
-                    (compute-types #s(special-value :symbol :undefined) graph))))))
+                    (compute-types #s(special-value :symbol :undefined) graph execution-context))))))
 
-(defmethod compute-types ((elm fn-call) graph)
-  (let ((fn-types (compute-types (fn-call-fn elm) graph)))
+(defmethod compute-types ((elm fn-call) graph &optional execution-context)
+  (let ((fn-types (compute-types (fn-call-fn elm) graph execution-context)))
     (remove-duplicates
      (loop for value-node in fn-types
            append (location-node-assignments (value-node-return-node value-node))))))
 
-(defmethod compute-types ((elm binary-operator) graph)
-  (let ((left-types (compute-types (binary-operator-left-arg elm) graph))
-        (right-types (compute-types (binary-operator-right-arg elm) graph)))
+(defmethod compute-types ((elm binary-operator) graph &optional execution-context)
+  (let ((left-types (compute-types (binary-operator-left-arg elm) graph execution-context))
+        (right-types (compute-types (binary-operator-right-arg elm) graph execution-context)))
     (case (binary-operator-op-symbol elm)
       ((:assign :plus-equals
         :and-equals :xor-equals :or-equals)
@@ -709,7 +732,7 @@
       (otherwise
        (union left-types right-types)))))
 
-(defmethod compute-types ((elm unary-operator) graph)
+(defmethod compute-types ((elm unary-operator) graph &optional execution-context)
   (case (unary-operator-op-symbol elm)
     ((:pre-incr :post-incr :pre-decr :post-decr :unary-plus :unary-minus :bitwise-not)
      (get-exemplar-value-nodes graph "Number"))
@@ -718,7 +741,7 @@
     (:typeof
      (get-exemplar-value-nodes graph "String"))
     (:void
-     (compute-types #s(special-value :symbol :undefined) graph))
+     (compute-types #s(special-value :symbol :undefined) graph execution-context))
     (otherwise
      (error "unrecognized unary operation ~A" (unary-operator-op-symbol elm)))))
 
