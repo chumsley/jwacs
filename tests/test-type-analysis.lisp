@@ -457,8 +457,168 @@
                     graph
                     (jw::find-value-node graph "foo"))))
   ("String"))
-                  
 
+(deftest type-analysis/this-context/5 :notes type-analysis
+  (type-names
+   (let ((graph (type-analyze (parse "
+        function foo()
+        {  }
+        var x = new Object;
+        x.mtd = foo;
+        this.bar = 100;
+        x.bar = 'shfifty';
+        x.mtd();
+
+        foo = function() { this.bar = /shmee/ig; };
+        "))))
+     (compute-types #s(property-access :target #s(special-value :symbol :this)
+                                       :field #s(string-literal :value "bar"))
+                    graph
+                    "foo")))
+  ("RegExp" "String"))
+                  
+(deftest type-analysis/switch-statement/1 :notes type-analysis
+  (type-names
+   (compute-types #s(identifier :name "x")
+                  (type-analyze (parse "
+        var x = 20;
+        switch(y)
+        {
+          case 10:
+            x = 'a';
+            break;
+          case 20:
+            x = null;
+            break;
+          default:
+            y = 10;
+            break;
+        }"))))
+  ("Number" "String" "null"))
+
+(deftest type-analysis/switch-statement/2 :notes type-analysis
+  (type-names
+   (compute-types #s(identifier :name "y")
+                  (type-analyze (parse "
+        function top()
+        {
+          var y = null;
+          switch(y = 'c')
+          {
+            case 'c':
+            return true;
+          }
+        }"))))
+  ("String" "null"))
+
+(deftest type-analysis/function_continuation/1 :notes type-analysis
+  (type-names
+   (compute-types #s(identifier :name "x")
+                  (type-analyze (parse "
+        var b = null;
+        function id(a)
+        {
+          b = function_continuation;
+          return a;
+        }
+        var x = id('str');
+        if(x != 100)
+          resume b <- 100;"))))
+  ("Number" "String"))
+
+(deftest type-analysis/function_continuation/2 :notes type-analysis
+  (type-names
+   (compute-types #s(identifier :name "b")
+                  (type-analyze (parse "
+        var b = null;
+        function id(a)
+        {
+          b = function_continuation;
+          return a;
+        }
+        var x = id('str');
+        if(x != 100)
+          resume b <- 100;"))))
+  ("$continuation" "null"))
+        
+(deftest type-analysis/function_continuation/3 :notes type-analysis
+  (let ((graph (type-analyze (parse "
+        function foo()
+        {
+          return 30;
+        }"))))
+    (type-names
+     (compute-types #s(special-value :symbol :function_continuation)
+                    graph
+                    (jw::find-value-node graph "foo"))))
+  ("$continuation"))
+
+(deftest type-analysis/fn-call/too-few-args/1 :notes type-analysis
+  (type-names
+   (compute-types #s(identifier :name "x")
+                  (type-analyze (parse "
+        function foo(x)
+        {
+          return x + 2;
+        }
+        foo(10);
+        foo();"))))
+  ("Number" "undefined"))
+
+(deftest type-analysis/fn-call/too-many-args/1 :notes type-analysis
+  (type-names
+   (compute-types #s(identifier :name "x")
+                  (type-analyze (parse "
+        function foo(x)
+        {
+          return x + 2;
+        }
+        foo(10);
+        foo(88, 'str');"))))
+  ("Number"))
+
+(deftest type-analysis/with-statement/1 :notes type-analysis
+  (type-names
+   (compute-types #s(identifier :name "x")
+                  (type-analyze (parse "
+        var bar = null;
+        function extract(obj)
+        {
+          with(obj)
+          {
+            return bar;
+          }
+        }
+
+        var x = extract({bar: 10});
+        x = extract({baz: 'str'});"))))
+  ("Number" "null"))
+(flag-expected-failure 'type-analysis/with-statement/1)
+
+(deftest type-analysis/try-catch/1 :notes type-analysis
+  (type-names
+   (compute-types #s(identifier :name "x")
+                  (type-analyze (parse "
+        function foo(num)
+        {
+          if(num)
+            throw 100;
+          else
+            return 'str';
+        }
+
+        var x;
+        try
+        {
+          x = foo(true);
+        }
+        catch(e)
+        {
+          x = e;
+        }"))))
+  ("Number" "String" "undefined"))
+(flag-expected-failure 'type-analysis/try-catch/1)
+    
 
 (defun %make-property-cycle (&optional (n 1000))
   (append (parse "x0.foo = x1; x0 = x1;")

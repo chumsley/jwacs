@@ -430,6 +430,11 @@
                                                   :field #S(string-literal :value "bar"))
                        :arg #S(identifier :name "baz"))))
 
+(deftest parser/resume-statement/3 :notes parser
+  (parse-only "resume k <- 100;")
+  (#S(resume-statement :target #S(identifier :name "k")
+                       :arg #S(numeric-literal :value 100))))
+
 (deftest parser/function_continuation/1 :notes parser
   (parse-only "x = function_continuation;")
   (#S(binary-operator :op-symbol :assign

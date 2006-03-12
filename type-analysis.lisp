@@ -27,7 +27,8 @@
   constructor-name     ; Name of the constructor for this type, if any
   parameters           ; List of location-nodes
   this-context-node    ; location-node
-  prototype-node)      ; location-node
+  prototype-node       ; location-node
+  continuation-node)   ; location-node
 
 (defun find-location-node (graph name)
   "Return the location node named NAME from GRAPH if one
@@ -103,6 +104,28 @@
     (let ((new-this-context-node (get-location-node graph (gensym (format nil "~A$this" (value-node-name node))) queue)))
       (setf (value-node-this-context-node node) new-this-context-node)
       new-this-context-node)))
+
+(defun get-continuation-node (graph node &optional queue)
+  "Returns the continuation value-node for value-node NODE, creating it if necessary.
+   Creating a continuation node may cause a return-node to be created and queued as
+   a side-effect."
+  (aif (value-node-continuation-node node)
+    it
+    (let* ((new-param (get-location-node graph (gensym "k_arg")))
+           (new-k-value (make-value-node :name (gensym (format nil "~A_continuation" (value-node-name node)))
+                                         :constructor-name "$continuation"
+                                         :parameters (list new-param)))
+           (new-k-location (make-location-node :name (gensym (format nil "~A_continuation" (value-node-name node))))))
+      
+      (add-assignment-edge new-k-location
+                           new-k-value
+                           queue)
+
+      (add-assignment-edge (get-return-node graph node queue)
+                           new-param
+                           queue)
+      (setf (value-node-continuation-node node)
+            new-k-location))))
 
 (defun find-value-node-named (name node-list)
   "If NODE-LIST contains a value-node named NAME, returns it."
@@ -262,7 +285,11 @@
     (:null
      (get-location-node graph "null"))
     (:undefined
-     (get-location-node graph "undefined"))))
+     (get-location-node graph "undefined"))
+    (:function_continuation
+     (if (null *innermost-function-node*)
+       (error "type-analysis encountered function_continuation at toplevel")
+       (get-continuation-node graph *innermost-function-node*)))))
 
 (defmethod populate-nodes (graph (elm binary-operator))
   (let ((left-node (populate-nodes graph (binary-operator-left-arg elm)))
@@ -332,6 +359,13 @@
 
     ret-node)))
 
+(defmethod populate-nodes (graph (elm resume-statement))
+  (let ((target-node (populate-nodes graph (resume-statement-target elm)))
+        (arg-node (populate-nodes graph (resume-statement-arg elm))))
+    (unless (null arg-node)
+      (add-assignment-edge (get-node-argument graph target-node 0)
+                           arg-node))))
+  
 (defmethod populate-nodes (graph (elm function-decl))
   (let ((*innermost-function-node* (setup-function-node
                                     graph
@@ -368,8 +402,8 @@
   (if *innermost-function-node*
     (add-assignment-edge (get-return-node graph *innermost-function-node*)
                          (populate-nodes graph (return-statement-arg elm)))
-    (error "Type-analysis found a return statement at topmost scope")))
-   
+    (error "type-analysis encountered a return statement at topmost scope")))
+
 (defun compute-field-name (field-elm)
   "Return the name of a property.  For properties specified by literals, this is the
    name of the property; for all other field names (ie, for identifiers or other expressions)
@@ -415,10 +449,8 @@
     literal-node))
 
 ;;TODO all the other source-element types (primarily the expressions)
-; switch stmt
 ; with stmt
 ; catch
-; function_continuation (special value)
 ; array-literal
 
 ;;; ======================================================================
@@ -577,7 +609,9 @@
   ;; TODO Deal with worse-than-quadratic nature of this operation, perhaps
   ;; by using an array for parameters instead of a list.
   (loop for (arg-idx . arg-node) in env-args
-        do (add-assignment-edge (nth arg-idx (value-node-parameters node)) arg-node queue))
+        for param-node = (nth arg-idx (value-node-parameters node))
+        unless (null param-node)
+        do (add-assignment-edge param-node arg-node queue))
 
   ;; Link corresponding properties
   ;; TODO Currently O(n^2); fix by using hash-table for properties
@@ -687,13 +721,25 @@
        ((null execution-context)
         (location-node-assignments (get-location-node graph 'global-context)))
        (t
-        (location-node-assignments (get-location-node graph execution-context)))))
+        (mapcan (lambda (v-node)
+                  (location-node-assignments (get-this-context-node graph v-node)))
+                (location-node-assignments (get-location-node graph execution-context))))))
     ((:false :true)
      (get-exemplar-value-nodes graph "Boolean"))
     (:null
      (location-node-assignments (get-location-node graph "null")))
     (:undefined
-     (location-node-assignments (get-location-node graph "undefined")))))
+     (location-node-assignments (get-location-node graph "undefined")))
+    (:function_continuation
+     (cond
+       ((value-node-p execution-context)
+        (location-node-assignments (get-continuation-node graph execution-context)))
+       ((null execution-context)
+        (error "function_continuation cannot be typed without an execution context"))
+       (t
+        (mapcan (lambda (v-node)
+                  (location-node-assignments (get-continuation-node graph v-node)))
+                (location-node-assignments (get-location-node graph execution-context))))))))
 
 (defmethod compute-types ((elm property-access) graph &optional execution-context)
   (let ((target-types (compute-types (property-access-target elm) graph execution-context))
@@ -745,8 +791,6 @@
     (otherwise
      (error "unrecognized unary operation ~A" (unary-operator-op-symbol elm)))))
 
-
-;;TODO other elm types (function_continuation)
 
 (defun type-analyze (elm)
   "Perform type analysis on ELM and return the corresponding type-map."
@@ -947,8 +991,8 @@
                    
                      (print-collection-edges node 'type-graph-node-properties)
                    
-                     (when (type-graph-node-assignment-backlinks node)
-                       (print-collection-edges node 'type-graph-node-assignment-backlinks "<<"))
+;                     (when (type-graph-node-assignment-backlinks node)
+;                       (print-collection-edges node 'type-graph-node-assignment-backlinks "<<"))
                        
                      (when (value-node-p node)
                        (print-collection-edges node 'value-node-parameters "")
@@ -956,7 +1000,11 @@
                          (print-edge node
                                      this-node
                                      "$thisContext")
-                         (queue-node this-node)))
+                         (queue-node this-node))
+                       (when-let (k-node (value-node-continuation-node node))
+                         (print-edge node
+                                     k-node
+                                     "$k")))
 
                      (when (location-node-p node)
                        (print-collection-edges node 'location-node-arguments)
