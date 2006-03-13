@@ -448,10 +448,14 @@
               (populate-nodes graph prop-elm)))
     literal-node))
 
-;;TODO all the other source-element types (primarily the expressions)
-; with stmt
-; catch
-; array-literal
+(defmethod populate-nodes (graph (elm array-literal))
+  (let ((literal-node (get-instance-node graph "Array")))
+    (loop for index upfrom 0
+          for value-elm in (array-literal-elements elm)
+          do (add-assignment-edge
+              (get-node-property graph literal-node index)
+              (populate-nodes graph value-elm)))
+    literal-node))
 
 ;;; ======================================================================
 ;;;; The NODE-QUEUE data-type (TODO move to general-utilities as editable-queue)

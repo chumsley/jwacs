@@ -250,6 +250,27 @@
      x.foo = {a: null, b: 20};"))))
   ("Number"))
 
+(deftest type-analysis/property-access/array-literals/1 :notes type-analysis
+  (type-names
+   (compute-types
+    #s(property-access :target #s(identifier :name "y")
+                       :field #s(numeric-literal :value 0))
+    (type-analyze (parse "
+        var x = null;
+        var y = ['str', x, 100];"))))
+  ("String"))
+
+(deftest type-analysis/property-access/array-literals/1 :notes type-analysis
+  (type-names
+   (compute-types
+    #s(property-access :target #s(identifier :name "y")
+                       :field #s(numeric-literal :value 1))
+    (type-analyze (parse "
+        var x = null;
+        var y = ['str', x, 100];
+        y[1] = /foo/g;"))))
+  ("RegExp" "null"))
+
 (deftest type-analysis/property-access/function-calls/1 :notes type-analysis
   (type-names
    (compute-types
