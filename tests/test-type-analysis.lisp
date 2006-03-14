@@ -111,6 +111,71 @@
      }"))))
   ("Number" "String" "undefined"))
 
+(deftest type-analysis/function-return/3 :notes type-analysis
+  (type-names
+   (compute-types
+    #s(identifier :name "x")
+    (type-analyze (parse "
+     function foo()
+     {
+       WScript.echo('hello world');
+     }
+     var x = foo();"))))
+  ("undefined"))
+
+(deftest type-analysis/function-return/4 :notes type-analysis
+  (type-names
+   (compute-types
+    #s(identifier :name "x")
+    (type-analyze (parse "
+     var foo = function()
+     {
+       WScript.echo('hello world');
+     };
+     var x = foo();"))))
+  ("undefined"))
+
+(deftest type-analysis/function-return/5 :notes type-analysis
+  (type-names
+   (compute-types
+    #s(identifier :name "x")
+    (type-analyze (parse "
+     function foo(a)
+     {
+       WScript.echo('hello world');
+       if(a)
+         return 55;
+     }
+     var x = foo();"))))
+  ("Number" "undefined"))
+
+(deftest type-analysis/function-return/6 :notes type-analysis
+  (type-names
+   (compute-types
+    #s(identifier :name "x")
+    (type-analyze (parse "
+     var foo = function(a)
+     {
+       WScript.echo('hello world');
+       if(a)
+         return 55;
+     };
+     var x = foo();"))))
+  ("Number" "undefined"))
+
+(deftest type-analysis/function-return/7 :notes type-analysis
+  (type-names
+   (compute-types
+    #s(identifier :name "x")
+    (type-analyze (parse "
+     function foo(a)
+     {
+       WScript.echo('hello world');
+       return 55;
+     }
+     var x = foo();"))))
+  ("Number"))
+
 (deftest type-analysis/property-access/1 :notes type-analysis
   (type-names
    (compute-types
