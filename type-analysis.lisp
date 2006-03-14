@@ -748,12 +748,21 @@
 (defmethod compute-types ((elm property-access) graph &optional execution-context)
   (let ((target-types (compute-types (property-access-target elm) graph execution-context))
         (field-name (compute-field-name (property-access-field elm))))
-    (remove-duplicates
-     (loop for value-node in target-types
-           for property-node = (find-node-property value-node field-name)
-           append (if property-node
-                    (location-node-assignments property-node)
-                    (compute-types #s(special-value :symbol :undefined) graph execution-context))))))
+    (labels ((get-prop-values (value-node field &optional default-value)
+               (let ((prop-node (find-node-property value-node field)))
+                 (if prop-node
+                   (location-node-assignments prop-node)
+                   default-value)))
+             (process-value-node (value-node)
+               (if (eq field-name 'any)
+                 (loop for prop-cell in (value-node-properties value-node)
+                       append (location-node-assignments (cdr prop-cell)))
+                 (union
+                  (get-prop-values value-node field-name (compute-types #s(special-value :symbol :undefined) graph execution-context))
+                  (get-prop-values value-node 'any nil)))))
+      (remove-duplicates
+       (loop for value-node in target-types
+             append (process-value-node value-node))))))
 
 (defmethod compute-types ((elm fn-call) graph &optional execution-context)
   (let ((fn-types (compute-types (fn-call-fn elm) graph execution-context)))

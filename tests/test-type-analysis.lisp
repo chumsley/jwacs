@@ -149,6 +149,32 @@
      x = y;"))))
   ("Number" "undefined"))
   
+(deftest type-analysis/property-access/any-handling/1 :notes type-analysis
+  (type-names
+   (compute-types
+    #s(property-access :target #s(identifier :name "foo")
+                       :field #s(string-literal :value "bar"))
+    (type-analyze (parse "
+      var foo = new Object;
+      var x = 'hey';
+      foo.bar = 10;
+      foo.baz = /ten/;
+      foo[x] = null;"))))
+  ("Number" "null"))
+
+(deftest type-analysis/property-access/any-handling/2 :notes type-analysis
+  (type-names
+   (compute-types
+    #s(property-access :target #s(identifier :name "foo")
+                       :field #s(identifier :name "quux"))
+    (type-analyze (parse "
+      var foo = new Object;
+      var x = 'hey';
+      foo.bar = 10;
+      foo.baz = /ten/;
+      foo[x] = null;"))))
+  ("Number" "RegExp" "null"))
+
 (deftest type-analysis/new-expr/1 :notes type-analysis
   (type-names
    (compute-types
