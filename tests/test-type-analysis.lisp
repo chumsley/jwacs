@@ -812,7 +812,7 @@
     #s(fn-call :fn #s(property-access :target #s(object-literal :properties
                                                                 ((#s(string-literal :value "foo") . #s(identifier :name "bar"))))
                                       :field #s(string-literal :value "foo"))
-               :args #s(numeric-literal :value 20))
+               :args (#s(numeric-literal :value 20)))
     (type-analyze (parse "
      function bar(x)
      {
@@ -846,7 +846,7 @@
     #s(fn-call :fn #s(property-access :target #s(object-literal :properties
                                                                 ((#s(string-literal :value "foo") . #s(identifier :name "bar"))))
                                        :field #s(string-literal :value "foo"))
-               :args #s(string-literal :value "str"))
+               :args (#s(string-literal :value "str")))
     (type-analyze (parse "
      function bar(x)
      {
