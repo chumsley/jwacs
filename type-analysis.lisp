@@ -816,6 +816,27 @@
     (otherwise
      (error "unrecognized unary operation ~A" (unary-operator-op-symbol elm)))))
 
+(defmethod compute-types ((elm object-literal) graph &optional execution-context)
+  (loop with value-node = (make-value-node :name (gensym "computed-object-literal"))
+        for (prop-name . prop-elm) in (object-literal-properties elm)
+        for field-name = (compute-field-name prop-name)
+        for prop-node = (make-location-node :name (gensym (format nil "prop$~A" field-name))
+                                            :assignments (compute-types prop-elm graph execution-context))
+        do (push (cons field-name prop-node)
+                 (value-node-properties value-node))
+        finally (return (list value-node))))
+
+(defmethod compute-types ((elm array-literal) graph &optional execution-context)
+  (loop with value-node = (make-value-node :name (gensym "computed-array-literal"))
+        for index upfrom 0
+        for prop-elm in (array-literal-elements elm)
+        for prop-node = (make-location-node :name (gensym (format nil "prop$~A" index))
+                                            :assignments (compute-types prop-elm graph execution-context))
+        do (push (cons index prop-node)
+                 (value-node-properties value-node))
+        finally (return (list value-node))))
+      
+
 
 (defun type-analyze (elm)
   "Perform type analysis on ELM and return the corresponding type-map."

@@ -730,7 +730,130 @@
         }"))))
   ("Number" "String" "undefined"))
 (flag-expected-failure 'type-analysis/try-catch/1)
-    
+
+(deftest type-analysis/compute-types/array-literals/1 :notes type-analysis
+  (type-names
+   (compute-types
+    #s(property-access :target #s(array-literal :elements (#s(string-literal :value "str")
+                                                           #s(numeric-literal :value 10)
+                                                           #s(identifier :name "foo")))
+                       :field #s(numeric-literal :value 0))
+    (type-analyze (parse "
+     var foo = /regexp/;"))))
+  ("String"))
+
+(deftest type-analysis/compute-types/array-literals/2 :notes type-analysis
+  (type-names
+   (compute-types
+    #s(property-access :target #s(array-literal :elements (#s(string-literal :value "str")
+                                                           #s(numeric-literal :value 10)
+                                                           #s(identifier :name "foo")))
+                       :field #s(numeric-literal :value 2))
+    (type-analyze (parse "
+     var foo = /regexp/;"))))
+  ("RegExp"))
+
+(deftest type-analysis/compute-types/array-literals/3 :notes type-analysis
+  (type-names
+   (compute-types
+    #s(property-access :target #s(array-literal :elements (#s(string-literal :value "str")
+                                                           #s(numeric-literal :value 10)
+                                                           #s(identifier :name "foo")))
+                       :field #s(numeric-literal :value 8))
+    (type-analyze (parse "
+     var foo = /regexp/;"))))
+  ("undefined"))
+
+(deftest type-analysis/compute-types/array-literals/4 :notes type-analysis
+  (type-names
+   (compute-types
+    #s(property-access :target #s(array-literal :elements (#s(string-literal :value "str")
+                                                           #s(numeric-literal :value 10)
+                                                           #s(identifier :name "foo")))
+                       :field #s(identifier :name "nonexisto"))
+    (type-analyze (parse "
+     var foo = /regexp/;"))))
+  ("Number" "RegExp" "String"))
+
+(deftest type-analysis/compute-types/object-literals/1 :notes type-analysis
+  (type-names
+   (compute-types
+    #s(property-access :target #s(object-literal :properties
+                                                 ((#s(string-literal :value "foo") . #s(identifier :name "bar"))))
+                       :field #s(string-literal :value "foo"))
+    (type-analyze (parse "
+     var bar = 88;"))))
+  ("Number"))
+
+(deftest type-analysis/compute-types/object-literals/2 :notes type-analysis
+  (type-names
+   (compute-types
+    #s(property-access :target #s(object-literal :properties
+                                                 ((#s(string-literal :value "foo") . #s(identifier :name "bar"))))
+                       :field #s(string-literal :value "jaerb"))
+    (type-analyze (parse "
+     var bar = 88;"))))
+  ("undefined"))
+
+(deftest type-analysis/compute-types/object-literals/3 :notes type-analysis
+  (type-names
+   (compute-types
+    #s(property-access :target #s(object-literal :properties
+                                                 ((#s(string-literal :value "foo") . #s(identifier :name "bar"))
+                                                  (#s(string-literal :value "baz") . #s(special-value :symbol :null))))
+                       :field #s(identifier :name "bar"))
+    (type-analyze (parse "
+     var bar = 88;"))))
+  ("Number" "null"))
+
+(deftest type-analysis/compute-types/object-literals/4 :notes type-analysis
+  (type-names
+   (compute-types
+    #s(fn-call :fn #s(property-access :target #s(object-literal :properties
+                                                                ((#s(string-literal :value "foo") . #s(identifier :name "bar"))))
+                                      :field #s(string-literal :value "foo"))
+               :args #s(numeric-literal :value 20))
+    (type-analyze (parse "
+     function bar(x)
+     {
+       return x;
+     }
+     var baz = bar(25);"))))
+  ("Number"))
+
+;; XXX
+;; The behaviour that we're checking here is potentially controversial.
+;;
+;; If the computed expression (`{foo:bar}['bar']('str')`) had been present in the analyzed source,
+;; then its type would be ("Number" "String").  However, since it isn't present, we don't add the
+;; String argument to the return typeset of `bar`, so the typeset is just ("Number").
+;;
+;; In practice this won't matter, since we'll only be computing typesets for expressions that
+;; actually appear in the source.  Still, one could argue that we ought to be performing a full
+;; type analysis on the source elements that we are computing types for, instead of their being
+;; second class citizens (as currently).
+;;
+;; I think that what we're currently doing is the right thing to do in practical terms, since it
+;; optimizes for the case that we'll actually encounter (ie, expressions that appear in the real
+;; source).  I suspect that a fully general type-analysis on the incoming source-element for
+;; COMPUTE-TYPES would be fairly expensive; it would also open a whole other can of worms on the
+;; subject of mutability (ie, if this test should evaluate to ("Number" "String"), should subsequent
+;; checks of the type of `bar(10)` also evaluate to ("Number" "String"), or should they go back to
+;; just ("Number")?)
+(deftest type-analysis/compute-types/object-literals/5 :notes type-analysis
+  (type-names
+   (compute-types
+    #s(fn-call :fn #s(property-access :target #s(object-literal :properties
+                                                                ((#s(string-literal :value "foo") . #s(identifier :name "bar"))))
+                                       :field #s(string-literal :value "foo"))
+               :args #s(string-literal :value "str"))
+    (type-analyze (parse "
+     function bar(x)
+     {
+       return x;
+     }
+     var baz = bar(25);"))))
+  ("Number"))
 
 (defun %make-property-cycle (&optional (n 1000))
   (append (parse "x0.foo = x1; x0 = x1;")
