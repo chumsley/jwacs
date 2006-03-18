@@ -855,6 +855,23 @@
      var baz = bar(25);"))))
   ("Number"))
 
+(deftest type-analysis/compute-types/function-expression/1 :notes type-analysis
+  (type-names
+   (compute-types
+    #s(function-expression :parameters ("x") :body (#s(return-statement :arg #s(identifier :name "x"))))
+    (type-analyze nil)))
+  ("Function"))
+
+(deftest type-analysis/compute-types/function-expression/2 :notes type-analysis
+  (type-names
+   (compute-types
+    #s(fn-call :fn #s(function-expression :name "snrg" :parameters ("x") :body (parse "return x + 2;"))
+               :args (#s(numeric-literal :value 3)))
+    (type-analyze (parse "
+     var y = function snrg(x) {return x + 2;} (7);"))))
+  ("Number"))
+
+
 (defun %make-property-cycle (&optional (n 1000))
   (append (parse "x0.foo = x1; x0 = x1;")
                       (loop for idx from 1 upto (1- n)

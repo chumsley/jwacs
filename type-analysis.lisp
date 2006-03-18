@@ -166,7 +166,7 @@
      (2) A location node pointed to by the 'prototype' property of (1)
      (3) A value-node named #:|NAME-prototype| with an assignment edge from (2).
 
-   Returns the function value-node (2)"
+   Returns the function value-node (1)"
   (let* ((name (location-node-name node))
          (function-value (aif (find-value-node-named name (location-node-assignments node))
                            it
@@ -340,24 +340,24 @@
 (defmethod populate-nodes (graph (elm fn-call))
   (multiple-value-bind (fn-node prop-target-node)
       (populate-nodes graph (fn-call-fn elm))
-  (let ((ret-node (get-return-node graph fn-node)))
+    (let ((ret-node (get-return-node graph fn-node)))
 
-    (if (property-access-p (fn-call-fn elm))
-      (pushnew prop-target-node
-               (location-node-this-bindings fn-node))
-      (pushnew (get-location-node graph 'global-context)
-               (location-node-this-bindings fn-node)))
+      (if (property-access-p (fn-call-fn elm))
+        (pushnew prop-target-node
+                 (location-node-this-bindings fn-node))
+        (pushnew (get-location-node graph 'global-context)
+                 (location-node-this-bindings fn-node)))
 
-    (setf (location-node-min-call-arity fn-node)
-          (min* (location-node-min-call-arity fn-node)
-                (length (fn-call-args elm))))
+      (setf (location-node-min-call-arity fn-node)
+            (min* (location-node-min-call-arity fn-node)
+                  (length (fn-call-args elm))))
 
-    (loop for arg in (fn-call-args elm)
-          for idx upfrom 0
-          do (add-assignment-edge (get-node-argument graph fn-node idx)
-                                  (populate-nodes graph arg)))
+      (loop for arg in (fn-call-args elm)
+            for idx upfrom 0
+            do (add-assignment-edge (get-node-argument graph fn-node idx)
+                                    (populate-nodes graph arg)))
 
-    ret-node)))
+      ret-node)))
 
 (defmethod populate-nodes (graph (elm resume-statement))
   (let ((target-node (populate-nodes graph (resume-statement-target elm)))
@@ -392,9 +392,10 @@
   (let* ((function-name (aif (function-expression-name elm)
                           it
                           (gensym "function-expression")))
+         (fn-location-node (get-location-node graph function-name))
          (*innermost-function-node* (setup-function-node
                                      graph
-                                     (get-location-node graph function-name))))
+                                     fn-location-node)))
     (loop for param in (function-expression-parameters elm)
           collect (get-location-node graph param) into param-list
           finally (setf (value-node-parameters *innermost-function-node*)
@@ -408,7 +409,7 @@
                            (get-location-node graph "undefined")))
 
     ;; Function-expressions are expressions (duh) so return the location-node for this value
-    *innermost-function-node*))
+    fn-location-node))
 
 (defmethod populate-nodes (graph (elm return-statement))
   (if *innermost-function-node*
@@ -836,6 +837,15 @@
                  (value-node-properties value-node))
         finally (return (list value-node))))
       
+(defmethod compute-types ((elm function-expression) graph &optional execution-context)
+  (with-slots (name) elm
+    (aif (and name
+              (find-location-node graph name))
+      (location-node-assignments it)
+      (let ((fn-node (populate-nodes graph elm)))
+        (remhash (location-node-name fn-node) graph) ; Don't add to the graph permanently XXX is this right?
+        (location-node-assignments fn-node)))))
+        
 
 
 (defun type-analyze (elm)
