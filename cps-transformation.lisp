@@ -12,7 +12,10 @@
 ;;;; Preconditions
 ;;; The CPS transform assumes the following:
 ;;; 1. Scope analysis transformation has been performed (and therefore all identifiers are unique)
-;;; 2. Explicitization transformation has been performed (and therefore all result values are unique)
+;;; 2. Explicitization transformation has been performed (and therefore all result values have an
+;;;    explicit and unique name).
+;;; 3. The loop transformation has been performed, so all loops have been transformed to canonical
+;;;    while form.
 
 ;; These elements should have been removed by LOOP-TO-FUNCTION
 (forbid-transformation-elements cps (do-statement for for-in))
@@ -27,14 +30,10 @@
              :and-equals :or-equals :xor-equals))))
 
 (defparameter *cont-name* "$k"
-  "The name of the standard continuation parameter.  See SBCL-DEFPARAMETER-NOTE")
+  "The name of the standard continuation parameter")
 
 (defparameter *cont-id* (make-identifier :name *cont-name*)
-  "An identifier whose name is *cont-name*.  See SBCL-DEFPARAMETER-NOTE")
-
-;;;; Runtime parameters 
-;;; When we refer to runtime functions, we indirect through parameters to make it easy to
-;;; factor the runtime (and also to save having to contantly type (MAKE-STRING-LITERAL ...))
+  "An identifier whose name is *cont-name*")
 
 ;;;; Statement tails 
 ;;;
@@ -70,86 +69,81 @@
 ;;; Basically, the statement-tail contains all of the statements that should go into a continuation,
 ;;; should we need to generate a continuation at this point.
 ;;;
-;;;; Statement tail protocol 
+
+;;;================================================================================
+;;;; TRANSFORM method
 ;;;
-;;; The `*statement-tail*` special variable holds the current state of the statement-tail.
-;;; The macro `with-statement-tail` adds new statements to the current statement-tail (eg,
-;;; when entering a new block scope) by prepending them to the current tail.
+;;; As with the explicitization transformation, the cps transformation has a fairly
+;;; complicated protocol, so the TRANSFORM method is just a thin wrapper over the
+;;; TX-CPS generic function.
+
+(defmethod transform ((xform (eql 'cps)) elm)
+  (values
+   (tx-cps elm nil)))
+    
+;;;================================================================================
+;;;; TX-CPS
 ;;;
-;;; The macro `consume-statement-tail` grabs the current statement-tail and sets it to null
-;;; to indicate that it has been "used up", and therefore the statements in the tail needn't
-;;; be processed, because they will have already been processed as part of generating a
-;;; continuation at an innermore scope.
+;;; Previously we bound the *STATEMENT-TAIL* special variable in order to provide
+;;; it to "downstream" functions, but now we pass it as a parameter.
 ;;;
-;;; When we're processing return statements, we don't want to include the current tail in
-;;; any function calls that might be part of the return value.  The `without-statement-tail`
-;;; macro will suppress the current statement tail (by temporarily binding it to null).
+;;; The first return value of the TX-CPS function is the transformed source element.
+;;; The second return value indicates whether the statement-tail has been consumed
+;;; or not.
 
-(defparameter *statement-tail* nil
-  "Statements following the current statement in the current scope.")
+(defgeneric tx-cps (elm statement-tail)
+  (:documentation
+   "Converts ELM (which should be explicitized) into CPS form and returns the
+    new version as its first return value.  The second return value is T if
+    STATEMENT-TAIL was consumed or NIL otherwise."))
 
-(defmacro with-statement-tail ((new-statements) &body body)
-  "Execute BODY with NEW-STATEMENTS prepended to the current statement-tail"
-  `(let ((*statement-tail* (append ,new-statements *statement-tail*)))
-    ,@body))
-
-(defmacro consume-statement-tail ((tail-symbol) &body body)
-  "Set the current statement tail to NIL (signalling that it has been consumed), and
-   the execute BODY with TAIL-SYMBOL bound to the original value of *statement-tail*."
-  `(let ((,tail-symbol *statement-tail*))
-    (setf *statement-tail* nil)
-    ,@body))
-
-(defmacro without-statement-tail (&body body)
-  "Execute BODY with *STATEMENT-TAIL* bound to NIL"
-  `(let ((*statement-tail* nil))
-    ,@body))
-
-;;;; CPS transform methods 
-
-(defmethod transform ((xform (eql 'cps)) (elm function-decl))
+(defmethod tx-cps ((elm function-decl) statement-tail)
+  (declare (ignore statement-tail))
   ;; The body has an empty return statement appended if not every control path
   ;; has an explicit return.
   (let ((body (if (explicit-return-p (function-decl-body elm))
                 (function-decl-body elm)
                 (postpend (function-decl-body elm) #s(return-statement)))))
-    (without-statement-tail             ; Each function starts with a fresh statement-tail
-      (make-function-decl :name (function-decl-name elm)
-                          :parameters (cons *cont-name* (function-decl-parameters elm))
-                          :body (in-local-scope
-                                  (transform 'cps body))))))
+    (values
+     (make-function-decl :name (function-decl-name elm)
+                         :parameters (cons *cont-name* (function-decl-parameters elm))
+                         :body (in-local-scope
+                                 (tx-cps body nil))) ; Each function starts with a fresh statement-tail
+     nil)))
 
-
-(defmethod transform ((xform (eql 'cps)) (elm function-expression))
+(defmethod tx-cps ((elm function-expression) statement-tail)
+  (declare (ignore statement-tail))
   ;; The body has an empty return statement appended if not every control path
   ;; has an explicit return.
   (let ((new-parameters (cons *cont-name* (function-expression-parameters elm)))
         (body (if (explicit-return-p (function-expression-body elm))
                 (function-expression-body elm)
                 (postpend (function-expression-body elm) #s(return-statement)))))
-    (without-statement-tail             ; Each function starts with a fresh statement-tail
-      (make-function-expression :name (function-expression-name elm)
+    (values
+     (make-function-expression :name (function-expression-name elm)
                                 :parameters new-parameters
                                 :body (in-local-scope
-                                        (transform 'cps body))))))
+                                        (tx-cps body nil))) ; Each function starts with a fresh statement-tail
+     nil)))
 
-(defmethod transform ((xform (eql 'cps)) (elm return-statement))
+(defmethod tx-cps ((elm return-statement) statement-tail)
   (with-slots (arg) elm
     (let ((new-fn-call
            (if (fn-call-p arg)
              ;; Tail call
-             (without-statement-tail
-               (make-fn-call :fn (fn-call-fn arg)
-                             :args (cons *cont-id*
-                                         (mapcar (lambda (item)
-                                                   (transform 'cps item))
-                                                 (fn-call-args arg)))))
+             (make-fn-call :fn (fn-call-fn arg)
+                           :args (cons *cont-id*
+                                       (mapcar (lambda (item)
+                                                 (tx-cps item nil))
+                                               (fn-call-args arg))))
              ;; Simple return
-             (without-statement-tail
-               (make-fn-call :fn *cont-id*
-                             :args (unless (null (return-statement-arg elm))
-                                     (list (transform 'cps (return-statement-arg elm)))))))))
-      (make-return-statement :arg new-fn-call))))
+             (make-fn-call :fn *cont-id*
+                           :args (unless (null (return-statement-arg elm))
+                                   (list (tx-cps (return-statement-arg elm) nil)))))))
+      (values
+       (make-return-statement :arg new-fn-call)
+       nil))))
+      
 
 (defun make-void-continuation (current-cont)
   "Returns a function expression that accepts an argument (which it ignores),
@@ -164,117 +158,105 @@
 ;;; This method only handles function calls where the return value is ignored.
 ;;;
 ;;; Function calls that are the initializers for variable declarations are handled
-;;; in (METHOD TRANSFORM ((EQL 'CPS) VAR-DECL-STATEMENT)).  Function calls that are
+;;; in (METHOD TX-CPS (VAR-DECL-STATEMENT T)).  Function calls that are
 ;;; assigned to existing variables or used as intermediate values in calculations are
 ;;; transformed to variable-decl initializers in the EXPLICITIZE transformation.
 ;;; Tail calls (ie, those that are the argument to a return statement) are handled
-;;; in (METHOD TRANSFORM ((EQL 'CPS) RETURN-STATEMENT)).
-(defmethod transform ((xform (eql 'cps)) (elm fn-call))
+;;; in (METHOD TX-CPS (RETURN-STATEMENT T)).
+(defmethod tx-cps ((elm fn-call) statement-tail)
   (let ((new-fn-call
-         (if (null *statement-tail*)
+         (if (null statement-tail)
            ;; Tailless call
            (make-fn-call
             :fn (fn-call-fn elm)
             :args (cons (make-void-continuation *cont-id*)
                         (mapcar (lambda (item)
-                                  (transform 'cps item))
+                                  (tx-cps item nil))
                                 (fn-call-args elm))))
 
            ;; Call w/statement-tail
            (make-fn-call
             :fn (fn-call-fn elm)
-            :args (consume-statement-tail (statement-tail)
-                    (cons (make-continuation-function :parameters (list (genvar "dummy"))
-                                                      :body (transform 'cps statement-tail))
+            :args (cons (make-continuation-function :parameters (list (genvar "dummy"))
+                                                    :body (tx-cps statement-tail nil))
                           (mapcar (lambda (item)
-                                    (transform 'cps item))
-                                  (fn-call-args elm))))))))
+                                    (tx-cps item nil))
+                                  (fn-call-args elm)))))))
     (if *in-local-scope*
-      (make-return-statement :arg new-fn-call)
-      new-fn-call)))
+      (values (make-return-statement :arg new-fn-call) t)
+      (values new-fn-call t))))
 
-(defmethod transform ((xform (eql 'cps)) (elm-list list))
+(defmethod tx-cps ((elm-list list) statement-tail)
   (unless (null elm-list)
-    (let ((statements-consumed nil)
-          (head nil))
-
-      ;; Transform the first source element with the rest prepended to the statement tail.
-      ;; We keep track of whether this new statement-tail gets consumed (by being set to NIL)
-      ;; in a separate flag, because we need to propogate this consumedness (by setting our
-      ;; original statement-tail to NIL) /after/ the new statement tail is no longer bound.
-      (with-statement-tail ((cdr elm-list))
-        (setf head (transform 'cps (car elm-list)))
-        (when (null *statement-tail*)
-          (setf statements-consumed t)))
+    ;; Transform the first source element with the rest prepended to the statement tail.
+    (multiple-value-bind (head consumed)
+        (tx-cps (car elm-list) (append (cdr elm-list) statement-tail))
       
       ;; Guarantee that HEAD is a list
       (unless (listp head)
         (setf head (list head)))
+      
+      ;; If the statement tail was consumed, then the incoming STATEMENT-TAIL was consumed,
+      ;; so return T as our second return value.  The CDR of elm-list was also consued,
+      ;; so don't recurse.
+      ;;
+      ;; If the statement tail wasn't consumed, then pass the same statement tail to
+      ;; the recursive call.
+      (if consumed
+        (values head t)
+        (multiple-value-bind (tail recursive-consumed)
+            (tx-cps (cdr elm-list) statement-tail)
+          (values (append head tail) recursive-consumed))))))
 
-      ;; If the new statement tail was consumed, then it will be incorporated into the
-      ;; transformed version of HEAD, so we shouldn't recurse.
-      (if statements-consumed
-        (progn
-          (setf *statement-tail* nil)
-          head)
-        (append head (transform 'cps (cdr elm-list)))))))
-
-(defmethod transform ((xform (eql 'cps)) (elm var-decl-statement))
+(defmethod tx-cps ((elm var-decl-statement) statement-tail)
   ;; Assuming one decl per statment because that is one of the results of explicitization
   (with-slots (var-decls) elm
     (assert (<= (length var-decls) 1))
     (let ((name (var-decl-name (car var-decls)))
           (initializer (var-decl-initializer (car var-decls))))
-      (cond
-        ((fn-call-p initializer)
-         (consume-statement-tail (statement-tail)
-           (let ((new-call  (make-fn-call :fn (fn-call-fn initializer)
-                                          :args (cons
-                                                 (make-continuation-function :parameters (list name)
-                                                                             :body (transform 'cps statement-tail))
-                                                 (fn-call-args initializer)))))
-             (make-return-statement :arg new-call))))
-        (t
-         (make-var-decl-statement :var-decls
-                                  (mapcar (lambda (item) (transform 'cps item))
-                                          var-decls)))))))
+
+      (if (fn-call-p initializer)
+        (let ((new-call (make-fn-call :fn (fn-call-fn initializer)
+                                      :args (cons
+                                             (make-continuation-function :parameters (list name)
+                                                                         :body (tx-cps statement-tail nil))
+                                             (fn-call-args initializer)))))
+          (values (make-return-statement :arg new-call) t))
+        (multiple-value-bind (new-decl consumed)
+            (tx-cps (car var-decls) statement-tail)
+          (values (make-var-decl-statement :var-decls (list new-decl))
+                  consumed))))))
   
-(defmethod transform ((xform (eql 'cps)) (elm if-statement))
-  (let ((saved-statement-tail *statement-tail*)
-        condition
-        then-statement post-then-tail
-        else-statement)
-    
-    ;; TODO There must be a nicer way to do this.  Think about refactoring
-    ;; after we've done switch statements.
-    ;; Specifically, the statement-tail that follows the if statement should
-    ;; be assigned to a named continuation function expression and referenced
-    ;; that way rather than just being slurped into the continuations for both
-    ;; branches of the if.  This isn't lambda-calculus; we don't have to put up
-    ;; with exponentially-expanding programs to get a usable CPS form.
-    (setf condition (transform 'cps (if-statement-condition elm)))
+;;TODO This transformation potentially doubles the size of the code, since the
+;; statement-tail may be incorporated in both the then and else clauses. This
+;; about refactoring after we're done switch statements.
+;; Specifically, the statement-tail that follows the if statement should
+;; be assigned to a named continuation function expression and referenced
+;; that way rather than just being slurped into the continuations for both
+;; branches of the if.  This isn't lambda-calculus; we don't have to put up
+;; with exponentially-expanding programs to get a usable CPS form.
+(defmethod tx-cps ((elm if-statement) statement-tail)
+  (let ((new-cond (tx-cps (if-statement-condition elm) nil)))
+    (multiple-value-bind (new-then then-consumed)
+        (tx-cps (if-statement-then-statement elm) statement-tail)
+      (multiple-value-bind (new-else else-consumed)
+          (tx-cps (if-statement-else-statement elm) statement-tail)
+        (values
+         (make-if-statement :condition new-cond
+                            :then-statement new-then
+                            :else-statement new-else)
+         (and then-consumed else-consumed))))))
 
-    (setf *statement-tail* saved-statement-tail)
-    (setf then-statement (transform 'cps (if-statement-then-statement elm)))
-    (setf post-then-tail *statement-tail*)
-
-    (setf *statement-tail* saved-statement-tail)
-    (setf else-statement (transform 'cps (if-statement-else-statement elm)))
-
-    (setf *statement-tail* (or post-then-tail *statement-tail*))
-    (make-if-statement :condition condition
-                       :then-statement then-statement
-                       :else-statement else-statement)))
-
+;;;================================================================================
 ;;;; function_continuation transformation
 
-(defmethod transform ((xform (eql 'cps)) (elm special-value))
+(defmethod tx-cps ((elm special-value) statement-tail)
   (if (eq :function_continuation
           (special-value-symbol elm))
-    *cont-id*
+    (values *cont-id* nil)
     (call-next-method)))
 
-
+;;;================================================================================
 ;;;; loop transformation
 
 ;; while loops only
@@ -328,43 +310,98 @@
 ;; }
 
 
-(defparameter *nearest-continue* nil)
-(defparameter *nearest-break* nil)
+(defparameter *nearest-continue* nil
+  "Name of the continue continuation function for the nearest enclosing loop")
+(defparameter *nearest-break* nil
+  "Name of the break continuation function for the nearest enclosing loop")
 
-
-(defmethod transform ((xform (eql 'cps)) (elm while))
+(defmethod tx-cps ((elm while) statement-tail)
   (with-added-environment 
     (let* ((break-k (genvar "break"))
            (continue-k (genvar "continue"))
            (break-k-fn  (make-function-decl 
                          :name break-k
-                         :body (consume-statement-tail (statement-tail) (transform xform statement-tail))))
+                         :body (tx-cps statement-tail nil)))
            (*nearest-break* break-k)
            (*nearest-continue* continue-k))
-      (awhen (source-element-label elm)
-        (add-binding (concatenate 'string it "$break") break-k)
-        (add-binding (concatenate 'string it "$continue") continue-k))
-      (single-statement
-       (make-function-decl :name continue-k :body (transform xform (statement-block-statements (while-body elm))))
-       break-k-fn
-       (make-resume-statement :target (make-identifier :name continue-k))))))
+      (when-let (label (source-element-label elm))
+        (add-binding (concatenate 'string label "$break") break-k)
+        (add-binding (concatenate 'string label "$continue") continue-k))
+      (values
+       (single-statement
+        (make-function-decl :name continue-k :body (tx-cps (statement-block-statements (while-body elm)) nil))
+        break-k-fn
+        (make-resume-statement :target (make-identifier :name continue-k)))
+       t))))
 
-(defmethod transform ((xform (eql 'cps)) (elm break-statement))
+(defmethod tx-cps ((elm break-statement) statement-tail)
+  (declare (ignore statement-tail))
   (let ((break-name (aif (break-statement-target-label elm)
                          (find-binding (concatenate 'string it "$break"))
                          *nearest-break*)))
-    (make-resume-statement :target (make-identifier :name break-name))))
-    
+    (values
+     (make-resume-statement :target (make-identifier :name break-name))
+     t)))
 
-(defmethod transform ((xform (eql 'cps)) (elm continue-statement))
+(defmethod tx-cps ((elm continue-statement) statement-tail)
+  (declare (ignore statement-tail))
   (let ((continue-name (aif (continue-statement-target-label elm)
                             (find-binding (concatenate 'string it "$continue"))
                             *nearest-continue*)))
-    (make-resume-statement :target (make-identifier :name continue-name))))
+    (values
+     (make-resume-statement :target (make-identifier :name continue-name))
+     t)))
 
 
+;;;================================================================================
+;;;; default behaviour 
+;;;
+;;; We have to re-implement the default behaviour that is normally provided by the
+;;; TRANSFORM generic function, since we are using a special generic function of
+;;; our own.
 
+;; The default behaviour for any element is to do nothing
+(defmethod tx-cps (elm statement-tail)
+  (declare (ignore statement-tail))
+  (values elm nil))
 
+(defun make-keyword (x)
+  "Makes a keyword out of a symbol."
+  (if (keywordp x)
+    x
+    (intern (symbol-name x) 'keyword)))
 
+(defmethod tx-cps ((elm source-element) statement-tail)
+  (let ((consumed nil))
+    (flet ((slot-tx (slot-elm)
+             (if consumed
+               (tx-cps slot-elm nil)
+               (multiple-value-bind (new-arg slot-consumed)
+                   (tx-cps slot-elm statement-tail)
+                 (setf consumed slot-consumed)
+                 new-arg))))
+      (values
+       (apply
+        (get-constructor elm)
+        (loop for slot in (structure-slots elm)
+              collect (make-keyword slot)
+              collect (slot-tx (slot-value elm slot))))
+       consumed))))
 
-
+;; Special case for object-literals to account for the fact that object-literal-properties
+;; is an alist rather than a list of structures.
+(defmethod tx-cps ((elm object-literal) statement-tail)
+  (let ((consumed nil))
+    (flet ((slot-tx (slot-elm)
+             (if consumed
+               (tx-cps slot-elm nil)
+               (multiple-value-bind (new-arg slot-consumed)
+                   (tx-cps slot-elm statement-tail)
+                 (setf consumed slot-consumed)
+                 new-arg))))
+      (values
+       (make-object-literal :properties
+                            (loop for (prop-name . prop-value) in (object-literal-properties elm)
+                                  collect (cons (slot-tx prop-name)
+                                                (slot-tx prop-value))))
+       consumed))))
