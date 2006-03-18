@@ -55,7 +55,7 @@
 ;;;
 ;;; the first call to `process` cannot be replaced with an arbitrary list of
 ;;; statements.  Instead, we can place some "prerequisite" statements before the
-;;; entire return statement, and represent the valuet that results from executing
+;;; entire return statement, and represent the value that results from executing
 ;;; the prerequisites by a "proxy" variable that will be defined as part of the
 ;;; prerequisites:
 ;;;

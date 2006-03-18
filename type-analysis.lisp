@@ -845,8 +845,11 @@
       (let ((fn-node (populate-nodes graph elm)))
         (remhash (location-node-name fn-node) graph) ; Don't add to the graph permanently XXX is this right?
         (location-node-assignments fn-node)))))
-        
 
+;;;================================================================================
+;;;; type-analyze function
+;;;
+;;; This is the main external interface for analyzing a group of source elements.
 
 (defun type-analyze (elm)
   "Perform type analysis on ELM and return the corresponding type-map."
