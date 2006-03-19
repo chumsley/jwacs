@@ -226,26 +226,28 @@
             (tx-cps (car var-decls) statement-tail)
           (values (make-var-decl-statement :var-decls (list new-decl))
                   consumed))))))
-  
-;;TODO This transformation potentially doubles the size of the code, since the
-;; statement-tail may be incorporated in both the then and else clauses. This
-;; about refactoring after we're done switch statements.
-;; Specifically, the statement-tail that follows the if statement should
-;; be assigned to a named continuation function expression and referenced
-;; that way rather than just being slurped into the continuations for both
-;; branches of the if.  This isn't lambda-calculus; we don't have to put up
-;; with exponentially-expanding programs to get a usable CPS form.
+
+;; We generate a named continuation for the statment-tail that follows the if statement
+;; to prevent having to duplicate the tail in continuations in the then- and else-clauses.
+;; In theory, duplicating the tail for each if statement code cause the code to grow
+;; exponentially in the number of if statements (since each if statement would lead to a
+;; doubling of code), which is plainly undesirable.  We use a similar technique for switch
+;; statements.
 (defmethod tx-cps ((elm if-statement) statement-tail)
-  (let ((new-cond (tx-cps (if-statement-condition elm) nil)))
-    (multiple-value-bind (new-then then-consumed)
-        (tx-cps (if-statement-then-statement elm) statement-tail)
-      (multiple-value-bind (new-else else-consumed)
-          (tx-cps (if-statement-else-statement elm) statement-tail)
+  (with-slots (condition then-statement else-statement) elm
+    (if (null statement-tail)
+      (call-next-method)
+      (let* ((if-k-name (genvar "ifK"))
+             (if-k-fn (make-function-decl :name if-k-name
+                                          :body (tx-cps statement-tail nil)))
+             (if-k-resume (make-resume-statement :target (make-identifier :name if-k-name))))
         (values
-         (make-if-statement :condition new-cond
-                            :then-statement new-then
-                            :else-statement new-else)
-         (and then-consumed else-consumed))))))
+         (list
+          (make-if-statement :condition (tx-cps condition nil)
+                             :then-statement (tx-cps (single-statement then-statement if-k-resume) nil)
+                             :else-statement (tx-cps (single-statement else-statement if-k-resume) nil))
+          if-k-fn)
+         t)))))
 
 ;;;================================================================================
 ;;;; function_continuation transformation

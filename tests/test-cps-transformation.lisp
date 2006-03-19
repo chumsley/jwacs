@@ -63,9 +63,18 @@
       function doStuff($k, branch)
       {
         if(branch)
-          return foo(function(dummy$0) { return baz(function(dummy$1) { return $k(); }); });
+        {
+          return foo(function(dummy$2) { resume ifK$0; });
+        }
         else
-          return bar(function(dummy$2) { return baz(function(dummy$3) { return $k(); }); });
+        {
+          return bar(function(dummy$3) { resume ifK$0; });
+        }
+  
+        function ifK$0()
+        {
+          return baz(function(dummy$1) { return $k(); });
+        }
       }"))
 
 (deftest cps/asymmetric-dangling-tail/1 :notes cps
@@ -89,18 +98,24 @@
       {
         var retVal;
         if(n == 0)
+        {
           retVal = 1;
+          resume ifK$0;
+        }
         else
         {
           return factorial2(function (r1)
                             {
                               var r2 = n * r1;
                               retVal = r2;
-                              return $k(retVal);
+                              resume ifK$0;
                             }, n-1);
         }
 
-        return $k(retVal);
+        function ifK$0()
+        {
+          return $k(retVal);
+        }
       }"))
   
 (deftest cps/post-function-dangling-tail/1 :notes cps
@@ -146,6 +161,26 @@
                   };
         return bar(function(dummy$1) { return $k(); });
       }"))
+
+(deftest cps/no-tail-after-if/1 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+      function foo(x)
+      {
+        if(x)
+          return x * 10;
+        else
+          return 20;
+      }")))
+  #.(parse "
+      function foo($k, x)
+      {
+        if(x)
+          return $k(x * 10);
+        else
+          return $k(20);
+      }"))
+        
 
 (deftest cps/tail-fn-call/1 :notes cps
   (with-fresh-genvar
@@ -247,12 +282,20 @@
     function foo($k)
     {
       if(x)
-        return bar(function(dummy$0) { z = 20; return $k(); });
+      {
+        return bar(function(dummy$1) { resume ifK$0; });
+      }
       else
+      {
         y = 10;
+        resume ifK$0;
+      }
       
-      z = 20;
-      return $k();
+      function ifK$0()
+      {
+        z = 20;
+        return $k();
+      }
     }"))
 
 ;; `suspend` and `resume` are handled by the TRAMPOLINE transformation.
