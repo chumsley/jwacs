@@ -860,82 +860,105 @@
 
 
 ;;;================================================================================
-;;;; Explicit-return-p generic function
+;;;; explicitly-terminated-p generic function
 
 ;;TODO Does this function actually belong here, or is there some other place that
 ;; makes more sense?  It's used by both type-analysis and cps-transformation; I've
 ;; moved it here (from cps-transformation) because type-analysis comes earlier in
 ;; the build order.
 
-(defgeneric explicit-return-p (elm)
-  (:documentation "Returns non-NIL if ELM explicitly returns (or throws) via all control paths"))
+(defun explicit-return-p (elm)
+  "Convenience function for the common case where we're concerned about function
+   termination (rather than loop or clause termination)"
+  (explicitly-terminated-p elm '(:return :throw :resume :suspend)))
 
-;;; Unless otherwise specified, a source element does not explicitly return
-(defmethod explicit-return-p (elm)
+(defgeneric explicitly-terminated-p (elm terminators)
+  (:documentation
+   "Returns non-NIL if ELM explicitly terminates via all control paths.  The definition
+    of 'termination' is configurable by the TERMINATORS argument.  TERMINATORS is a list
+    containing any or all of :RETURN :THROW :BREAK :CONTINUE :RESUME :SUSPEND.  When :RETURN
+    is in TERMINATORS, return statements are considered to terminate a control path; similarly
+    for the other keywords."))
+
+;;; Unless otherwise specified, a source element does not explicitly terminate
+(defmethod explicitly-terminated-p (elm terminators)
   nil)
 
 ;;; Base cases
-(defmethod explicit-return-p ((elm return-statement))
-  t)
+(defmethod explicitly-terminated-p ((elm return-statement) terminators)
+  (find :return terminators))
 
-(defmethod explicit-return-p ((elm throw-statement))
-  t)
+(defmethod explicitly-terminated-p ((elm throw-statement) terminators)
+  (find :throw terminators))
+
+(defmethod explicitly-terminated-p ((elm resume-statement) terminators)
+  (find :resume terminators))
+
+(defmethod explicitly-terminated-p ((elm suspend-statement) terminators)
+  (find :suspend terminators))
+
+(defmethod explicitly-terminated-p ((elm break-statement) terminators)
+  (find :break terminators))
+  
+(defmethod explicitly-terminated-p ((elm continue-statement) terminators)
+  (find :continue terminators))
 
 ;;; Sequences
-(defmethod explicit-return-p ((elm-list list))
+(defmethod explicitly-terminated-p ((elm-list list) terminators)
   (unless (null elm-list)
-    (or (explicit-return-p (car elm-list))
-        (explicit-return-p (cdr elm-list)))))
+    (or (explicitly-terminated-p (car elm-list) terminators)
+        (explicitly-terminated-p (cdr elm-list) terminators))))
 
 ;;; Branches
-(defmethod explicit-return-p ((elm if-statement))
-  (and (explicit-return-p (if-statement-then-statement elm))
-       (explicit-return-p (if-statement-else-statement elm))))
+(defmethod explicitly-terminated-p ((elm if-statement) terminators)
+  (and (explicitly-terminated-p (if-statement-then-statement elm) terminators)
+       (explicitly-terminated-p (if-statement-else-statement elm) terminators)))
 
-(defmethod explicit-return-p ((elm switch))
+(defmethod explicitly-terminated-p ((elm switch) terminators)
   (reduce (lambda (x y)
             (and x y))
           (switch-clauses elm)
-          :key 'explicit-return-p))
+          :key (lambda (clause)
+                 (explicitly-terminated-p clause terminators))))
 
-(defmethod explicit-return-p ((elm try))
+(defmethod explicitly-terminated-p ((elm try) terminators)
   (with-slots (body catch-clause finally-clause) elm
-    (or (explicit-return-p finally-clause)
+    (or (explicitly-terminated-p finally-clause terminators)
         (if (null catch-clause)
-          (explicit-return-p body)
-          (and (explicit-return-p body)
-               (explicit-return-p catch-clause))))))
+          (explicitly-terminated-p body terminators)
+          (and (explicitly-terminated-p body terminators)
+               (explicitly-terminated-p catch-clause terminators))))))
       
 ;;; Simple recursion
-(defmethod explicit-return-p ((elm statement-block))
-  (explicit-return-p (statement-block-statements elm)))
+(defmethod explicitly-terminated-p ((elm statement-block) terminators)
+  (explicitly-terminated-p (statement-block-statements elm) terminators))
 
-(defmethod explicit-return-p ((elm case-clause))
-  (explicit-return-p (case-clause-body elm)))
+(defmethod explicitly-terminated-p ((elm case-clause) terminators)
+  (explicitly-terminated-p (case-clause-body elm) terminators))
 
-(defmethod explicit-return-p ((elm default-clause))
-  (explicit-return-p (default-clause-body elm)))
+(defmethod explicitly-terminated-p ((elm default-clause) terminators)
+  (explicitly-terminated-p (default-clause-body elm) terminators))
 
-(defmethod explicit-return-p ((elm do-statement))
-  (explicit-return-p (do-statement-body elm)))
+(defmethod explicitly-terminated-p ((elm do-statement) terminators)
+  (explicitly-terminated-p (do-statement-body elm) terminators))
 
-(defmethod explicit-return-p ((elm while))
-  (explicit-return-p (while-body elm)))
+(defmethod explicitly-terminated-p ((elm while) terminators)
+  (explicitly-terminated-p (while-body elm) terminators))
 
-(defmethod explicit-return-p ((elm for))
-  (explicit-return-p (for-body elm)))
+(defmethod explicitly-terminated-p ((elm for) terminators)
+  (explicitly-terminated-p (for-body elm) terminators))
 
-(defmethod explicit-return-p ((elm for-in))
-  (explicit-return-p (for-in-body elm)))
+(defmethod explicitly-terminated-p ((elm for-in) terminators)
+  (explicitly-terminated-p (for-in-body elm) terminators))
 
-(defmethod explicit-return-p ((elm with))
-  (explicit-return-p (with-body elm)))
+(defmethod explicitly-terminated-p ((elm with) terminators)
+  (explicitly-terminated-p (with-body elm) terminators))
 
-(defmethod explicit-return-p ((elm catch-clause))
-  (explicit-return-p (catch-clause-body elm)))
+(defmethod explicitly-terminated-p ((elm catch-clause) terminators)
+  (explicitly-terminated-p (catch-clause-body elm) terminators))
 
-(defmethod explicit-return-p ((elm finally-clause))
-  (explicit-return-p (finally-clause-body elm)))
+(defmethod explicitly-terminated-p ((elm finally-clause) terminators)
+  (explicitly-terminated-p (finally-clause-body elm) terminators))
 
 ;;;================================================================================
 ;;;; Debugging helpers

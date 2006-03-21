@@ -181,6 +181,130 @@
           return $k(20);
       }"))
         
+(deftest cps/switch-statement/1 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+      function foo(x)
+      {
+        switch(x)
+        {
+          case 1:
+            bar();
+            break;
+
+          default:
+            return 88;
+        }
+
+        return baz();
+      }")))
+  #.(parse "
+      function foo($k, x)
+      {
+        switch(x)
+        {
+          case 1:
+            return bar(function(dummy$1) { resume switchK$0; });
+          default:
+            return $k(88);
+        }
+        function switchK$0()
+        {
+          return baz($k);
+        }
+      }"))
+
+(deftest cps/switch-statement/2 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+      function foo(x)
+      {
+        switch(x)
+        {
+          case 10:
+            bar();
+            break;
+        }
+        return baz(x + 2);
+      }")))
+  #.(parse "
+      function foo($k, x)
+      {
+        switch(x)
+        {
+          case 10:
+            return bar(function(dummy$1) { resume switchK$0; });
+          default:
+            resume switchK$0;
+        }
+        function switchK$0()
+        {
+          return baz($k, x + 2);
+        }
+      }"))
+
+(deftest cps/switch-statement/3 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+      function foo(x)
+      {
+        switch(x)
+        {
+          case 10:
+            bar();
+        }
+        return baz(x + 2);
+      }")))
+  #.(parse "
+      function foo($k, x)
+      {
+        switch(x)
+        {
+          case 10:
+            return bar(function(dummy$1) { resume switchK$0; });
+          default:
+            resume switchK$0;
+        }
+        function switchK$0()
+        {
+          return baz($k, x + 2);
+        }
+      }"))
+
+(deftest cps/switch-statement/4 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+      function foo(x)
+      {
+        switch(x)
+        {
+          case 10:
+            foo();
+          case 15:
+          case 20:
+            bar();
+        }
+        return baz(x - 1);
+      }")))
+  #.(parse "
+      function foo($k, x)
+      {
+        switch(x)
+        {
+          case 10:
+            return foo(function(dummy$1) { return bar(function(dummy$2) { resume switchK$0; }); });
+          case 15:
+          case 20:
+            return bar(function(dummy$3) { resume switchK$0; });
+          default:
+            resume switchK$0;
+        }
+        function switchK$0()
+        {
+          return baz($k, x - 1);
+        }
+      }"))
+        
 
 (deftest cps/tail-fn-call/1 :notes cps
   (with-fresh-genvar

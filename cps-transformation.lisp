@@ -227,28 +227,6 @@
           (values (make-var-decl-statement :var-decls (list new-decl))
                   consumed))))))
 
-;; We generate a named continuation for the statment-tail that follows the if statement
-;; to prevent having to duplicate the tail in continuations in the then- and else-clauses.
-;; In theory, duplicating the tail for each if statement code cause the code to grow
-;; exponentially in the number of if statements (since each if statement would lead to a
-;; doubling of code), which is plainly undesirable.  We use a similar technique for switch
-;; statements.
-(defmethod tx-cps ((elm if-statement) statement-tail)
-  (with-slots (condition then-statement else-statement) elm
-    (if (null statement-tail)
-      (call-next-method)
-      (let* ((if-k-name (genvar "ifK"))
-             (if-k-fn (make-function-decl :name if-k-name
-                                          :body (tx-cps statement-tail nil)))
-             (if-k-resume (make-resume-statement :target (make-identifier :name if-k-name))))
-        (values
-         (list
-          (make-if-statement :condition (tx-cps condition nil)
-                             :then-statement (tx-cps (single-statement then-statement if-k-resume) nil)
-                             :else-statement (tx-cps (single-statement else-statement if-k-resume) nil))
-          if-k-fn)
-         t)))))
-
 ;;;================================================================================
 ;;;; function_continuation transformation
 
@@ -354,6 +332,107 @@
      (make-resume-statement :target (make-identifier :name continue-name))
      t)))
 
+;;;================================================================================
+;;;; Branch statements
+
+;; We generate a named continuation for the statment-tail that follows the if statement
+;; to prevent having to duplicate the tail in continuations in the then- and else-clauses.
+;; In theory, duplicating the tail for each if statement code cause the code to grow
+;; exponentially in the number of if statements (since each if statement would lead to a
+;; doubling of code), which is plainly undesirable.  We use a similar technique for switch
+;; statements.
+(defmethod tx-cps ((elm if-statement) statement-tail)
+  (with-slots (condition then-statement else-statement) elm
+    (if (null statement-tail)
+      (call-next-method)
+      (let* ((if-k-name (genvar "ifK"))
+             (if-k-fn (make-function-decl :name if-k-name
+                                          :body (tx-cps statement-tail nil)))
+             (if-k-resume (make-resume-statement :target (make-identifier :name if-k-name))))
+        (values
+         (list
+          (make-if-statement :condition (tx-cps condition nil)
+                             :then-statement (tx-cps (single-statement then-statement if-k-resume) nil)
+                             :else-statement (tx-cps (single-statement else-statement if-k-resume) nil))
+          if-k-fn)
+         t)))))
+
+(defmethod tx-cps ((elm switch) statement-tail)
+  (let* ((switch-k-name (genvar "switchK"))
+         (*nearest-break* switch-k-name)
+         (terminated-clauses (compute-terminated-clauses (switch-clauses elm))))
+    (values
+     (list
+      (make-switch :value (tx-cps (switch-value elm) nil)
+                   :clauses (mapcar (lambda (elm)
+                                      (tx-cps elm nil))
+                                    terminated-clauses))
+      (make-function-decl :name switch-k-name
+                                       :body (tx-cps statement-tail nil)))
+     t)))
+                                                                  
+(defun compute-terminated-clauses (clause-list)
+  "Takes a list of switch clauses that may or may not be terminated (eg, by a break statement),
+   and returns a list of clauses with equivalent effects that are more suitable for cps translation.
+   Specifically:
+     1) Terminated clauses are returned unchanged.
+     2) 'Null clauses' (ie, clauses with no body) are also returned unchanged so long as they aren't
+        the final clause.  If they are the final clause, their body is set to a single break statement.
+     3) Unterminated clauses have the body of each following clause appended to them (up to and including
+        the first terminated clause).
+     4) If the final clause is unterminated, it will have a break statement appended to it
+     5) If there is no default clause, a default clause will be added to the end of the list with a body
+        containing a single break statement.
+
+   eg:
+
+      case 10:
+        doSomething();
+      case 20:
+      case 30:
+        doSomethingElse();
+        break;
+      default:
+
+   ===>
+
+      case 10:
+        doSomething();
+        doSomethingElse();
+        break;
+      case 20:
+      case 30:
+        doSomethingElse();
+        break;
+      default:
+        break;"
+  (labels ((terminated-p (elm)
+             (explicitly-terminated-p elm '(:return :throw :break :continue :resume :suspend)))
+           (extend-clause-body (clause-list)
+             "Takes a list of switch-clauses whose head is unterminated and returns a body
+              that extends until the first terminated clause.  A break will be added to the
+              end of the body if every clause in CLAUSE-LIST is unterminated."
+             ;; First check for a non-final null clause, since non-final null clauses are not extended
+             (if (and (null (slot-value (car clause-list) 'body)) 
+                      (consp (cdr clause-list)))
+               nil
+               (let ((extended-body (loop for clause in clause-list
+                                          append (slot-value clause 'body)
+                                          until (terminated-p clause))))
+                 (if (terminated-p extended-body)
+                   extended-body
+                   (postpend extended-body (make-break-statement :target-label nil)))))))
+    (loop for clause-tail on clause-list
+          for clause = (car clause-tail)
+          for extended-body = (extend-clause-body clause-tail)
+          count (default-clause-p clause) into defaults-encountered
+          collect (if (case-clause-p clause)
+                    (make-case-clause :value (case-clause-value clause)
+                                      :body extended-body)
+                    (make-default-clause :body extended-body))
+          when (and (null (cdr clause-tail))
+                    (zerop defaults-encountered))
+          collect (make-default-clause :body (list (make-break-statement :target-label nil))))))
 
 ;;;================================================================================
 ;;;; default behaviour 
