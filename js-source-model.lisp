@@ -54,11 +54,11 @@
   options)
 
 (defstruct (new-expr (:include source-element))
-  (constructor nil :type (or identifier property-access fn-call))
+  (constructor nil :type (or identifier property-access fn-call function-expression))
   (args nil :type (or (cons source-element) null)))
 
 (defstruct (fn-call (:include source-element))
-  (fn nil :type (or identifier property-access fn-call))
+  (fn nil :type (or identifier property-access fn-call function-expression))
   (args nil :type (or (cons source-element) null)))
 
 (defstruct (property-access (:include source-element))

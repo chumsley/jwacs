@@ -865,7 +865,7 @@
 (deftest type-analysis/compute-types/function-expression/2 :notes type-analysis
   (type-names
    (compute-types
-    #s(fn-call :fn #s(function-expression :name "snrg" :parameters ("x") :body (parse "return x + 2;"))
+    #s(fn-call :fn #s(function-expression :name "snrg" :parameters ("x") :body #.(parse "return x + 2;"))
                :args (#s(numeric-literal :value 3)))
     (type-analyze (parse "
      var y = function snrg(x) {return x + 2;} (7);"))))
