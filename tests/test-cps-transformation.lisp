@@ -211,7 +211,7 @@
         var switchK$0 = function()
         {
           return baz($k);
-        }
+        };
       }"))
 
 (deftest cps/switch-statement/2 :notes cps
@@ -240,7 +240,7 @@
         var switchK$0 = function()
         {
           return baz($k, x + 2);
-        }
+        };
       }"))
 
 (deftest cps/switch-statement/3 :notes cps
@@ -268,7 +268,7 @@
         var switchK$0 = function()
         {
           return baz($k, x + 2);
-        }
+        };
       }"))
 
 (deftest cps/switch-statement/4 :notes cps
@@ -302,7 +302,7 @@
         var switchK$0 = function()
         {
           return baz($k, x - 1);
-        }
+        };
       }"))
         
 (deftest cps/labelled-switch/1 :notes cps
