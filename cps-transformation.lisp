@@ -358,18 +358,22 @@
          t)))))
 
 (defmethod tx-cps ((elm switch) statement-tail)
-  (let* ((switch-k-name (genvar "switchK"))
-         (*nearest-break* switch-k-name)
-         (terminated-clauses (compute-terminated-clauses (switch-clauses elm))))
-    (values
-     (list
-      (make-switch :value (tx-cps (switch-value elm) nil)
-                   :clauses (mapcar (lambda (elm)
-                                      (tx-cps elm nil))
-                                    terminated-clauses))
-      (make-function-decl :name switch-k-name
-                                       :body (tx-cps statement-tail nil)))
-     t)))
+  (with-added-environment
+    (let* ((switch-k-name (genvar "switchK"))
+           (switch-k-var (make-var-init switch-k-name
+                                        (make-function-expression :body (tx-cps statement-tail nil))))
+           (*nearest-break* switch-k-name)
+           (terminated-clauses (compute-terminated-clauses (switch-clauses elm))))
+      (when-let (label (switch-label elm))
+        (add-binding (concatenate 'string label "$break") switch-k-name))
+      (values
+       (list
+        (make-switch :value (tx-cps (switch-value elm) nil)
+                     :clauses (mapcar (lambda (elm)
+                                        (tx-cps elm nil))
+                                      terminated-clauses))
+        switch-k-var)
+       t))))
                                                                   
 (defun compute-terminated-clauses (clause-list)
   "Takes a list of switch clauses that may or may not be terminated (eg, by a break statement),

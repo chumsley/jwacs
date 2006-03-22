@@ -208,7 +208,7 @@
           default:
             return $k(88);
         }
-        function switchK$0()
+        var switchK$0 = function()
         {
           return baz($k);
         }
@@ -237,7 +237,7 @@
           default:
             resume switchK$0;
         }
-        function switchK$0()
+        var switchK$0 = function()
         {
           return baz($k, x + 2);
         }
@@ -265,7 +265,7 @@
           default:
             resume switchK$0;
         }
-        function switchK$0()
+        var switchK$0 = function()
         {
           return baz($k, x + 2);
         }
@@ -299,13 +299,106 @@
           default:
             resume switchK$0;
         }
-        function switchK$0()
+        var switchK$0 = function()
         {
           return baz($k, x - 1);
         }
       }"))
         
+(deftest cps/labelled-switch/1 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+      function foo(x, y)
+      {
+        outer:
+        switch(x)
+        {
+          case 10:
+          inner:
+          switch(y)
+          {
+            case 20:
+            doSomething();
+            break inner;
+          }
+          doSomethingElse();
+          break;
+        }
+        return doAlways();
+      }")))
+  #.(parse "
+      function foo($k, x, y)
+      {
+        switch(x)
+        {
+          case 10:
+            switch(y)
+            {
+              case 20:
+                return doSomething(function(dummy$3) { resume switchK$1; });
+              default:
+                resume switchK$1;
+            }
+            var switchK$1 = function()
+            {
+              return doSomethingElse(function(dummy$2) { resume switchK$0; });
+            };
+          default:
+            resume switchK$0;
+        }
+        var switchK$0 = function()
+        {
+          return doAlways($k);
+        };
+      }"))
 
+(deftest cps/labelled-switch/2 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+      function foo(x, y)
+      {
+        outer:
+        switch(x)
+        {
+          case 10:
+          inner:
+          switch(y)
+          {
+            case 20:
+            doSomething();
+            break outer;
+          }
+          doSomethingElse();
+          break;
+        }
+        return doAlways();
+      }")))
+  #.(parse "
+      function foo($k, x, y)
+      {
+        switch(x)
+        {
+          case 10:
+            switch(y)
+            {
+              case 20:
+                return doSomething(function(dummy$3) { resume switchK$0; });
+              default:
+                resume switchK$1;
+            }
+            var switchK$1 = function()
+            {
+              return doSomethingElse(function(dummy$2) { resume switchK$0; });
+            };
+          default:
+            resume switchK$0;
+        }
+        var switchK$0 = function()
+        {
+          return doAlways($k);
+        };
+      }"))
+  
 (deftest cps/tail-fn-call/1 :notes cps
   (with-fresh-genvar
     (in-local-scope
