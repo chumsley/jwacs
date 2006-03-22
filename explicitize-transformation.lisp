@@ -332,6 +332,14 @@
   (with-nesting
     (call-next-method)))
 
+(defmethod tx-explicitize ((elm comma-expr))
+  (loop for expr in (comma-expr-exprs elm)
+        for (expr-proxy expr-prereqs) = (multiple-value-list (nested-explicitize expr))
+        append expr-prereqs into prereqs
+        collect expr-proxy into proxies
+        finally (return (values (make-comma-expr :exprs proxies)
+                                prereqs))))
+      
 (defmethod tx-explicitize ((elm object-literal))
   (loop for (prop-name . prop-val) in (object-literal-properties elm)
         for (val-proxy val-prereqs) = (multiple-value-list (nested-explicitize prop-val))

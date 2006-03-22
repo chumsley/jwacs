@@ -360,3 +360,18 @@
       {
         bar(50);
       };"))
+
+(deftest explicitize/comma-expr/1 :notes explicitize
+  (with-fresh-genvar
+    (transform 'explicitize (parse "
+      if(x, f(g(y)), z)
+        return h(j(z));")))
+  #.(parse "
+      var JW0 = g(y);
+      var JW1 = f(JW0);
+      if(x, JW1, z)
+      {
+        var JW2 = j(z);
+        return h(JW2);
+      }"))
+        
