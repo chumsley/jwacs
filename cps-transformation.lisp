@@ -145,6 +145,15 @@
        nil))))
       
 
+(defun make-named-continuation (name statement-tail)
+  "Constructs a continuation from STATEMENT-TAIL and returns a var-decl-statement
+   that initializes a variable named NAME to the new continuation.  Note that named
+   continuations accept no arguments."
+  (make-var-init name
+                 (make-continuation-function
+                  :parameters nil
+                  :body (in-local-scope (tx-cps statement-tail nil)))))
+
 (defun make-void-continuation (current-cont)
   "Returns a function expression that accepts an argument (which it ignores),
    and then calls CURRENT-CONT with no arguments.  This allows us to preserve
@@ -289,7 +298,6 @@
 ;;   return continue_k();
 ;; }
 
-
 (defparameter *nearest-continue* nil
   "Name of the continue continuation function for the nearest enclosing loop")
 (defparameter *nearest-break* nil
@@ -297,20 +305,36 @@
 
 (defmethod tx-cps ((elm while) statement-tail)
   (with-added-environment 
+    ;; The break continuation must be transformed outside the scope of the break binding,
+    ;; because break statements from within the break continuation should refer to an
+    ;; outermore break continuation.  Eg, in:
+    ;;
+    ;;  var break$n = function()
+    ;;  {
+    ;;    break; // <----
+    ;;  }
+    ;;  var break$0 = function()
+    ;;  {
+    ;;    ...
+    ;;  }
+    ;;
+    ;; The "arrowed" break statement in `break$n` should be transformed to `resume break$0;`,
+    ;; NOT to `resume break$n;`; the latter would result in an infinite loop.
     (let* ((break-k (genvar "break"))
            (continue-k (genvar "continue"))
-           (break-k-fn  (make-function-decl 
-                         :name break-k
-                         :body (tx-cps statement-tail nil)))
+           (break-k-decl (make-named-continuation break-k statement-tail))
            (*nearest-break* break-k)
            (*nearest-continue* continue-k))
       (when-let (label (source-element-label elm))
         (add-binding (concatenate 'string label "$break") break-k)
         (add-binding (concatenate 'string label "$continue") continue-k))
       (values
-       (single-statement
-        (make-function-decl :name continue-k :body (tx-cps (statement-block-statements (while-body elm)) nil))
-        break-k-fn
+       (list
+        ;; On other other hand, the continue continuation should be transformed inside the scope
+        ;; of the continue binding, because a `continue` inside of a continue continuation should
+        ;; restart the same continuation, not some other continuation.
+        (make-named-continuation continue-k (statement-block-statements (while-body elm)))
+        break-k-decl
         (make-resume-statement :target (make-identifier :name continue-k)))
        t))))
 
@@ -346,22 +370,20 @@
     (if (null statement-tail)
       (call-next-method)
       (let* ((if-k-name (genvar "ifK"))
-             (if-k-fn (make-function-decl :name if-k-name
-                                          :body (tx-cps statement-tail nil)))
+             (if-k-decl (make-named-continuation if-k-name statement-tail))
              (if-k-resume (make-resume-statement :target (make-identifier :name if-k-name))))
         (values
          (list
           (make-if-statement :condition (tx-cps condition nil)
                              :then-statement (tx-cps (single-statement then-statement if-k-resume) nil)
                              :else-statement (tx-cps (single-statement else-statement if-k-resume) nil))
-          if-k-fn)
+          if-k-decl)
          t)))))
 
 (defmethod tx-cps ((elm switch) statement-tail)
   (with-added-environment
     (let* ((switch-k-name (genvar "switchK"))
-           (switch-k-var (make-var-init switch-k-name
-                                        (make-function-expression :body (tx-cps statement-tail nil))))
+           (switch-k-decl (make-named-continuation switch-k-name statement-tail))
            (*nearest-break* switch-k-name)
            (terminated-clauses (compute-terminated-clauses (switch-clauses elm))))
       (when-let (label (switch-label elm))
@@ -372,14 +394,15 @@
                      :clauses (mapcar (lambda (elm)
                                         (tx-cps elm nil))
                                       terminated-clauses))
-        switch-k-var)
+        switch-k-decl)
        t))))
                                                                   
 (defun compute-terminated-clauses (clause-list)
   "Takes a list of switch clauses that may or may not be terminated (eg, by a break statement),
    and returns a list of clauses with equivalent effects that are more suitable for cps translation.
    Specifically:
-     1) Terminated clauses are returned unchanged.
+     1) Terminated clauses are returned unchanged.  A terminated clause is one which is terminated
+        in all its control paths.
      2) 'Null clauses' (ie, clauses with no body) are also returned unchanged so long as they aren't
         the final clause.  If they are the final clause, their body is set to a single break statement.
      3) Unterminated clauses have the body of each following clause appended to them (up to and including

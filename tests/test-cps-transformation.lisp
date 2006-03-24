@@ -71,10 +71,10 @@
           return bar(function(dummy$3) { resume ifK$0; });
         }
   
-        function ifK$0()
+        var ifK$0 = function()
         {
           return baz(function(dummy$1) { return $k(); });
-        }
+        };
       }"))
 
 (deftest cps/asymmetric-dangling-tail/1 :notes cps
@@ -112,10 +112,10 @@
                             }, n-1);
         }
 
-        function ifK$0()
+        var ifK$0 = function()
         {
           return $k(retVal);
-        }
+        };
       }"))
   
 (deftest cps/post-function-dangling-tail/1 :notes cps
@@ -399,6 +399,85 @@
         };
       }"))
   
+(deftest cps/simple-loop/1 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+      while(true)
+      {
+        if(x++ > 10)
+          break;
+        output(x);
+        continue;
+      }
+      return 10;")))
+  #.(parse "
+      var continue$1 = function()
+      {
+        if(x++ > 10)
+          {resume break$0;} //TODO
+        else
+          resume ifK$2;
+        var ifK$2 = function()
+        {
+          return output(function(dummy$3) { resume continue$1; }, x);
+        };
+      };
+      var break$0 = function()
+      {
+        return $k(10);
+      };
+      resume continue$1;"))
+
+(deftest cps/nested-loop/1 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+      outer:
+      while(true)
+      {
+        if(x++ > 10)
+          break;
+        inner:
+        while(true)
+        {
+          if(y++ > 10)
+            break;
+          continue;
+        }
+        continue;
+      }
+      return 10;")))
+  #.(parse "
+      var continue$1 = function()
+      {
+        if(x++ > 10)
+          {resume break$0;} //TODO
+        else
+          resume ifK$2;
+        var ifK$2 = function()
+        {
+          var continue$4 = function()
+          {
+            if(y++ > 10)
+              {resume break$3;} //TODO
+            else
+              resume ifK$5;
+            var ifK$5 = function()
+            {
+              resume continue$4;
+            };
+          };
+          var break$3 = function() { resume continue$1; };
+          resume continue$4;
+        };
+      };
+      var break$0 = function()
+      {
+        return $k(10);
+      };
+      resume continue$1;"))
+     
+      
+
 (deftest cps/tail-fn-call/1 :notes cps
   (with-fresh-genvar
     (in-local-scope
@@ -508,11 +587,11 @@
         resume ifK$0;
       }
       
-      function ifK$0()
+      var ifK$0 = function()
       {
         z = 20;
         return $k();
-      }
+      };
     }"))
 
 ;; `suspend` and `resume` are handled by the TRAMPOLINE transformation.
