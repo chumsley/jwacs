@@ -280,35 +280,37 @@
     (otherwise
      nil)))
 
-;;;; Convenience functions
-
+;;;; ======= Convenience functions =================================================================
 (defun make-var-init (var-name init-value)
   "Create a VAR-DECL-STATEMENT that initializes a variable named VAR-NAME to INIT-VALUE"
   (make-var-decl-statement :var-decls
                            (list (make-var-decl :name var-name :initializer init-value))))
+
+(defun combine-statements (&rest elm-arguments)
+  "Combine ELM-ARGUMENTS into a single list, stripping out statement-blocks
+   if necessary"
+  (labels ((combine (elm-arguments)
+    (cond
+      ((null elm-arguments)
+       nil)
+      ((listp (car elm-arguments))
+       (append (car elm-arguments)
+               (combine (cdr elm-arguments))))
+      ((statement-block-p (car elm-arguments))
+       (append (statement-block-statements (car elm-arguments))
+               (combine (cdr elm-arguments))))
+      (t
+       (cons (car elm-arguments)
+             (combine (cdr elm-arguments)))))))
+    (combine elm-arguments)))
 
 (defun single-statement (&rest elm-arguments)
   "Takes a list of source elements and distills them into a single statement.
    If there is only one statement once all the lists have been flattened and
    the statement-blocks pulled apart, then returns that single statement.
    Otherwise, wraps the entire flattened sequence in a statement-block."
-  (labels ((combine (elm-arguments)
-             "Combine ELM-ARGUMENTS into a single list, stripping out statement-blocks
-              if necessary"
-             (cond
-               ((null elm-arguments)
-                nil)
-               ((listp (car elm-arguments))
-                (append (car elm-arguments)
-                        (combine (cdr elm-arguments))))
-               ((statement-block-p (car elm-arguments))
-                (append (statement-block-statements (car elm-arguments))
-                        (combine (cdr elm-arguments))))
-               (t
-                (cons (car elm-arguments)
-                      (combine (cdr elm-arguments)))))))
-    (let ((statement-list (combine elm-arguments)))
-      (if (> (length statement-list) 1)
-        (make-statement-block :statements statement-list)
-        (first statement-list)))))
+  (let ((statement-list (apply #'combine-statements elm-arguments)))
+    (if (> (length statement-list) 1)
+      (make-statement-block :statements statement-list)
+      (first statement-list))))
 
