@@ -345,7 +345,7 @@
                          *nearest-break*)))
     (values
      (make-resume-statement :target (make-identifier :name break-name))
-     t)))
+     nil)))
 
 (defmethod tx-cps ((elm continue-statement) statement-tail)
   (declare (ignore statement-tail))
@@ -354,7 +354,7 @@
                             *nearest-continue*)))
     (values
      (make-resume-statement :target (make-identifier :name continue-name))
-     t)))
+     nil)))
 
 ;;;================================================================================
 ;;;; Branch statements
