@@ -351,7 +351,7 @@
         var y = ['str', x, 100];"))))
   ("String"))
 
-(deftest type-analysis/property-access/array-literals/1 :notes type-analysis
+(deftest type-analysis/property-access/array-literals/2 :notes type-analysis
   (type-names
    (compute-types
     #s(property-access :target #s(identifier :name "y")

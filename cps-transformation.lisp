@@ -473,12 +473,6 @@
   (declare (ignore statement-tail))
   (values elm nil))
 
-(defun make-keyword (x)
-  "Makes a keyword out of a symbol."
-  (if (keywordp x)
-    x
-    (intern (symbol-name x) 'keyword)))
-
 (defmethod tx-cps ((elm source-element) statement-tail)
   (let ((consumed nil))
     (flet ((slot-tx (slot-elm)
