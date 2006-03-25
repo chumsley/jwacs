@@ -359,26 +359,85 @@
 ;;;================================================================================
 ;;;; Branch statements
 
-;; We generate a named continuation for the statment-tail that follows the if statement
-;; to prevent having to duplicate the tail in continuations in the then- and else-clauses.
-;; In theory, duplicating the tail for each if statement code cause the code to grow
-;; exponentially in the number of if statements (since each if statement would lead to a
-;; doubling of code), which is plainly undesirable.  We use a similar technique for switch
-;; statements.
+;; Because if statements are so common, we want to be sure that their output is
+;; pretty close to optimal.  In particular, we don't want to output a non-null
+;; statement-tail more than once, but we also don't want to generate a named
+;; continuation unless absolutely necessary.
 (defmethod tx-cps ((elm if-statement) statement-tail)
-  (with-slots (condition then-statement else-statement) elm
-    (if (null statement-tail)
-      (call-next-method)
-      (let* ((if-k-name (genvar "ifK"))
-             (if-k-decl (make-named-continuation if-k-name statement-tail))
-             (if-k-resume (make-resume-statement :target (make-identifier :name if-k-name))))
-        (values
-         (list
-          (make-if-statement :condition (tx-cps condition nil)
-                             :then-statement (tx-cps (single-statement then-statement if-k-resume) nil)
-                             :else-statement (tx-cps (single-statement else-statement if-k-resume) nil))
-          if-k-decl)
-         t)))))
+
+  (if (null statement-tail)
+    ;; No special handling is required when there's no statement tail
+    (call-next-method)
+    (with-slots (condition then-statement else-statement) elm
+      (let ((then-terminated (explicitly-terminated-p then-statement
+                                                      '(:return :throw :break :continue :resume :suspend)))
+            (else-terminated (explicitly-terminated-p else-statement
+                                                      '(:return :throw :break :continue :resume :suspend))))
+        (cond
+          ;; If the then-statement is terminated and there is no else clause, then there
+          ;; is no statement-tail handling required except for denying the then branch the
+          ;; statement tail
+          ((and then-terminated (null else-statement))
+           (values
+              (make-if-statement :condition (tx-cps condition nil)
+                                 :then-statement (single-statement (tx-cps then-statement nil)))
+              nil))
+
+          ;; In the case where one branch is terminated and the other isn't, the unterminated
+          ;; branch gets the statement-tail and the terminated branch doesn't (because it doesn't
+          ;; need it)
+          ((and then-terminated (not else-terminated))
+           (multiple-value-bind (tx-else else-consumed)
+               (tx-cps else-statement statement-tail)
+             (values
+              (make-if-statement :condition (tx-cps condition nil)
+                                 :then-statement (single-statement (tx-cps then-statement nil))
+                                 :else-statement (single-statement tx-else))
+              else-consumed)))
+          
+          ((and (not then-terminated) else-terminated)
+           (multiple-value-bind (tx-then then-consumed)
+               (tx-cps then-statement statement-tail)
+             (values
+              (make-if-statement :condition (tx-cps condition nil)
+                                 :then-statement (single-statement tx-then)
+                                 :else-statement (single-statement (tx-cps else-statement nil)))
+              then-consumed)))
+          
+          ;; In the case where both branches are terminated, we don't consume the statement-tail
+          ;; at all (because neither branch needs it)
+          ((and then-terminated else-terminated)
+           (multiple-value-bind (tx-then then-consumed)
+               (tx-cps then-statement statement-tail)
+             (multiple-value-bind (tx-else else-consumed)
+                 (tx-cps else-statement statement-tail)
+               (assert (not then-consumed))
+               (assert (not else-consumed))
+               (values
+                (make-if-statement :condition (tx-cps condition nil)
+                                   :then-statement (single-statement tx-then)
+                                   :else-statement (single-statement tx-else))
+                (or then-consumed else-consumed)))))
+
+          ;; When neither branch is terminated and a non-null else branch exists,
+          ;; we need to generate a labelled continuation.
+          ;; TODO We could further optimize this to only use a named continuation if
+          ;; both statements actually /consume/ the tail.
+          ((and (not then-terminated) (not else-terminated))
+           (let* ((if-k-name (genvar "ifK"))
+                  (if-k-decl (make-named-continuation if-k-name statement-tail))
+                  (if-k-resume (make-resume-statement :target (make-identifier :name if-k-name))))
+             (values
+              (list
+               (make-if-statement :condition (tx-cps condition nil)
+                                  :then-statement (single-statement
+                                                   (tx-cps (combine-statements then-statement if-k-resume)
+                                                           nil))
+                                  :else-statement (single-statement
+                                                   (tx-cps (combine-statements else-statement if-k-resume)
+                                                           nil)))
+               if-k-decl)
+              t))))))))
 
 (defmethod tx-cps ((elm switch) statement-tail)
   (with-added-environment

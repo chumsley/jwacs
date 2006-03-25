@@ -63,13 +63,9 @@
       function doStuff($k, branch)
       {
         if(branch)
-        {
           return foo(function(dummy$2) { resume ifK$0; });
-        }
         else
-        {
           return bar(function(dummy$3) { resume ifK$0; });
-        }
   
         var ifK$0 = function()
         {
@@ -103,14 +99,12 @@
           resume ifK$0;
         }
         else
-        {
           return factorial2(function (r1)
                             {
                               var r2 = n * r1;
                               retVal = r2;
                               resume ifK$0;
                             }, n-1);
-        }
 
         var ifK$0 = function()
         {
@@ -118,6 +112,136 @@
         };
       }"))
   
+(deftest cps/if/unreachable-tail/1 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+      function foo(userK)
+      {
+        if(x)
+          return 40;
+        else
+          resume userK;
+        output('this will never be seen');
+      }")))
+  #.(parse "
+      function foo($k, userK)
+      {
+        if(x)
+          return $k(40);
+        else
+          resume userK;
+        return output(function(dummy$0) { return $k(); }, 'this will never be seen');
+      }"))
+
+(deftest cps/if/terminated-then-null-else/1 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+      function foo(userK)
+      {
+        if(x)
+        {
+          if(y)
+            return 80;
+          else
+            resume userK <- 80;
+        }
+        output('might see this');
+      }")))
+  #.(parse "
+      function foo($k, userK)
+      {
+        if(x)
+          if(y)
+            return $k(80);
+          else
+            resume userK <- 80;
+        return output(function(dummy$0) { return $k(); }, 'might see this');
+      }"))
+
+(deftest cps/if/terminated-then-null-else/2 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+      function foo(x)
+      {
+        if(x)
+        {
+          output('yes');
+          return true;
+        }
+        output('no');
+      }")))
+  #.(parse "
+      function foo($k, x)
+      {
+        if(x)
+          return output(function(dummy$0) { return $k(true); }, 'yes');
+        return output(function(dummy$1) { return $k(); }, 'no');
+      }"))
+
+
+(deftest cps/if/terminated-then-unterminated-else/1 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+      function foo(userK)
+      {
+        if(x)
+        {
+          if(y)
+            return 80;
+          else
+            resume userK <- 80;
+        }
+        else
+          output('also this');
+        output('might see this');
+      }")))
+  #.(parse "
+      function foo($k, userK)
+      {
+        if(x)
+          if(y)
+            return $k(80);
+          else
+            resume userK <- 80;
+        else
+          return output(function(dummy$0) {
+                                return output(function(dummy$1) { return $k(); },
+                                              'might see this');
+                        }, 'also this');
+      }"))
+      
+(deftest cps/if/unterminated-then-terminated-else/1 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+      function foo(userK)
+      {
+        if(x)
+          output('also this');
+        else
+        {
+          if(y)
+            return 80;
+          else
+            resume userK <- 80;
+        }
+          
+        output('might see this');
+      }")))
+  #.(parse "
+      function foo($k, userK)
+      {
+        if(x)
+          return output(function(dummy$0) {
+                                return output(function(dummy$1) { return $k(); },
+                                              'might see this');
+                        }, 'also this');
+        else
+          if(y)
+            return $k(80);
+          else
+            resume userK <- 80;
+      }"))     
+
 (deftest cps/post-function-dangling-tail/1 :notes cps
   (with-fresh-genvar
     (test-transform 'cps (parse "
@@ -414,13 +538,8 @@
       var continue$1 = function()
       {
         if(x++ > 10)
-          {resume break$0;} //TODO
-        else
-          resume ifK$2;
-        var ifK$2 = function()
-        {
-          return output(function(dummy$3) { resume continue$1; }, x);
-        };
+          resume break$0;
+        return output(function(dummy$2) { resume continue$1; }, x);
       };
       var break$0 = function()
       {
@@ -450,25 +569,15 @@
       var continue$1 = function()
       {
         if(x++ > 10)
-          {resume break$0;} //TODO
-        else
-          resume ifK$2;
-        var ifK$2 = function()
+          resume break$0;
+        var continue$3 = function()
         {
-          var continue$4 = function()
-          {
-            if(y++ > 10)
-              {resume break$3;} //TODO
-            else
-              resume ifK$5;
-            var ifK$5 = function()
-            {
-              resume continue$4;
-            };
-          };
-          var break$3 = function() { resume continue$1; };
-          resume continue$4;
+          if(y++ > 10)
+            resume break$2;
+          resume continue$3;
         };
+        var break$2 = function() { resume continue$1; };
+        resume continue$3;
       };
       var break$0 = function()
       {
@@ -476,7 +585,89 @@
       };
       resume continue$1;"))
      
-      
+(deftest cps/nested-loop/2 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+      outer:
+      while(true)
+      {
+        if(x++ > 10)
+          break outer;
+        inner:
+        while(true)
+        {
+          if(y++ > 10)
+            break inner;
+          if(y % 2 == 0)
+            break outer;
+          continue inner;
+        }
+        continue outer;
+      }
+      return 10;")))
+  #.(parse "
+      var continue$1 = function()
+      {
+        if(x++ > 10)
+          resume break$0;
+        var continue$3 = function()
+        {
+          if(y++ > 10)
+            resume break$2;
+          if(y % 2 == 0)
+            resume break$0;
+          resume continue$3;
+        };
+        var break$2 = function() { resume continue$1; };
+        resume continue$3;
+      };
+      var break$0 = function()
+      {
+        return $k(10);
+      };
+      resume continue$1;"))      
+
+(deftest cps/nested-loop/3 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+      outer:
+      while(true)
+      {
+        if(x++ > 10)
+          break outer;
+        inner:
+        while(true)
+        {
+          if(y++ > 10)
+            break inner;
+          if(y % 2 == 0)
+            continue outer;
+          continue inner;
+        }
+        continue outer;
+      }
+      return 10;")))
+  #.(parse "
+      var continue$1 = function()
+      {
+        if(x++ > 10)
+          resume break$0;
+        var continue$3 = function()
+        {
+          if(y++ > 10)
+            resume break$2;
+          if(y % 2 == 0)
+            resume continue$1;
+          resume continue$3;
+        };
+        var break$2 = function() { resume continue$1; };
+        resume continue$3;
+      };
+      var break$0 = function()
+      {
+        return $k(10);
+      };
+      resume continue$1;"))
 
 (deftest cps/tail-fn-call/1 :notes cps
   (with-fresh-genvar
@@ -578,9 +769,7 @@
     function foo($k)
     {
       if(x)
-      {
         return bar(function(dummy$1) { resume ifK$0; });
-      }
       else
       {
         y = 10;
