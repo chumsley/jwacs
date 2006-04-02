@@ -62,15 +62,14 @@
   #.(parse "
       function doStuff($k, branch)
       {
-        if(branch)
-          return foo(function(dummy$2) { resume ifK$0; });
-        else
-          return bar(function(dummy$3) { resume ifK$0; });
-  
         var ifK$0 = function()
         {
           return baz(function(dummy$1) { return $k(); });
         };
+        if(branch)
+          return foo(function(dummy$2) { resume ifK$0; });
+        else
+          return bar(function(dummy$3) { resume ifK$0; });
       }"))
 
 (deftest cps/asymmetric-dangling-tail/1 :notes cps
@@ -93,6 +92,10 @@
       function factorial2($k, n)
       {
         var retVal;
+        var ifK$0 = function()
+        {
+          return $k(retVal);
+        };
         if(n == 0)
         {
           retVal = 1;
@@ -105,11 +108,6 @@
                               retVal = r2;
                               resume ifK$0;
                             }, n-1);
-
-        var ifK$0 = function()
-        {
-          return $k(retVal);
-        };
       }"))
   
 (deftest cps/if/unreachable-tail/1 :notes cps
@@ -325,6 +323,10 @@
   #.(parse "
       function foo($k, x)
       {
+        var switchK$0 = function()
+        {
+          return baz($k);
+        };
         switch(x)
         {
           case 1:
@@ -332,10 +334,6 @@
           default:
             return $k(88);
         }
-        var switchK$0 = function()
-        {
-          return baz($k);
-        };
       }"))
 
 (deftest cps/switch-statement/2 :notes cps
@@ -354,6 +352,10 @@
   #.(parse "
       function foo($k, x)
       {
+        var switchK$0 = function()
+        {
+          return baz($k, x + 2);
+        };
         switch(x)
         {
           case 10:
@@ -361,10 +363,6 @@
           default:
             resume switchK$0;
         }
-        var switchK$0 = function()
-        {
-          return baz($k, x + 2);
-        };
       }"))
 
 (deftest cps/switch-statement/3 :notes cps
@@ -382,6 +380,10 @@
   #.(parse "
       function foo($k, x)
       {
+        var switchK$0 = function()
+        {
+          return baz($k, x + 2);
+        };
         switch(x)
         {
           case 10:
@@ -389,10 +391,6 @@
           default:
             resume switchK$0;
         }
-        var switchK$0 = function()
-        {
-          return baz($k, x + 2);
-        };
       }"))
 
 (deftest cps/switch-statement/4 :notes cps
@@ -413,6 +411,10 @@
   #.(parse "
       function foo($k, x)
       {
+        var switchK$0 = function()
+        {
+          return baz($k, x - 1);
+        };
         switch(x)
         {
           case 10:
@@ -423,10 +425,6 @@
           default:
             resume switchK$0;
         }
-        var switchK$0 = function()
-        {
-          return baz($k, x - 1);
-        };
       }"))
         
 (deftest cps/labelled-switch/1 :notes cps
@@ -453,9 +451,17 @@
   #.(parse "
       function foo($k, x, y)
       {
+        var switchK$0 = function()
+        {
+          return doAlways($k);
+        };
         switch(x)
         {
           case 10:
+            var switchK$1 = function()
+            {
+              return doSomethingElse(function(dummy$2) { resume switchK$0; });
+            };
             switch(y)
             {
               case 20:
@@ -463,17 +469,9 @@
               default:
                 resume switchK$1;
             }
-            var switchK$1 = function()
-            {
-              return doSomethingElse(function(dummy$2) { resume switchK$0; });
-            };
           default:
             resume switchK$0;
         }
-        var switchK$0 = function()
-        {
-          return doAlways($k);
-        };
       }"))
 
 (deftest cps/labelled-switch/2 :notes cps
@@ -500,9 +498,17 @@
   #.(parse "
       function foo($k, x, y)
       {
+        var switchK$0 = function()
+        {
+          return doAlways($k);
+        };
         switch(x)
         {
           case 10:
+            var switchK$1 = function()
+            {
+              return doSomethingElse(function(dummy$2) { resume switchK$0; });
+            };
             switch(y)
             {
               case 20:
@@ -510,17 +516,9 @@
               default:
                 resume switchK$1;
             }
-            var switchK$1 = function()
-            {
-              return doSomethingElse(function(dummy$2) { resume switchK$0; });
-            };
           default:
             resume switchK$0;
         }
-        var switchK$0 = function()
-        {
-          return doAlways($k);
-        };
       }"))
   
 (deftest cps/simple-loop/1 :notes cps
@@ -535,15 +533,15 @@
       }
       return 10;")))
   #.(parse "
+      var break$0 = function()
+      {
+        return $k(10);
+      };
       var continue$1 = function()
       {
         if(x++ > 10)
           resume break$0;
         return output(function(dummy$2) { resume continue$1; }, x);
-      };
-      var break$0 = function()
-      {
-        return $k(10);
       };
       resume continue$1;"))
 
@@ -566,22 +564,22 @@
       }
       return 10;")))
   #.(parse "
+      var break$0 = function()
+      {
+        return $k(10);
+      };
       var continue$1 = function()
       {
         if(x++ > 10)
           resume break$0;
+        var break$2 = function() { resume continue$1; };
         var continue$3 = function()
         {
           if(y++ > 10)
             resume break$2;
           resume continue$3;
         };
-        var break$2 = function() { resume continue$1; };
         resume continue$3;
-      };
-      var break$0 = function()
-      {
-        return $k(10);
       };
       resume continue$1;"))
      
@@ -606,10 +604,15 @@
       }
       return 10;")))
   #.(parse "
+      var break$0 = function()
+      {
+        return $k(10);
+      };
       var continue$1 = function()
       {
         if(x++ > 10)
           resume break$0;
+        var break$2 = function() { resume continue$1; };
         var continue$3 = function()
         {
           if(y++ > 10)
@@ -618,12 +621,7 @@
             resume break$0;
           resume continue$3;
         };
-        var break$2 = function() { resume continue$1; };
         resume continue$3;
-      };
-      var break$0 = function()
-      {
-        return $k(10);
       };
       resume continue$1;"))      
 
@@ -648,10 +646,15 @@
       }
       return 10;")))
   #.(parse "
+      var break$0 = function()
+      {
+        return $k(10);
+      };
       var continue$1 = function()
       {
         if(x++ > 10)
           resume break$0;
+        var break$2 = function() { resume continue$1; };
         var continue$3 = function()
         {
           if(y++ > 10)
@@ -660,12 +663,7 @@
             resume continue$1;
           resume continue$3;
         };
-        var break$2 = function() { resume continue$1; };
         resume continue$3;
-      };
-      var break$0 = function()
-      {
-        return $k(10);
       };
       resume continue$1;"))
 
@@ -768,6 +766,11 @@
   #.(parse "
     function foo($k)
     {
+      var ifK$0 = function()
+      {
+        z = 20;
+        return $k();
+      };
       if(x)
         return bar(function(dummy$1) { resume ifK$0; });
       else
@@ -775,12 +778,6 @@
         y = 10;
         resume ifK$0;
       }
-      
-      var ifK$0 = function()
-      {
-        z = 20;
-        return $k();
-      };
     }"))
 
 ;; `suspend` and `resume` are handled by the TRAMPOLINE transformation.

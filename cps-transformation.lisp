@@ -333,8 +333,8 @@
         ;; On other other hand, the continue continuation should be transformed inside the scope
         ;; of the continue binding, because a `continue` inside of a continue continuation should
         ;; restart the same continuation, not some other continuation.
-        (make-named-continuation continue-k (statement-block-statements (while-body elm)))
         break-k-decl
+        (make-named-continuation continue-k (statement-block-statements (while-body elm)))
         (make-resume-statement :target (make-identifier :name continue-k)))
        t))))
 
@@ -429,14 +429,14 @@
                   (if-k-resume (make-resume-statement :target (make-identifier :name if-k-name))))
              (values
               (list
+               if-k-decl
                (make-if-statement :condition (tx-cps condition nil)
                                   :then-statement (single-statement
                                                    (tx-cps (combine-statements then-statement if-k-resume)
                                                            nil))
                                   :else-statement (single-statement
                                                    (tx-cps (combine-statements else-statement if-k-resume)
-                                                           nil)))
-               if-k-decl)
+                                                           nil))))
               t))))))))
 
 (defmethod tx-cps ((elm switch) statement-tail)
@@ -449,11 +449,11 @@
         (add-binding (concatenate 'string label "$break") switch-k-name))
       (values
        (list
+        switch-k-decl
         (make-switch :value (tx-cps (switch-value elm) nil)
                      :clauses (mapcar (lambda (elm)
                                         (tx-cps elm nil))
-                                      terminated-clauses))
-        switch-k-decl)
+                                      terminated-clauses)))
        t))))
                                                                   
 (defun compute-terminated-clauses (clause-list)
