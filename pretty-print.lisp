@@ -129,7 +129,12 @@
         do
         (unless (zerop idx)
           (format s ",~a" *opt-space*))
-        (pretty-print (car name/value) s)
+
+        ;; Special case: print string field names in identifier form
+        (if (string-literal-p (car name/value))
+          (pretty-print (string-literal-value (car name/value)) s)
+          (pretty-print (car name/value) s))
+
         (format s ":~a" *opt-space*)
         (pretty-print (cdr name/value) s))
   (format s "}"))

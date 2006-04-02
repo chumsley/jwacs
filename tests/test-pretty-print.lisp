@@ -398,22 +398,31 @@ finally
 
 ;;  TODO Add test case(s) for function expressions (at least one for single-line and one for multi-line)
 
-(deftest pretty-print/suspend-statement/1 :note pretty-print
+(deftest pretty-print/object-literal/1 :notes pretty-print
+  (pretty-string
+   (make-object-literal :properties (list
+                                     (cons (make-string-literal :value "foo")
+                                           (make-numeric-literal :value 10))
+                                     (cons (make-string-literal :value "bar")
+                                           (make-numeric-literal :value 20)))))
+  "{foo: 10, bar: 20}")
+
+(deftest pretty-print/suspend-statement/1 :notes pretty-print
   (pretty-string
    (make-suspend-statement))
   "suspend")
 
-(deftest pretty-print/function_continuation/1 :note pretty-print
+(deftest pretty-print/function_continuation/1 :notes pretty-print
   (pretty-string
    (make-special-value :symbol :function_continuation))
   "function_continuation")
 
-(deftest pretty-print/resume-statement/1 :note pretty-print
+(deftest pretty-print/resume-statement/1 :notes pretty-print
   (pretty-string
    (make-resume-statement :target (make-fn-call :fn foo-id :args (list bar-id))))
   "resume foo(bar)")
 
-(deftest pretty-print/resume-statement/2 :note pretty-print
+(deftest pretty-print/resume-statement/2 :notes pretty-print
   (pretty-string
    (make-resume-statement :target (make-property-access :target foo-id
                                                         :field #s(string-literal :value "bar"))
