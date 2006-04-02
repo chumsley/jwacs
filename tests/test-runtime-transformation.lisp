@@ -114,3 +114,20 @@
                               }), 50);
         }
         foo.$jw = true;"))
+
+(deftest runtime/indirected-call/3 :notes runtime
+  (with-fresh-genvar
+    (transform 'runtime
+               (transform 'cps (parse "
+        function foo()
+        {
+          return Foo.Bar.Baz(10, 20);
+        }"))))
+  #.(parse "
+        function foo($k)
+        {
+          if(!$k || !$k.$isK)
+            return $callFromDirect(foo, this, arguments);
+          return $call0('Baz', $k, Foo.Bar, 10, 20);
+        }
+        foo.$jw = true;"))

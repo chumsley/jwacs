@@ -165,7 +165,9 @@
            (transform 'runtime elm)))
     (let ((this-obj (if (property-access-p (fn-call-fn elm))
                       (runtime-transform (property-access-target (fn-call-fn elm)))
-                      (make-special-value :symbol :null))))
+                      (make-special-value :symbol :null)))
+          (method-name (when (property-access-p (fn-call-fn elm))
+                         (property-access-field (fn-call-fn elm)))))
       (assert (or (continuation-function-p (first (fn-call-args elm))) ; First argument is a new continuation
                   (equalp *cont-id* (first (fn-call-args elm))) ; First argument is the function's continuation
                   (equalp *cont-id* (fn-call-fn elm)))) ; Call's target is the function's continuation
@@ -178,7 +180,9 @@
          (make-fn-call :fn *call0-fn*
                        :args (append
                               (list
-                               (runtime-transform (fn-call-fn elm))
+                               (if method-name
+                                 (runtime-transform method-name)
+                                 (runtime-transform (fn-call-fn elm)))
                                (runtime-transform (first (fn-call-args elm)))
                                this-obj)
                               (mapcar #'runtime-transform
