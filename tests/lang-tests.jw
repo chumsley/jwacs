@@ -1,0 +1,95 @@
+/// lang-tests.jw
+//
+// Contains unit tests written in jwacs.
+// Run the tests by running the `runTests` function.
+// A DOM element with the id 'testOutput' is assumed to exist.
+
+
+/// ======= Test utilities ===================================================================
+// Functions to support the unit tests
+
+// The main entry-point for the test suite
+function runTests()
+{
+	var passed = 0;
+	var failed = 0;
+	
+	// TODO: Maybe we want an "addTest" function that gets called at the toplevel and this
+	// function can just loop over a global or something.
+	runTest("factorial/1", factorial(5), 120);
+	runTest("factorial/2", accFactorial(6, 1), 720);
+	runTest("factorial/3", accFactorial(6), 720);
+
+	output("<hr>");
+	outputLine(bold("Ran " + (passed + failed) + " tests"));
+	outputLine(bold(passed) + " tests passed");
+	outputLine(bold(failed) + " tests failed");
+	
+	//TODO Catch exceptions (easier said than done at the moment)
+	function runTest(testName, actualValue, expectedValue)
+	{
+		if(actualValue == expectedValue)
+		{
+			outputLine(testName + " passed");
+			passed++;
+		}
+		else
+		{
+			outputLine(red(bold(testName + " FAILED")));
+			failed++;
+		}
+	}
+}
+
+function bold(str)
+{
+	return "<b>" + str + "</b>";
+}
+
+function red(str)
+{
+	return "<span style='color:red;'>" + str + "</span>";
+}
+
+function outputLine(line)
+{
+	output(line + "<br>");
+}
+
+function output(string, warningP)
+{
+	//TODO use prototype's $() function instead
+	var elm = document.getElementById('testOutput');
+	var outputHTML = elm.innerHTML;
+	if(warningP)
+		outputHTML += "<b style='color:red;'>";
+	outputHTML += string;
+	if(warningP)
+		outputHTML += "</b>";
+		
+	elm.innerHTML = outputHTML;
+}
+		
+
+/// ======= Test functions ===================================================================
+// The actual functions being tested
+
+function factorial(n)
+{
+	if(n == 0)
+		return 1;
+	else
+		return n * factorial(n - 1);
+}
+
+function accFactorial(n, acc)
+{
+	if(!acc)
+		return accFactorial(n, 1);
+		
+	if(n == 0)
+		return acc;
+	else
+		return accFactorial(n - 1, n * acc);
+}
+
