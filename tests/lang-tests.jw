@@ -21,7 +21,11 @@ function runTests()
 	runTest("factorial/3", accFactorial(6), 720);
   runTest("multishot/1", testMultiShotContinuations(), 50);
   runTest("suspend/1", testSuspend(), true);
-  
+  runTest("for-in/1", smooshObject({a:10, b:20, c:30}), "abc=60");
+  runTest("for/1", matrixReduce([[10, 20, 30], [10, 20, 30]]), 120);
+  runTest("for/2", matrixReduce([]), 0);
+  runTest("for/3", matrixReduce([[10, 20], [1]]), null);
+
 	output("<hr>");
 	outputLine(bold("Ran " + (passed + failed) + " tests"));
 	outputLine(bold(passed) + " tests passed");
@@ -117,9 +121,9 @@ function saveK()
 
 function testSuspend()
 {
-  outputLine("[running testSuspend, testing will pause for 2.5 seconds]");
+  outputLine("[running testSuspend, testing will pause for 1.5 seconds]");
   savedK = function_continuation;
-  setTimeout(restoreSavedK, 2500);
+  setTimeout(restoreSavedK, 1500);
   suspend;
 }
 
@@ -128,4 +132,38 @@ function restoreSavedK()
   var localK = savedK;
   savedK = null;
   resume localK <- true;
+}
+
+function smooshObject(obj)
+{
+  var concatKey = "";
+  var sumVal = 0;
+  for(var key in obj)
+  {
+    concatKey += key;
+    sumVal += obj[key];
+  }
+
+  resume function_continuation <- concatKey + "=" + sumVal;
+}
+
+function matrixReduce(m)
+{
+  var previousRowLength = null;
+  var sum = 0;
+  for(var i = 0; i < m.length; i++)
+  {
+    if(previousRowLength == null)
+      previousRowLength = m[i].length;
+    else
+    {
+      if(previousRowLength != m[i].length)
+        return null;
+    }
+
+    for(var j = 0; j < m[i].length; j++)
+      sum += m[i][j];
+  }
+
+  return sum;
 }
