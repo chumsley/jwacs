@@ -19,7 +19,9 @@ function runTests()
 	runTest("factorial/1", factorial(5), 120);
 	runTest("factorial/2", accFactorial(6, 1), 720);
 	runTest("factorial/3", accFactorial(6), 720);
-
+  runTest("multishot/1", testMultiShotContinuations(), 50);
+  runTest("suspend/1", testSuspend(), true);
+  
 	output("<hr>");
 	outputLine(bold("Ran " + (passed + failed) + " tests"));
 	outputLine(bold(passed) + " tests passed");
@@ -93,3 +95,37 @@ function accFactorial(n, acc)
 		return accFactorial(n - 1, n * acc);
 }
 
+var savedK = null;
+function testMultiShotContinuations()
+{
+  var x = 0;
+  x += saveK();
+  if(savedK != null)
+  {
+    var k = savedK;
+    savedK = null;
+    resume k <- 40;
+  }
+  return x;
+}
+
+function saveK()
+{
+  savedK = function_continuation;
+  return 10;
+}
+
+function testSuspend()
+{
+  outputLine("[running testSuspend, testing will pause for 2.5 seconds]");
+  savedK = function_continuation;
+  setTimeout(restoreSavedK, 2500);
+  suspend;
+}
+
+function restoreSavedK()
+{
+  var localK = savedK;
+  savedK = null;
+  resume localK <- true;
+}
