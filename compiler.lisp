@@ -28,11 +28,10 @@
 (defun parse-file (path)
   "Load the file at PATH and parse it into a js/jw source model"
   (with-open-file (in path :direction :input :if-does-not-exist :error)
-    (let ((text (loop for line = (read-line in nil nil nil)
+    (let ((text (with-output-to-string (str)
+                  (loop for line = (read-line in nil nil nil)
                       until (null line)
-                      collect line into lines
-                      collect (format nil "~%") into lines
-                      finally (return (apply 'concatenate 'string lines)))))
+                      do (format str "~A~%" line)))))
       (parse text))))
 
 (defun process (pathspecs &key out-path (include-runtime t) (pretty-output t))
