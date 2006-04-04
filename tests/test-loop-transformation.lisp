@@ -51,6 +51,25 @@
                (parse "for(var x=0; x<10; x++) { var y=0; foo();}"))
     #.(parse "{ var y; var x=0; while(true) { if(!(x<10)) break; y=0; foo(); x++; continue; } }"))
 
+(deftest canonicalize/for/single-statement :notes loop-canonicalize
+  (with-fresh-genvar
+    (transform 'loop-canonicalize
+               (parse "
+        for(var x = 0; x < 10; x++)
+          output(x);")))
+  #.(parse "
+        {
+          var x = 0;
+          while(true)
+          {
+            if(!(x < 10))
+              break;
+            output(x);
+            x++;
+            continue;
+          }
+        }"))
+            
 ;; ====================================
 ;; DO-WHILE LOOPS
 

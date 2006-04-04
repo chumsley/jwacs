@@ -44,14 +44,14 @@
         (new-while (make-while 
                     :label (source-element-label elm)
                     :condition (make-special-value :symbol :true)
-                    :body (make-statement-block 
-                           :statements (append (list (make-if-statement 
-                                                      :condition (make-unary-operator :op-symbol :logical-not :arg (while-condition elm))
-                                                      :then-statement (make-break-statement :target-label nil)))
-                                               (statement-block-statements (transform 'loop-canonicalize 
-                                                                                      (transform 'loop-canonicalize-in-body 
-                                                                                                 (while-body elm))))
-                                               (list (make-continue-statement :target-label nil)))))))
+                    :body (single-statement
+                           (list (make-if-statement 
+                                  :condition (make-unary-operator :op-symbol :logical-not :arg (while-condition elm))
+                                  :then-statement (make-break-statement :target-label nil)))
+                           (transform 'loop-canonicalize 
+                                      (transform 'loop-canonicalize-in-body 
+                                                 (while-body elm)))
+                           (make-continue-statement :target-label nil)))))
     (if new-decls
       (single-statement (make-var-decl-statement :var-decls new-decls) new-while)
       new-while)))
@@ -100,23 +100,23 @@
          (new-while (make-while
                      :label (source-element-label elm)
                      :condition (make-special-value :symbol :true)
-                     :body (make-statement-block
-                            :statements (append
-                                         (list (make-if-statement
-                                                :condition (make-unary-operator :op-symbol :logical-not :arg (make-identifier :name firstp))
-                                                :then-statement (make-statement-block 
-                                                                 :statements (list (make-if-statement
-                                                                                    :condition (make-unary-operator 
-                                                                                                :op-symbol :logical-not 
-                                                                                                :arg (do-statement-condition elm))
-                                                                                    :then-statement (make-break-statement :label nil))))
-                                                :else-statement (make-binary-operator
-                                                                 :op-symbol :assign
-                                                                 :left-arg (make-identifier :name firstp)
-                                                                 :right-arg (make-special-value :symbol :false))))
-                                           (statement-block-statements (transform 'loop-canonicalize (transform 'loop-canonicalize-in-body (do-statement-body elm))))
-                                           (list (make-continue-statement :label nil)))))))
-    (single-statement
+                     :body (single-statement
+                            (make-if-statement
+                             :condition (make-unary-operator :op-symbol :logical-not :arg (make-identifier :name firstp))
+                             :then-statement (make-statement-block 
+                                              :statements (list (make-if-statement
+                                                                 :condition (make-unary-operator 
+                                                                             :op-symbol :logical-not 
+                                                                             :arg (do-statement-condition elm))
+                                                                 :then-statement (make-break-statement :label nil))))
+                             :else-statement (make-binary-operator
+                                              :op-symbol :assign
+                                              :left-arg (make-identifier :name firstp)
+                                              :right-arg (make-special-value :symbol :false)))
+
+                            (transform 'loop-canonicalize (transform 'loop-canonicalize-in-body (do-statement-body elm)))
+                            (make-continue-statement :label nil)))))
+    (single-statement ;; TODO Use COMBINE-STATEMENTS instead?
      (make-var-decl-statement :var-decls new-decls)
      new-while)))
 
@@ -149,20 +149,21 @@
  (let* ((new-decls (mapcar (lambda (decl)  (make-var-decl :name (var-decl-name decl) :initializer nil))
                            (collect-in-scope (for-body elm) 'var-decl)))
         (new-header-statements (if (null new-decls)
-                                   (list (for-initializer elm))
-                                   (list (make-var-decl-statement :var-decls new-decls)
-                                         (for-initializer elm))))
-       (new-loop (make-while :label (source-element-label elm)
-                             :condition (make-special-value :symbol :true)
-                             :body (make-statement-block 
-                                    :statements (append
-                                                 (list (make-if-statement
-                                                       :condition (make-unary-operator :op-symbol :logical-not :arg (for-condition elm))
-                                                       :then-statement (make-break-statement :target-label nil)))
-                                                 (statement-block-statements (transform 'loop-canonicalize (transform 'loop-canonicalize-in-body (for-body elm))))
-                                                 (list (for-step elm))
-                                                 (list (make-continue-statement :target-label nil)))))))
-   (single-statement new-header-statements new-loop)))
+                                 (list (for-initializer elm))
+                                 (list (make-var-decl-statement :var-decls new-decls)
+                                       (for-initializer elm))))
+        (new-loop (make-while :label (source-element-label elm)
+                              :condition (make-special-value :symbol :true)
+                              :body (single-statement
+                                     (make-if-statement
+                                      :condition (make-unary-operator :op-symbol :logical-not :arg (for-condition elm))
+                                      :then-statement (make-break-statement :target-label nil))
+                                     (transform 'loop-canonicalize (transform 'loop-canonicalize-in-body (for-body elm)))
+                                     (for-step elm)
+                                     (make-continue-statement :target-label nil)))))
+   (single-statement ;TODO Use COMBINE-STATEMENTS instead?
+    new-header-statements
+    new-loop))) 
 
 
 
@@ -175,10 +176,10 @@
 
 (defmethod transform ((xform (eql 'loop-canonicalize-in-body)) (elm var-decl-statement))
   (let ((assignments (mapcar (lambda (var-decl) (awhen (var-decl-initializer var-decl)
-                                                    (make-binary-operator :op-symbol :assign
-                                                                          :left-arg (make-identifier :name (var-decl-name var-decl))
-                                                                          :right-arg it)))
-                                     (var-decl-statement-var-decls elm))))
+                                                  (make-binary-operator :op-symbol :assign
+                                                                        :left-arg (make-identifier :name (var-decl-name var-decl))
+                                                                        :right-arg it)))
+                             (var-decl-statement-var-decls elm))))
     (single-statement assignments)))
 
 
@@ -228,35 +229,32 @@
                                             :right-arg (make-property-access 
                                                         :target (make-identifier :name new-array)
                                                         :field (make-string-literal :value "length")))
-                                :body (make-statement-block
-                                       :statements 
-                                       (append
-                                        (list (make-forin-assign elm new-array new-count-rec))
-                                        (statement-block-statements (for-in-body elm)))))))
+                                :body (single-statement
+                                       (make-forin-assign elm new-array new-count-rec)
+                                       (for-in-body elm)))))
                                                 
-    (make-statement-block
-     :statements
-     (list (make-var-decl-statement 
-            :var-decls (list (make-var-decl :name new-array :initializer (make-new-expr 
-                                                                          :constructor (make-identifier :name "Array") 
-                                                                          :args nil))
-                             (make-var-decl :name new-count :initializer (make-numeric-literal :value 0))
-                             (make-var-decl :name new-count-rec :initializer (make-numeric-literal :value 0))))           
-           (make-for-in 
-            :binding (make-var-decl-statement
-                      :var-decls (list 
-                                  (make-var-decl :name new-prop :initializer nil)))
-            :collection (for-in-collection elm)
-            :body (make-statement-block 
-                   :statements (list (make-binary-operator 
-                                      :op-symbol :assign
-                                      :left-arg (make-property-access 
-                                                 :target (make-identifier :name new-array)
-                                                 :field (make-unary-operator 
-                                                         :op-symbol :post-incr
-                                                         :arg (make-identifier :name new-count)))
-                                      :right-arg (make-identifier :name new-prop)))))
-           (transform xform new-while)))))
+    (single-statement ;TODO Use COMBINE-STATEMENTS instead?
+     (make-var-decl-statement 
+      :var-decls (list (make-var-decl :name new-array :initializer (make-new-expr 
+                                                                    :constructor (make-identifier :name "Array") 
+                                                                    :args nil))
+                       (make-var-decl :name new-count :initializer (make-numeric-literal :value 0))
+                       (make-var-decl :name new-count-rec :initializer (make-numeric-literal :value 0))))
+     (make-for-in 
+      :binding (make-var-decl-statement
+                :var-decls (list 
+                            (make-var-decl :name new-prop :initializer nil)))
+      :collection (for-in-collection elm)
+      :body (make-statement-block 
+             :statements (list (make-binary-operator 
+                                :op-symbol :assign
+                                :left-arg (make-property-access 
+                                           :target (make-identifier :name new-array)
+                                           :field (make-unary-operator 
+                                                   :op-symbol :post-incr
+                                                   :arg (make-identifier :name new-count)))
+                                :right-arg (make-identifier :name new-prop)))))
+     (transform xform new-while))))
 											  
 
 (defun make-forin-assign (elm new-array new-count-rec)
