@@ -145,7 +145,7 @@
        nil))))
       
 
-(defun make-named-continuation (name statement-tail)
+(defun make-labelled-continuation (name statement-tail)
   "Constructs a continuation from STATEMENT-TAIL and returns a var-decl-statement
    that initializes a variable named NAME to the new continuation.  Note that named
    continuations accept no arguments."
@@ -322,7 +322,7 @@
     ;; NOT to `resume break$n;`; the latter would result in an infinite loop.
     (let* ((break-k (genvar "break"))
            (continue-k (genvar "continue"))
-           (break-k-decl (make-named-continuation break-k statement-tail))
+           (break-k-decl (make-labelled-continuation break-k statement-tail))
            (*nearest-break* break-k)
            (*nearest-continue* continue-k))
       (when-let (label (source-element-label elm))
@@ -334,7 +334,7 @@
         ;; of the continue binding, because a `continue` inside of a continue continuation should
         ;; restart the same continuation, not some other continuation.
         break-k-decl
-        (make-named-continuation continue-k (statement-block-statements (while-body elm)))
+        (make-labelled-continuation continue-k (statement-block-statements (while-body elm)))
         (make-resume-statement :target (make-identifier :name continue-k)))
        t))))
 
@@ -421,11 +421,11 @@
 
           ;; When neither branch is terminated and a non-null else branch exists,
           ;; we need to generate a labelled continuation.
-          ;; TODO We could further optimize this to only use a named continuation if
+          ;; TODO We could further optimize this to only use a labelled continuation if
           ;; both statements actually /consume/ the tail.
           ((and (not then-terminated) (not else-terminated))
            (let* ((if-k-name (genvar "ifK"))
-                  (if-k-decl (make-named-continuation if-k-name statement-tail))
+                  (if-k-decl (make-labelled-continuation if-k-name statement-tail))
                   (if-k-resume (make-resume-statement :target (make-identifier :name if-k-name))))
              (values
               (list
@@ -442,7 +442,7 @@
 (defmethod tx-cps ((elm switch) statement-tail)
   (with-added-environment
     (let* ((switch-k-name (genvar "switchK"))
-           (switch-k-decl (make-named-continuation switch-k-name statement-tail))
+           (switch-k-decl (make-labelled-continuation switch-k-name statement-tail))
            (*nearest-break* switch-k-name)
            (terminated-clauses (compute-terminated-clauses (switch-clauses elm))))
       (when-let (label (switch-label elm))
