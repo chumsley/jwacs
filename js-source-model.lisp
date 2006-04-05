@@ -7,7 +7,7 @@
 
 #-(or sbcl cmu)
 (defmacro defelement (name &rest slots)
-  (defstruct ,name ,@slots))
+  `(defstruct ,name ,@slots))
 
 #+(or sbcl cmu)
 (defmacro defelement (name &rest slots)
