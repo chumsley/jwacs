@@ -5,16 +5,15 @@
 
 (in-package :jwacs)
 
-#+(or sbcl cmu)
-(eval-when (:compile-toplevel :load-toplevel :execute) 
-  (shadow 'defstruct))
+#-(or sbcl cmu)
+(defmacro defelement (name &rest slots)
+  (defstruct ,name ,@slots))
 
-
 #+(or sbcl cmu)
-(defmacro defstruct (name &rest slots)
+(defmacro defelement (name &rest slots)
   (let ((type (if (consp name) (first name) name)))
     `(progn
-       (cl:defstruct ,name ,@slots)
+       (defstruct ,name ,@slots)
        (defmethod make-load-form ((self ,type) &optional environment)
          (make-load-form-saving-slots self :environment environment)))))
 
@@ -26,159 +25,159 @@
 ; JRW - I think both of those are good ideas.  There's a couple of places in type-analysis where
 ; that would be helpful.
 
-(defstruct source-element
+(defelement source-element
   "A common base type for all source elements"
   (label nil :type (or string null)))
 
-(defstruct (special-value (:include source-element))
+(defelement (special-value (:include source-element))
   (symbol nil :type symbol))
 
-(defstruct (identifier (:include source-element))
+(defelement (identifier (:include source-element))
   (name nil :type string))
 
-(defstruct (numeric-literal (:include source-element))
+(defelement (numeric-literal (:include source-element))
   (value nil :type number))
 
-(defstruct (string-literal (:include source-element))
+(defelement (string-literal (:include source-element))
   (value nil :type string))
 
-(defstruct (array-literal (:include source-element))
+(defelement (array-literal (:include source-element))
   (elements nil :type list))
 
-(defstruct (object-literal (:include source-element))
+(defelement (object-literal (:include source-element))
   (properties nil :type list))  ; List of (PROPERTY-NAME . PROPERTY-VALUE)
                                 ; PROPERTY-NAME is a STRING-LITERAL
 
-(defstruct (re-literal (:include source-element))
+(defelement (re-literal (:include source-element))
   pattern
   options)
 
-(defstruct (new-expr (:include source-element))
+(defelement (new-expr (:include source-element))
   (constructor nil :type (or identifier property-access fn-call function-expression))
   (args nil :type (or (cons source-element) null)))
 
-(defstruct (fn-call (:include source-element))
+(defelement (fn-call (:include source-element))
   (fn nil :type (or identifier property-access fn-call function-expression))
   (args nil :type (or (cons source-element) null)))
 
-(defstruct (property-access (:include source-element))
+(defelement (property-access (:include source-element))
   (target nil :type source-element)
   (field nil :type source-element))
 
-(defstruct (unary-operator (:include source-element))
+(defelement (unary-operator (:include source-element))
   (op-symbol nil :type symbol)
   (arg nil :type source-element))
 
-(defstruct (binary-operator (:include source-element))
+(defelement (binary-operator (:include source-element))
   (op-symbol nil :type symbol)
   (left-arg nil :type source-element)
   (right-arg nil :type source-element))
 
-(defstruct (conditional (:include source-element))
+(defelement (conditional (:include source-element))
   (condition nil :type source-element)
   (true-arg nil :type source-element)
   (false-arg nil :type source-element))
 
-(defstruct (comma-expr (:include source-element))
+(defelement (comma-expr (:include source-element))
   exprs)
 
-(defstruct (var-decl-statement (:include source-element))
+(defelement (var-decl-statement (:include source-element))
   (var-decls nil :type (cons var-decl)))
 
-(defstruct (var-decl (:include source-element))
+(defelement (var-decl (:include source-element))
   (name nil :type string)
   (initializer nil :type (or source-element null)))
 
-(defstruct (statement-block (:include source-element))
+(defelement (statement-block (:include source-element))
   (statements nil :type (or (cons source-element) null)))
 
-(defstruct (if-statement (:include source-element))
+(defelement (if-statement (:include source-element))
   (condition nil :type source-element)
   (then-statement nil :type (or source-element null))
   (else-statement nil :type (or source-element null)))
 
-(defstruct (do-statement (:include source-element))
+(defelement (do-statement (:include source-element))
   (condition nil :type source-element)
   (body nil :type source-element))
 
-(defstruct (while (:include source-element))
+(defelement (while (:include source-element))
   (condition nil :type source-element)
   (body nil :type (or source-element null)))
 
-(defstruct (for (:include source-element))
+(defelement (for (:include source-element))
   (initializer nil :type (or source-element null))
   (condition nil :type (or source-element null))
   (step nil :type (or source-element null))
   (body nil :type (or source-element null)))
 
-(defstruct (for-in (:include source-element))
+(defelement (for-in (:include source-element))
   (binding nil :type source-element)
   (collection nil :type source-element)
   (body nil :type (or source-element null)))
 
-(defstruct (continue-statement (:include source-element))
+(defelement (continue-statement (:include source-element))
   (target-label nil :type (or string null)))
 
-(defstruct (break-statement (:include source-element))
+(defelement (break-statement (:include source-element))
   (target-label nil :type (or string null)))
 
-(defstruct (return-statement (:include source-element))
+(defelement (return-statement (:include source-element))
   (arg nil :type (or source-element null)))
 
-(defstruct (with (:include source-element))
+(defelement (with (:include source-element))
   scope-object
   body)
 
-(defstruct (switch (:include source-element))
+(defelement (switch (:include source-element))
   value
   clauses)
 
-(defstruct (case-clause (:include source-element))
+(defelement (case-clause (:include source-element))
   value
   body)
 
-(defstruct (default-clause (:include source-element))
+(defelement (default-clause (:include source-element))
   body)
 
-(defstruct (throw-statement (:include source-element))
+(defelement (throw-statement (:include source-element))
   value)
 
-(defstruct (try (:include source-element))
+(defelement (try (:include source-element))
   body
   catch-clause
   finally-clause)
 
-(defstruct (catch-clause (:include source-element))
+(defelement (catch-clause (:include source-element))
   binding
   body)
 
-(defstruct (finally-clause (:include source-element))
+(defelement (finally-clause (:include source-element))
   body)
 
-(defstruct (function-decl (:include source-element))
+(defelement (function-decl (:include source-element))
   (name nil :type string)
   (parameters nil :type (or (cons string) null))
   (body nil :type (or (cons source-element) (cons null) null)))
 
-(defstruct (function-expression (:include source-element))
+(defelement (function-expression (:include source-element))
   (name nil :type (or string null))
   (parameters nil :type (or (cons string) null))
   (body nil :type (or (cons source-element) null)))
 
 ;;;; "Administrative lambda" source elements
-(defstruct (continuation-function (:include function-expression))
+(defelement (continuation-function (:include function-expression))
   "A function expression that is used as a continuation")
 
-(defstruct (thunk-function (:include function-expression))
+(defelement (thunk-function (:include function-expression))
   "A function expression that is used as a thunk in a boxed trampoline result")
 
-(defstruct (continuation-call (:include fn-call))
+(defelement (continuation-call (:include fn-call))
   "A call to a continuation (as opposed to a call to any other sort of function)")
 
 ;;;; JWACS extended syntax  
-(defstruct (suspend-statement (:include source-element)))
+(defelement (suspend-statement (:include source-element)))
 
-(defstruct (resume-statement (:include source-element))
+(defelement (resume-statement (:include source-element))
   (target nil :type source-element)
   (arg nil :type (or source-element null)))
 
