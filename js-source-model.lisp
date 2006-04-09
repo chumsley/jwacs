@@ -133,10 +133,10 @@
 
 (defelement (case-clause (:include source-element))
   (value nil :type expression)
-  (body nil :type (or (cons statement-element) null)))
+  (body nil :type (or (cons source-element) null)))
 
 (defelement (default-clause (:include source-element))
-  (body nil :type (or (cons statement-element) null)))
+  (body nil :type (or (cons source-element) null)))
 
 (defelement (throw-statement (:include source-element))
   (value nil :type (or expression null)))
