@@ -11,8 +11,8 @@
 
 ;;;; Cross-compiler configuration
 (defmacro defparser-generic (&rest args)
-  "Use this macro instead of defparser.  It evaluates to an invocation of either
-   parsergen:defparser or jwacs::defparser depending on the use-yacc feature."
+  "Use this macro instead of DEFPARSER.  It evaluates to an invocation of either
+   PARSERGEN:DEFPARSER or JWACS::DEFPARSER depending on the use-yacc feature."
   #+use-yacc `(jwacs::defparser ,@args)
   #-use-yacc `(parsergen:defparser ,@args))
 
@@ -333,7 +333,7 @@
   ((statement switch-statement) $1)
   ((statement throw-statement) $1)
   ((statement try-statement) $1)
-  ((statement suspend-statement) $1)    ; JWACS-only extensions
+  ((statement suspend-statement) $1)    ; jwacs-only extensions
   ((statement resume-statement) $1)
   
   ((statement-no-if block) $1)
@@ -350,7 +350,7 @@
   ((statement-no-if switch-statement) $1)
   ((statement-no-if throw-statement) $1)
   ((statement-no-if try-statement) $1)
-  ((statement-no-if suspend-statement) $1)    ; JWACS-only extensions
+  ((statement-no-if suspend-statement) $1)    ; jwacs-only extensions
   ((statement-no-if resume-statement) $1)
 
   ;; Pg 73
@@ -457,14 +457,14 @@
 
   ((throw-statement :throw expression :semicolon) (make-throw-statement :value $2))
 
-  ((try-statement :try block catch) (make-try :body $2 :catch-clause $3))
-  ((try-statement :try block finally) (make-try :body $2 :finally-clause $3))
-  ((try-statement :try block catch finally) (make-try :body $2 :catch-clause $3 :finally-clause $4))
+  ((try-statement :try block catch) (make-try :body (statement-block-statements $2) :catch-clause $3))
+  ((try-statement :try block finally) (make-try :body (statement-block-statements $2) :finally-clause $3))
+  ((try-statement :try block catch finally) (make-try :body (statement-block-statements $2) :catch-clause $3 :finally-clause $4))
 
-  ((catch :catch :left-paren :identifier :right-paren block) (make-catch-clause :binding $3 :body $5))
-  ((finally :finally block) (make-finally-clause :body $2))
+  ((catch :catch :left-paren :identifier :right-paren block) (make-catch-clause :binding $3 :body (statement-block-statements $5)))
+  ((finally :finally block) (make-finally-clause :body (statement-block-statements $2)))
 
-  ;; JWACS extended syntax
+  ;; jwacs extended syntax
   ((suspend-statement :suspend :semicolon) (make-suspend-statement))
   ((resume-statement :resume left-hand-side-expression-no-lbf :semicolon) (make-resume-statement :target $2))
   ((resume-statement :resume left-hand-side-expression-no-lbf :left-arrow expression :semicolon) (make-resume-statement :target $2 :arg $4))

@@ -380,7 +380,12 @@
 
 (defmethod pretty-print ((elm try) s)
   (format s "try")
-  (pretty-print (try-body elm) s)
+  (fresh-line-indented s)
+  (format s "{")
+  (with-indent
+    (pretty-print (try-body elm) s))
+  (fresh-line-indented s)
+  (format s "}")
   (when (try-catch-clause elm)
     (fresh-line-indented s)
     (pretty-print (try-catch-clause elm) s))
@@ -390,11 +395,21 @@
 
 (defmethod pretty-print ((elm catch-clause) s)
   (format s "catch(~A)" (catch-clause-binding elm))
-  (pretty-print (catch-clause-body elm) s))
+  (fresh-line-indented s)
+  (format s "{")
+  (with-indent
+    (pretty-print (catch-clause-body elm) s))
+  (fresh-line-indented s)
+  (format s "}"))
 
 (defmethod pretty-print ((elm finally-clause) s)
   (format s "finally")
-  (pretty-print (finally-clause-body elm) s))
+  (fresh-line-indented s)
+  (format s "{")
+  (with-indent
+    (pretty-print (finally-clause-body elm) s))
+  (fresh-line-indented s)
+  (format s "}"))
 
 (defmethod pretty-print ((elm function-decl) s)
   (fresh-line-indented s)

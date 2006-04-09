@@ -379,9 +379,9 @@ default:
 foo(bar, baz)")
 
 (deftest pretty-print/try/1 :notes pretty-print
-  (pretty-string (make-try :body (make-statement-block :statements (list (make-fn-call :fn foo-id :args (list bar-id))))
-                        :catch-clause (make-catch-clause :binding "e" :body (make-statement-block :statements (list (make-fn-call :fn foo-id :args (list (make-identifier :name "e"))))))
-                        :finally-clause (make-finally-clause :body (make-statement-block :statements (list (make-fn-call :fn baz-id) (make-unary-operator :op-symbol :delete :arg foo-id))))))
+  (pretty-string (make-try :body (list (make-fn-call :fn foo-id :args (list bar-id)))
+                           :catch-clause (make-catch-clause :binding #s(identifier :name "e") :body (list (make-fn-call :fn foo-id :args (list (make-identifier :name "e")))))
+                           :finally-clause (make-finally-clause :body (list (make-fn-call :fn baz-id) (make-unary-operator :op-symbol :delete :arg foo-id)))))
   "try
 {
   foo(bar);

@@ -124,34 +124,34 @@
   (arg nil :type (or source-element null)))
 
 (defelement (with (:include source-element))
-  scope-object
-  body)
+  (scope-object nil :type expression)
+  (body nil :type source-element))
 
 (defelement (switch (:include source-element))
   (value nil :type expression)
-  clauses)
+  (clauses nil :type list))
 
 (defelement (case-clause (:include source-element))
   (value nil :type expression)
-  body)
+  (body nil :type (or (cons statement-element) null)))
 
 (defelement (default-clause (:include source-element))
-  body)
+  (body nil :type (or (cons statement-element) null)))
 
 (defelement (throw-statement (:include source-element))
-  value)
+  (value nil :type (or expression null)))
 
 (defelement (try (:include source-element))
-  body
-  catch-clause
-  finally-clause)
+  (body nil :type (or (cons source-element) null))
+  (catch-clause nil :type (or catch-clause null))
+  (finally-clause nil :type (or finally-clause null)))
 
 (defelement (catch-clause (:include source-element))
-  binding
-  body)
+  (binding nil :type string)
+  (body nil :type (or (cons source-element) null)))
 
 (defelement (finally-clause (:include source-element))
-  body)
+  (body nil :type (or (cons source-element) null)))
 
 (defelement (function-decl (:include source-element))
   (name nil :type string)

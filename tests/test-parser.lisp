@@ -306,36 +306,30 @@
 (deftest parser/try/1 :notes parser
   (parse-only "try { throw x++; } catch(y) {return y;}")
   (#S(try
-    :body #S(statement-block :statements
-                            (#S(throw-statement :value #S(unary-operator :op-symbol :post-incr
-                                                                      :arg #S(identifier :name "x")))))
+    :body (#S(throw-statement :value #S(unary-operator :op-symbol :post-incr
+                                                       :arg #S(identifier :name "x"))))
     :catch-clause #S(catch-clause :binding "y"
-                                 :body #S(statement-block :statements
-                                                        (#S(return-statement :arg #S(identifier :name "y")))))
+                                  :body (#S(return-statement :arg #S(identifier :name "y"))))
     :finally-clause nil)))
 
 (deftest parser/try/2 :notes parser
   (parse-only "try {throw 10;} finally {delete x;delete y;}")
   (#S(try
-    :body #S(statement-block :statements
-                            (#S(throw-statement :value #S(numeric-literal :value 10))))
+    :body (#S(throw-statement :value #S(numeric-literal :value 10)))
     :catch-clause nil
-    :finally-clause #S(finally-clause :body #S(statement-block :statements
-                                                             (#S(unary-operator :op-symbol :delete
-                                                                               :arg #S(identifier :name "x"))
-                                                              #S(unary-operator :op-symbol :delete
-                                                                               :arg #S(identifier :name "y"))))))))
+    :finally-clause #S(finally-clause :body (#S(unary-operator :op-symbol :delete
+                                                               :arg #S(identifier :name "x"))
+                                               #S(unary-operator :op-symbol :delete
+                                                                 :arg #S(identifier :name "y")))))))
 
 (deftest parser/try/3 :notes parser
   (parse-only "try {func(x);} catch(e) {} finally {delete x;}")
   (#S(try
-    :body #S(statement-block :statements
-                            (#S(fn-call :fn #S(identifier :name "func")
-                                       :args (#S(identifier :name "x")))))
-    :catch-clause #S(catch-clause :binding "e" :body #S(statement-block :statements nil))
-    :finally-clause #S(finally-clause :body #S(statement-block :statements
-                                                            (#S(unary-operator :op-symbol :delete
-                                                                              :arg #S(identifier :name "x"))))))))
+    :body (#S(fn-call :fn #S(identifier :name "func")
+                      :args (#S(identifier :name "x"))))
+    :catch-clause #S(catch-clause :binding "e" :body nil)
+    :finally-clause #S(finally-clause :body (#S(unary-operator :op-symbol :delete
+                                                               :arg #S(identifier :name "x")))))))
   
   
 (deftest parser/if/1 :notes parser
