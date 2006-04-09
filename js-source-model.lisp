@@ -17,102 +17,101 @@
        (defmethod make-load-form ((self ,type) &optional environment)
          (make-load-form-saving-slots self :environment environment)))))
 
-;;;; Standard Javascript 
-
-; GS- i've added types, but should make a virtual "expressions" type to be used where appropriate
-; instead of source-element
-; perhaps also one for statement?
-; JRW - I think both of those are good ideas.  There's a couple of places in type-analysis where
-; that would be helpful.
+;;;; ======= Javascript source element structures ==================================================
 
 (defelement source-element
   "A common base type for all source elements"
   (label nil :type (or string null)))
 
-(defelement (special-value (:include source-element))
+(defelement (expression (:include source-element))
+  "A common base type for all source elements that can be expressions.
+   (note that every expression can be a statement, but not all statements
+    can be expressions)")
+
+(defelement (special-value (:include expression))
   (symbol nil :type symbol))
 
-(defelement (identifier (:include source-element))
+(defelement (identifier (:include expression))
   (name nil :type string))
 
-(defelement (numeric-literal (:include source-element))
+(defelement (numeric-literal (:include expression))
   (value nil :type number))
 
-(defelement (string-literal (:include source-element))
+(defelement (string-literal (:include expression))
   (value nil :type string))
 
-(defelement (array-literal (:include source-element))
+(defelement (array-literal (:include expression))
   (elements nil :type list))
 
-(defelement (object-literal (:include source-element))
+(defelement (object-literal (:include expression))
   (properties nil :type list))  ; List of (PROPERTY-NAME . PROPERTY-VALUE)
                                 ; PROPERTY-NAME is a STRING-LITERAL
 
-(defelement (re-literal (:include source-element))
+(defelement (re-literal (:include expression))
   pattern
   options)
 
-(defelement (new-expr (:include source-element))
+(defelement (new-expr (:include expression))
   (constructor nil :type (or identifier property-access fn-call function-expression))
   (args nil :type (or (cons source-element) null)))
 
-(defelement (fn-call (:include source-element))
+(defelement (fn-call (:include expression))
   (fn nil :type (or identifier property-access fn-call function-expression))
   (args nil :type (or (cons source-element) null)))
 
-(defelement (property-access (:include source-element))
+(defelement (property-access (:include expression))
   (target nil :type source-element)
   (field nil :type source-element))
 
-(defelement (unary-operator (:include source-element))
+(defelement (unary-operator (:include expression))
   (op-symbol nil :type symbol)
   (arg nil :type source-element))
 
-(defelement (binary-operator (:include source-element))
+(defelement (binary-operator (:include expression))
   (op-symbol nil :type symbol)
   (left-arg nil :type source-element)
   (right-arg nil :type source-element))
 
-(defelement (conditional (:include source-element))
-  (condition nil :type source-element)
-  (true-arg nil :type source-element)
-  (false-arg nil :type source-element))
+(defelement (conditional (:include expression))
+  (condition nil :type expression)
+  (true-arg nil :type expression)
+  (false-arg nil :type expression))
 
-(defelement (comma-expr (:include source-element))
-  exprs)
+(defelement (comma-expr (:include expression))
+  (exprs nil :type (or (cons expression) null)))
 
 (defelement (var-decl-statement (:include source-element))
   (var-decls nil :type (cons var-decl)))
 
 (defelement (var-decl (:include source-element))
   (name nil :type string)
-  (initializer nil :type (or source-element null)))
+  (initializer nil :type (or expression null)))
 
 (defelement (statement-block (:include source-element))
   (statements nil :type (or (cons source-element) null)))
 
 (defelement (if-statement (:include source-element))
-  (condition nil :type source-element)
+  (condition nil :type expression)
   (then-statement nil :type (or source-element null))
   (else-statement nil :type (or source-element null)))
 
 (defelement (do-statement (:include source-element))
-  (condition nil :type source-element)
+  (condition nil :type expression)
   (body nil :type source-element))
 
 (defelement (while (:include source-element))
-  (condition nil :type source-element)
+  (condition nil :type expression)
   (body nil :type (or source-element null)))
 
 (defelement (for (:include source-element))
   (initializer nil :type (or source-element null))
-  (condition nil :type (or source-element null))
-  (step nil :type (or source-element null))
+  (condition nil :type (or expression null))
+  (step nil :type (or expression null))
   (body nil :type (or source-element null)))
 
 (defelement (for-in (:include source-element))
   (binding nil :type source-element)
-  (collection nil :type source-element)
+  (collection nil :type expression)
   (body nil :type (or source-element null)))
 
 (defelement (continue-statement (:include source-element))
@@ -129,11 +128,11 @@
   body)
 
 (defelement (switch (:include source-element))
-  value
+  (value nil :type expression)
   clauses)
 
 (defelement (case-clause (:include source-element))
-  value
+  (value nil :type expression)
   body)
 
 (defelement (default-clause (:include source-element))
@@ -159,12 +158,12 @@
   (parameters nil :type (or (cons string) null))
   (body nil :type (or (cons source-element) (cons null) null)))
 
-(defelement (function-expression (:include source-element))
+(defelement (function-expression (:include expression))
   (name nil :type (or string null))
   (parameters nil :type (or (cons string) null))
   (body nil :type (or (cons source-element) null)))
 
-;;;; "Administrative lambda" source elements
+;;;; ------- "Administrative lambda" source elements -----------------------------------------------
 (defelement (continuation-function (:include function-expression))
   "A function expression that is used as a continuation")
 
@@ -174,14 +173,16 @@
 (defelement (continuation-call (:include fn-call))
   "A call to a continuation (as opposed to a call to any other sort of function)")
 
-;;;; JWACS extended syntax  
+;;;; ------- jwacs extended syntax -----------------------------------------------------------------
 (defelement (suspend-statement (:include source-element)))
 
 (defelement (resume-statement (:include source-element))
   (target nil :type source-element)
   (arg nil :type (or source-element null)))
 
-;;;; Operator precedence and associativity 
+;;;; ======= Static source element properties ======================================================
+
+;;;; ------- Operator precedence and associativity -------------------------------------------------
 (defgeneric elm-precedence (elm)
   (:documentation
    "Returns an integer specifying the precedence of the source element
@@ -261,10 +262,10 @@
       :lshift-equals :rshift-equals :urshift-equals :and-equals :xor-equals :or-equals)
      :right)))
 
-;;;; Other static properties of source models
+;;;; ------- Other static properties of source elements --------------------------------------------
 
-;;TODO This function is not complete:
 ;;TODO is this function in the right place?
+;;TODO This function is not complete:
 ;; - binary operators are idempotent so long as they
 ;;   aren't assignment operators and so long as both args are idempotent.
 ;; - conditional operators are idempotent so long as all args are idempotent
