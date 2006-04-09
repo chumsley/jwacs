@@ -235,14 +235,14 @@
 (deftest pretty-print/if/1 :notes pretty-print
   (pretty-string (make-if-statement :condition foo-id :then-statement bar-id))
   "if(foo)
-  bar")
+  bar;")
 
 (deftest pretty-print/if/2 :notes pretty-print
   (pretty-string (make-if-statement :condition foo-id :then-statement bar-id :else-statement baz-id))
   "if(foo)
   bar;
 else
-  baz")
+  baz;")
 
 (deftest pretty-print/if/3 :notes pretty-print
   (pretty-string (make-if-statement :condition foo-id :then-statement (make-statement-block :statements (list bar-id))))
@@ -259,7 +259,7 @@ else
   bar;
 }
 else
-  baz")
+  baz;")
 
 (deftest pretty-print/if/5 :notes pretty-print
   (pretty-string
@@ -274,22 +274,32 @@ else
 
 
 (deftest pretty-print/do/1 :notes pretty-print
-  (pretty-string (make-do-statement :condition (make-binary-operator :op-symbol :greater-than
-                                                        :left-arg foo-id
-                                                        :right-arg (make-numeric-literal :value 55.0))
-                       :body (make-statement-block :statements
-                                         (list (make-unary-operator :op-symbol :post-incr :arg foo-id)))))
+  (pretty-string (make-do-statement :condition
+                                    (make-binary-operator :op-symbol :greater-than
+                                                          :left-arg foo-id
+                                                          :right-arg (make-numeric-literal :value 55.0))
+                                    :body
+                                    (make-statement-block :statements
+                                                          (list (make-unary-operator :op-symbol :post-incr :arg foo-id)))))
   "do
 {
   foo++;
 }
 while(foo > 55.0)")
 
+(deftest pretty-print/do/2 :notes pretty-print
+  (pretty-string (make-do-statement :condition (make-special-value :symbol :true)
+                                    :body (make-unary-operator :op-symbol :post-incr
+                                                               :arg foo-id)))
+  "do
+  foo++;
+while(true)")
+
 (deftest pretty-print/while/1 :notes pretty-print
   (pretty-string (make-while :condition (make-unary-operator :op-symbol :typeof :arg foo-id)
                              :body (make-unary-operator :op-symbol :delete :arg foo-id)))
   "while(typeof foo)
-  delete foo")
+  delete foo;")
 
 (deftest pretty-print/while/2 :notes pretty-print
   (pretty-string (make-while :condition (make-unary-operator :op-symbol :typeof :arg foo-id)
@@ -320,14 +330,14 @@ while(foo > 55.0)")
                            :collection bar-id
                            :body (make-fn-call :fn baz-id :args (list foo-id bar-id))))
   "for(var foo in bar)
-  baz(foo, bar)")
+  baz(foo, bar);")
 
 (deftest pretty-print/for-in/2 :notes pretty-print
   (pretty-string (make-for-in :binding foo-id
                               :collection bar-id
                               :body (make-fn-call :fn baz-id :args (list foo-id bar-id))))
   "for(foo in bar)
-  baz(foo, bar)")
+  baz(foo, bar);")
 
 (deftest pretty-print/switch/1 :notes pretty-print
   (pretty-string (make-switch :value foo-id :clauses
@@ -410,7 +420,7 @@ finally
 (deftest pretty-print/suspend-statement/1 :notes pretty-print
   (pretty-string
    (make-suspend-statement))
-  "suspend")
+  "suspend;")
 
 (deftest pretty-print/function_continuation/1 :notes pretty-print
   (pretty-string
@@ -420,11 +430,34 @@ finally
 (deftest pretty-print/resume-statement/1 :notes pretty-print
   (pretty-string
    (make-resume-statement :target (make-fn-call :fn foo-id :args (list bar-id))))
-  "resume foo(bar)")
+  "resume foo(bar);")
 
 (deftest pretty-print/resume-statement/2 :notes pretty-print
   (pretty-string
    (make-resume-statement :target (make-property-access :target foo-id
                                                         :field #s(string-literal :value "bar"))
                           :arg baz-id))
-  "resume foo.bar <- baz")
+  "resume foo.bar <- baz;")
+
+(deftest pretty-print/null-in-list/1 :notes pretty-print
+  (pretty-string (parse "function foo() {}"))
+  "function foo()
+{
+}")
+
+(deftest pretty-print/null-in-then/1 :notes pretty-print
+  (pretty-string (parse "if(foo) ; else bar();"))
+  "if(foo)
+  ;
+else
+  bar();")
+
+(deftest pretty-print-null-in-else/1 :notes pretty-print
+  (pretty-string (parse "if(foo) bar();"))
+  "if(foo)
+  bar();")
+
+(deftest pretty-print-null-in-while/1 :notes pretty-print
+  (pretty-string (parse "while(x++ < 10);"))
+  "while(x++ < 10)
+  ;")

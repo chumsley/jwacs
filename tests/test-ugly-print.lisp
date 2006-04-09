@@ -29,13 +29,13 @@
   (with-fresh-genvar
     (in-local-scope
       (ugly-string (parse "function FOO(){;}"))))
-  "function JW0(){;}")
+  "function JW0(){}")
 
 (deftest ugly-print/function-decl/2 :notes ugly-print
   (with-fresh-genvar
     (in-local-scope
       (ugly-string (parse "function FOO(x){;}"))))
-  "function JW0(JW1){;}")
+  "function JW0(JW1){}")
 
 (deftest ugly-print/function-decl/3 :notes ugly-print
   (with-fresh-genvar
@@ -140,7 +140,7 @@
                              }
                             x + y;
                           }"))))
-   "{var JW0=3;{var JW1=1;};JW1+JW0;};")
+   "{var JW0=3;{var JW1=1;}JW1+JW0;}")
 
 (deftest ugly-print/free-variables/1 :notes ugly-print
   (with-fresh-genvar
@@ -188,7 +188,7 @@
         {
           echo(top);
         }")))
-   "var top=10;for(var top=0;top<100;top++){echo(top);};")
+   "var top=10;for(var top=0;top<100;top++){echo(top);}")
 
 (deftest ugly-print/for-loop-does-not-create-new-scope/2 :notes ugly-print
   (with-fresh-genvar
@@ -198,4 +198,4 @@
         {
           echo(top);
         }")))
-   "var top=10;for(var top in topVars){echo(top);};")
+   "var top=10;for(var top in topVars){echo(top);}")

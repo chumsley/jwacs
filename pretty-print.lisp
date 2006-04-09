@@ -6,33 +6,32 @@
 
 (in-package :jwacs)
 
-;;;; Rules for semicolon-termination 
+;;;; Semicolon-termination rules
 ;;;
-;;;; The ideal situation 
+;;; All statements are responsible for printing their own semicolons, with two exceptions:
+;;; Expression-statements and var-decl-statements should have their semicolons printed by
+;;; the parent element.
 ;;;
-;;; There are two basic rules:
-;;; 1. Calling `pretty-print` on a statement should always result in a semicolon-terminated statement
-;;; 2. Calling `pretty-print` on any other source element (e.g., an expression) should /not/ result in
-;;;    a semicolon-terminated line.
+;;; Expression statements and expressions are not distinguished in the source-model, so the
+;;; only way to know that an expression is actually an expression-statement is from the context
+;;; in which it appears.  And of course only the parent element actually knows the context, so
+;;; the parent element is in charge of semicolons (because expression-statements get semicolons,
+;;; but expressions do not).
 ;;;
-;;; This is (hopefully) an attainable ideal, but it will require us to change our parsing a little in order
-;;; to be able to distinguish between (for example) expressions and expression statements.  (We'll
-;;; probably just create an expression-statement source element that contains a single expression.)
+;;; Var-decl-statements are an exception because they should be terminated when they appear in a
+;;; statement context, but not when they appear in the initializer of a for-statement or
+;;; for-in-statement.  Once again, the context is the way you decide whether to semicolon-terminate
+;;; or not, so the parent element is in charge.
 ;;;
-;;; I'm a little concerned that we may not be able to create all of the disambiguating source-element
-;;; types because the parser itself may not be able to tell all of the cases apart.  I've omitted a few
-;;; disambiguating rules from the parser that are in the standard grammar (things like "no newlines allowed
-;;; between `return` and its argument"), because they are not expressible in a Lispworks's parser-generator
-;;; grammar.  These omissions may have led to some extra ambiguity; certainly there is an awful lot of
-;;; complaining when Lispworks is compiling the grammar.
+;;; In practice, the only two places where we need to make the special-case checks for
+;;; expression-statements and var-decl-statements is when we're pretty-printing a list of elements
+;;; or when we're pretty-printing a "subordinate" statement.  So, we do the checks in the LIST
+;;; method of PRETTY-PRINT and in PRETTY-PRINT-SUBORDINATE and that seems to do the trick.
 ;;;
-;;;; The actual situation 
-;;;
-;;; For now, we assume that neither statements nor any other source element self-semicolon-terminates.
-;;; The pretty-printer for blocks (and lists of statement) will just slap a semicolon after each
-;;; statement minus some exceptions (if, while, for, function declarations, etc.).
+;;; As an additional special case, null subordinate-statements are semicolon-terminated by the
+;;; parent element, whereas they are ignored by the LIST method of PRETTY-PRINT.
 
-;;;; Indentation helpers 
+;;;; ======= Indentation helpers ===================================================================
 (defparameter *indent-step* 2
   "Number of spaces per indentation step")
 
@@ -58,24 +57,24 @@
 ;; single statements, but not blocks (because blocks will do the indentation for us).
 ;; In those situations, use pretty-print-subordinate instead of pretty-print; it will
 ;; indent correctly depending upon the type of source-element that it receives.
-;; TODO The semicolon keyword will disappear once we are dealing correctly with semicolon termination
-(defgeneric pretty-print-subordinate (elm stream &key semicolon)
+(defgeneric pretty-print-subordinate (elm stream)
   (:documentation
    "pretty-print source element ELM to stream STREAM as a 'subordinate statement'.
     This has differing indentation implications depending upon whether or not ELM is a BLOCK."))
 
-(defmethod pretty-print-subordinate ((elm statement-block) s &key semicolon)
-  (declare (ignore semicolon))
+(defmethod pretty-print-subordinate ((elm statement-block) s)
   (pretty-print elm s))
 
-(defmethod pretty-print-subordinate (elm s &key semicolon)
+(defmethod pretty-print-subordinate (elm s)
   (with-indent
     (fresh-line-indented s)
     (pretty-print elm s)
-    (if semicolon
+    (when (or (expression-p elm)
+              (var-decl-statement-p elm)
+              (null elm))
       (format s ";"))))
 
-;;;; General helpers 
+;;;; ======= General helpers =======================================================================
 (defun pretty-print-separated-list (elm-list s &optional (sep-string ",~a"))
   "Pretty print the elements of ELM-LIST to S separated by SEP-STRING."
   (loop
@@ -91,12 +90,12 @@
   (unless *pretty-mode*
     (format s " ")))
 
-;;;; The pretty-print generic function 
+;;;; ======= The pretty-print generic function =====================================================
 (defgeneric pretty-print (elm stream)
   (:documentation
    "Print source element ELM to stream STREAM as parseable and human-readable text."))
 
-;;;; Standard Javascript 
+;;;; ------- Standard Javascript -------------------------------------------------------------------
 
 (defmethod pretty-print ((elm special-value) s)
   (if (find (special-value-symbol elm) *keyword-symbols*)
@@ -193,8 +192,7 @@
 
 (defun pretty-print-arg (arg-elm parent-elm s &optional associativity)
   "Pretty print an argument subexpression, parenthesizing if:
-   1. The sub-expression has a lower precedence than the parent
-expression, or
+   1. The sub-expression has a lower precedence than the parent expression, or
    2. The sub-expression and the parent expression have the same precedence
       and this arg is on the non-associative branch."
   (if (or (> (elm-precedence arg-elm)
@@ -261,7 +259,8 @@ expression, or
         do
         (fresh-line-indented s)
         (pretty-print elm s)
-        (unless (function-decl-p elm)
+        (when (or (expression-p elm)
+                  (var-decl-statement-p elm))
           (format s ";"))))
   
 (defmethod pretty-print ((elm statement-block) s)
@@ -278,8 +277,6 @@ expression, or
   (format s ")")
   (pretty-print-subordinate (if-statement-then-statement elm) s)
   (when (if-statement-else-statement elm)
-    (unless (statement-block-p (if-statement-then-statement elm))
-      (format s ";"))
     (fresh-line-indented s)
     (format s "else")
     (unless (statement-block-p (if-statement-else-statement elm))
@@ -288,7 +285,7 @@ expression, or
 
 (defmethod pretty-print ((elm do-statement) s)
   (format s "do")
-  (pretty-print-subordinate (do-statement-body elm) s :semicolon t)
+  (pretty-print-subordinate (do-statement-body elm) s)
   (fresh-line-indented s)
   (format s "while(")
   (pretty-print (do-statement-condition elm) s)
@@ -328,23 +325,27 @@ expression, or
   (format s "continue")
   (when (continue-statement-target-label elm)
     (format s " ")
-    (pretty-print (continue-statement-target-label elm) s)))
+    (pretty-print (continue-statement-target-label elm) s))
+  (format s ";"))
 
 (defmethod pretty-print ((elm break-statement) s)
   (format s "break")
   (when (break-statement-target-label elm)
     (format s " ") ;opt-space?
-    (pretty-print (break-statement-target-label elm) s)))
+    (pretty-print (break-statement-target-label elm) s))
+  (format s ";"))
 
 (defmethod pretty-print ((elm return-statement) s)
   (format s "return")
   (when (return-statement-arg elm)
     (format s " ")
-    (pretty-print (return-statement-arg elm) s)))
+    (pretty-print (return-statement-arg elm) s))
+  (format s ";"))
 
 (defmethod pretty-print ((elm throw-statement) s)
   (format s "throw ")
-  (pretty-print (throw-statement-value elm) s))
+  (pretty-print (throw-statement-value elm) s)
+  (format s ";"))
 
 (defmethod pretty-print ((elm switch) s)
   (format s "switch(")
@@ -434,14 +435,15 @@ expression, or
     (format s "~A:" (source-element-label elm))
     (fresh-line-indented s)))
 
-;;;; JWACS-only extensions 
+;;;; ------- jwacs-only extensions -----------------------------------------------------------------
 (defmethod pretty-print ((elm suspend-statement) s)
-  (format s "suspend"))
+  (format s "suspend;"))
 
 (defmethod pretty-print ((elm resume-statement) s)
   (format s "resume ")
   (pretty-print (resume-statement-target elm) s)
   (when (resume-statement-arg elm)
     (format s "~a<-~a" *opt-space* *opt-space* )
-    (pretty-print (resume-statement-arg elm) s)))
+    (pretty-print (resume-statement-arg elm) s))
+  (format s ";"))
 
