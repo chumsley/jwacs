@@ -289,7 +289,7 @@
   (fresh-line-indented s)
   (format s "while(")
   (pretty-print (do-statement-condition elm) s)
-  (format s ")"))
+  (format s ");"))
 
 (defmethod pretty-print ((elm while) s)
   (format s "while(")

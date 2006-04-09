@@ -285,7 +285,7 @@ else
 {
   foo++;
 }
-while(foo > 55.0)")
+while(foo > 55.0);")
 
 (deftest pretty-print/do/2 :notes pretty-print
   (pretty-string (make-do-statement :condition (make-special-value :symbol :true)
@@ -293,7 +293,7 @@ while(foo > 55.0)")
                                                                :arg foo-id)))
   "do
   foo++;
-while(true)")
+while(true);")
 
 (deftest pretty-print/while/1 :notes pretty-print
   (pretty-string (make-while :condition (make-unary-operator :op-symbol :typeof :arg foo-id)
