@@ -17,6 +17,16 @@
   #-use-yacc `(parsergen:defparser ,@args))
 
 ;;;; Parser
+
+(defparameter undefined-id (make-identifier :name "undefined")
+  "Contains the `undefined` identifier")
+
+;;TODO Get rid of this stupid variable by fixing the DEFPARSER-GENERIC macro
+(defparameter one 1
+  "The macro that we use to translate parsergen grammars to cl-yacc grammars
+   only currently deals with symbols and lists.  So we'll use this variable for 
+   now instead of the (non-symbol, non-list) number 1.")
+
 (defparser-generic javascript-script
     
     ((program source-elements) $1) ; Starting production
@@ -38,20 +48,20 @@
   ((primary-expression-no-lbf :left-paren expression :right-paren) $2)
   
   ((array-literal :left-bracket :right-bracket) (make-array-literal :elements nil))
-  ((array-literal :left-bracket elision :right-bracket) (make-array-literal :elements (make-list (1+ $2) :initial-element (make-identifier :name "undefined"))))
+  ((array-literal :left-bracket elision :right-bracket) (make-array-literal :elements (make-list (1+ $2) :initial-element undefined-id)))
   ((array-literal :left-bracket element-list :right-bracket) (make-array-literal :elements $2))
   ((array-literal :left-bracket element-list elision :right-bracket) (make-array-literal :elements
-                                                                                         (append $2 (make-list $3 :initial-element (make-identifier :name "undefined")))))
+                                                                                         (append $2 (make-list $3 :initial-element undefined-id))))
 
   ((element-list assignment-expression) (list $1))
-  ((element-list elision assignment-expression) (append (make-list $1 :initial-element (make-identifier :name "undefined"))
+  ((element-list elision assignment-expression) (append (make-list $1 :initial-element undefined-id)
                                                         (list $2)))
   ((element-list element-list :comma assignment-expression) (append $1 (list $3)))
   ((element-list element-list :comma elision assignment-expression) (append $1
-                                                                            (make-list $3 :initial-element (make-identifier :name "undefined"))
+                                                                            (make-list $3 :initial-element undefined-id)
                                                                             (list $4)))
   
-  ((elision :comma) 1)
+  ((elision :comma) one)
   ((elision elision :comma) (1+ $1))
 
   ((object-literal :left-curly :right-curly) (make-object-literal :properties nil))
@@ -562,11 +572,11 @@
 
 (defun generate-rules-with-optional (rule-spec &optional (mask 0))
   "Accepts a PARSERGEN rulespec and transforms it by treating each symbol that begins with a
-   #\\Question-Mark character as being optional.  The output is a list of one or more rules that
+   #\\? character as being optional.  The output is a list of one or more rules that
    exhaust all the present/absent possibilities.  This is an internal utility for generating
    rules for the different grammar rules that are specified with wildcards."
   (labels ((optional-p (symbol)
-             (char= #\Question-Mark (aref (symbol-name symbol) 0)))
+             (char= #\? (aref (symbol-name symbol) 0)))
            (strip-optional (symbol)
              (if (optional-p symbol)
                (intern (subseq (symbol-name symbol) 1)
