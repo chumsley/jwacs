@@ -25,6 +25,11 @@ function runTests()
   runTest("for/1", matrixReduce([[10, 20, 30], [10, 20, 30]]), 120);
   runTest("for/2", matrixReduce([]), 0);
   runTest("for/3", matrixReduce([[10, 20], [1]]), null);
+  runTest("for-in/1", sumWords([]), 0);
+  runTest("switch/1", wordToNumber("one"), 1);
+  runTest("switch/2", wordToNumber("two"), 2);
+  runTest("switch/3", isNaN(sumWords(["hi", "zero", "ten"])), true);
+  runTest("switch/4", sumWords(["one", "three", "ten"]), 14);
 
 	output("<hr>");
 	outputLine(bold("Ran " + (passed + failed) + " tests"));
@@ -42,6 +47,7 @@ function runTests()
 		else
 		{
 			outputLine(red(bold(testName + " FAILED")));
+      outputLine("... expected " + bold(expectedValue) + ", got " + bold(actualValue));
 			failed++;
 		}
 	}
@@ -167,3 +173,47 @@ function matrixReduce(m)
 
   return sum;
 }
+
+function sumWords(wordArray)
+{
+  var total = 0;
+  for(word in wordArray)
+  {
+    var n = wordToNumber(wordArray[word]);
+    total += n;
+  }
+  return total;
+}
+
+function wordToNumber(word)
+{
+  switch(word.toLowerCase())
+  {
+  case "ten":
+    return 10;
+  case "nine":
+    return 9;
+  case "eight":
+    return 8;
+  case "seven":
+    return 7;
+  case "six":
+    return 6;
+  case "five":
+    return 5;
+  case "four":
+    return 4;
+  case "three":
+    return 3;
+  case "two":
+    return 2;
+  case "one":
+    return 1;
+  case "zero":
+    return 0;
+  default:
+    return Number.NaN;
+  }
+}
+
+      
