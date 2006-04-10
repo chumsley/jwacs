@@ -434,3 +434,121 @@
   (#S(binary-operator :op-symbol :assign
                       :left-arg #S(identifier :name "x")
                       :right-arg #S(special-value :symbol :function_continuation))))
+
+(deftest parser/for/1 :notes parser
+  (parse-only "for(;;) suspend;")
+  (#S(for :body #s(suspend-statement))))
+
+(deftest parser/for/2 :notes parser
+  (parse-only "for(x=0;;) suspend;")
+  (#S(for :initializer #s(binary-operator :op-symbol :assign :left-arg #s(identifier :name "x") :right-arg #s(numeric-literal :value 0))
+          :body #s(suspend-statement))))
+
+(deftest parser/for/3 :notes parser
+  (parse-only "for(;true;) { suspend; }")
+  (#S(for :condition #S(special-value :symbol :true)
+          :body #S(statement-block :statements (#S(suspend-statement))))))
+
+(deftest parser/for/4 :notes parser
+  (parse-only "for(;;x++) suspend;")
+  (#S(for :step #s(unary-operator :op-symbol :post-incr :arg #s(identifier :name "x"))
+          :body #s(suspend-statement))))
+
+(deftest parser/for/5 :notes parser
+  (parse-only "for(x=0;true;) suspend;")
+  (#S(for :initializer #s(binary-operator :op-symbol :assign :left-arg #s(identifier :name "x") :right-arg #s(numeric-literal :value 0))
+          :condition #S(special-value :symbol :true)
+          :body #s(suspend-statement))))
+  
+(deftest parser/for/6 :notes parser
+  (parse-only "for(;true;x++) suspend;")
+  (#S(for :condition #S(special-value :symbol :true)
+          :step #s(unary-operator :op-symbol :post-incr :arg #s(identifier :name "x"))
+          :body #s(suspend-statement))))
+
+(deftest parser/for/7 :notes parser
+  (parse-only "for(x=0;;x++) suspend;")
+  (#S(for :initializer #s(binary-operator :op-symbol :assign :left-arg #s(identifier :name "x") :right-arg #s(numeric-literal :value 0))
+          :step #s(unary-operator :op-symbol :post-incr :arg #s(identifier :name "x"))
+          :body #s(suspend-statement))))
+
+(deftest parser/for/8 :notes parser
+  (parse-only "for(x=0;true;x++) suspend;")
+  (#S(for :initializer #s(binary-operator :op-symbol :assign :left-arg #s(identifier :name "x") :right-arg #s(numeric-literal :value 0))
+          :condition #S(special-value :symbol :true)
+          :step #s(unary-operator :op-symbol :post-incr :arg #s(identifier :name "x"))
+          :body #s(suspend-statement))))
+
+(deftest parser/for/9 :notes parser
+  (parse-only "for(var x = 0;;) suspend;")
+  (#s(for :initializer #s(var-decl-statement :var-decls (#s(var-decl :name "x" :initializer #s(numeric-literal :value 0))))
+          :body #s(suspend-statement))))
+
+(deftest parser/for/10 :notes parser
+  (parse-only "for(var x = 0;true;) suspend;")
+  (#s(for :initializer #s(var-decl-statement :var-decls (#s(var-decl :name "x" :initializer #s(numeric-literal :value 0))))
+          :condition #S(special-value :symbol :true)
+          :body #s(suspend-statement))))
+
+(deftest parser/for/11 :notes parser
+  (parse-only "for(var x = 0;;x++) suspend;")
+  (#s(for :initializer #s(var-decl-statement :var-decls (#s(var-decl :name "x" :initializer #s(numeric-literal :value 0))))
+          :step #s(unary-operator :op-symbol :post-incr :arg #s(identifier :name "x"))
+          :body #s(suspend-statement))))
+
+(deftest parser/for/12 :notes parser
+  (parse-only "for(var x = 0;true;x++) suspend;")
+  (#s(for :initializer #s(var-decl-statement :var-decls (#s(var-decl :name "x" :initializer #s(numeric-literal :value 0))))
+          :condition #S(special-value :symbol :true)
+          :step #s(unary-operator :op-symbol :post-incr :arg #s(identifier :name "x"))
+          :body #s(suspend-statement))))
+
+(deftest parser/array-literal/1 :notes parser
+  (parse-only "x = [];")
+  (#s(binary-operator :op-symbol :assign :left-arg #s(identifier :name "x")
+                      :right-arg #s(array-literal :elements nil))))
+
+(deftest parser/array-literal/2 :notes parser
+  (parse-only "x=[1];")
+  (#s(binary-operator :op-symbol :assign :left-arg #s(identifier :name "x")
+                      :right-arg #s(array-literal :elements (#s(numeric-literal :value 1))))))
+
+(deftest parser/array-literal/3 :notes parser
+  (parse-only "x=[1,2];")
+  (#s(binary-operator :op-symbol :assign :left-arg #s(identifier :name "x")
+                      :right-arg #s(array-literal :elements (#s(numeric-literal :value 1)
+                                                             #s(numeric-literal :value 2))))))
+
+(deftest parser/array-literal/4 :notes parser
+  (parse-only "x=[1,,2];")
+  (#s(binary-operator :op-symbol :assign :left-arg #s(identifier :name "x")
+                      :right-arg #s(array-literal :elements (#s(numeric-literal :value 1)
+                                                             #s(identifier :name "undefined")
+                                                             #s(numeric-literal :value 2))))))
+
+(deftest parser/array-literal/5 :notes parser
+  (parse-only "x=[1,];")
+  (#s(binary-operator :op-symbol :assign :left-arg #s(identifier :name "x")
+                      :right-arg #s(array-literal :elements (#s(numeric-literal :value 1)
+                                                             #s(identifier :name "undefined"))))))
+(deftest parser/array-literal/6 :notes parser
+  (parse-only "x=[,,1];")
+  (#s(binary-operator :op-symbol :assign :left-arg #s(identifier :name "x")
+                      :right-arg #s(array-literal :elements (#s(identifier :name "undefined")
+                                                             #s(identifier :name "undefined")
+                                                             #s(numeric-literal :value 1))))))
+
+(deftest parser/array-literal/7 :notes parser
+  (parse-only "x=[,1,];")
+  (#s(binary-operator :op-symbol :assign :left-arg #s(identifier :name "x")
+                      :right-arg #s(array-literal :elements (#s(identifier :name "undefined")
+                                                             #s(numeric-literal :value 1)
+                                                             #s(identifier :name "undefined"))))))
+
+(deftest parser/array-literal/8 :notes parser
+  (parse-only "x=[,,,];")
+  (#s(binary-operator :op-symbol :assign :left-arg #s(identifier :name "x")
+                      :right-arg #s(array-literal :elements (#s(identifier :name "undefined")
+                                                             #s(identifier :name "undefined")
+                                                             #s(identifier :name "undefined")
+                                                             #s(identifier :name "undefined"))))))

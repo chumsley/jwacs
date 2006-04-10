@@ -38,12 +38,21 @@
   ((primary-expression-no-lbf :left-paren expression :right-paren) $2)
   
   ((array-literal :left-bracket :right-bracket) (make-array-literal :elements nil))
+  ((array-literal :left-bracket elision :right-bracket) (make-array-literal :elements (make-list (1+ $2) :initial-element (make-identifier :name "undefined"))))
   ((array-literal :left-bracket element-list :right-bracket) (make-array-literal :elements $2))
-  
-  ((element-list assignment-expression) (list $1))
-  ((element-list element-list :comma assignment-expression) (append $1 (list $3)))
+  ((array-literal :left-bracket element-list elision :right-bracket) (make-array-literal :elements
+                                                                                         (append $2 (make-list $3 :initial-element (make-identifier :name "undefined")))))
 
-  ;;TODO not currently handling elisions
+  ((element-list assignment-expression) (list $1))
+  ((element-list elision assignment-expression) (append (make-list $1 :initial-element (make-identifier :name "undefined"))
+                                                        (list $2)))
+  ((element-list element-list :comma assignment-expression) (append $1 (list $3)))
+  ((element-list element-list :comma elision assignment-expression) (append $1
+                                                                            (make-list $3 :initial-element (make-identifier :name "undefined"))
+                                                                            (list $4)))
+  
+  ((elision :comma) 1)
+  ((elision elision :comma) (1+ $1))
 
   ((object-literal :left-curly :right-curly) (make-object-literal :properties nil))
   ((object-literal :left-curly property/value-list :right-curly) (make-object-literal :properties $2))
@@ -304,10 +313,16 @@
      (make-comma-expr :exprs (list $1 $3))))
 
   ((expression-no-lbf assignment-expression-no-lbf) $1)
-  ((expression-no-lbf expression-statement-no-lbf :comma assignment-expression) (list  :comma $1 $3))
+  ((expression-no-lbf expression-no-lbf :comma assignment-expression)
+   (if (comma-expr-p $1)
+     (make-comma-expr :exprs (append (comma-expr-exprs $1) (list $3)))
+     (make-comma-expr :exprs (list $1 $3))))
 
   ((expression-no-in assignment-expression-no-in) $1)
-  ((expression-no-in expression-no-in :comma assignment-expression-no-in) (list :comma $1 $3))
+  ((expression-no-in expression-no-in :comma assignment-expression-no-in)
+   (if (comma-expr-p $1)
+     (make-comma-expr :exprs (append (comma-expr-exprs $1) (list $3)))
+     (make-comma-expr :exprs (list $1 $3))))   
 
   ((literal :null) (make-special-value :symbol :null))
   ((literal boolean-literal) $1)
@@ -391,24 +406,70 @@
   ((iteration-statement :do statement :while :left-paren expression :right-paren :semicolon) (make-do-statement :condition $5 :body $2))
   ((iteration-statement :while :left-paren expression :right-paren statement) (make-while :condition $3 :body $5))
 
-  ;;TODO Almost every expression in a for statement should be optional; add that (probably by writing a utility to calculate it for us)
+  ;; (generate-rules-with-optional '(iteration-statement :for :left-paren ?expression-no-in :semicolon ?expression :semicolon ?expression :right-paren statement))
+  ((iteration-statement :for :left-paren :semicolon :semicolon :right-paren statement)
+   (make-for :body $6))
+  ((iteration-statement :for :left-paren expression-no-in :semicolon :semicolon :right-paren statement)
+   (make-for :initializer $3 :body $7))
+  ((iteration-statement :for :left-paren :semicolon expression :semicolon :right-paren statement)
+   (make-for :condition $4 :body $7))
+  ((iteration-statement :for :left-paren expression-no-in :semicolon expression :semicolon :right-paren statement)
+   (make-for :initializer $3 :condition $5 :body $8))
+  ((iteration-statement :for :left-paren :semicolon :semicolon expression :right-paren statement)
+   (make-for :step $5 :body $7))
+  ((iteration-statement :for :left-paren expression-no-in :semicolon :semicolon expression :right-paren statement)
+   (make-for :initializer $3 :step $6 :body $8))
+  ((iteration-statement :for :left-paren :semicolon expression :semicolon expression :right-paren statement)
+   (make-for :condition $4 :step $6 :body $8))
   ((iteration-statement :for :left-paren expression-no-in :semicolon expression :semicolon expression :right-paren statement)
    (make-for :initializer $3 :condition $5 :step $7 :body $9))
+
+  ;; (generate-rules-with-optional '(iteration-statement :for :left-paren :var variable-decl-list-no-in :semicolon ?expression :semicolon ?expression :right-paren statement))
+  ((iteration-statement :for :left-paren :var variable-decl-list-no-in :semicolon :semicolon :right-paren statement)
+   (make-for :initializer (make-var-decl-statement :var-decls $4) :body $8))
+  ((iteration-statement :for :left-paren :var variable-decl-list-no-in :semicolon expression :semicolon :right-paren statement)
+   (make-for :initializer (make-var-decl-statement :var-decls $4) :condition $6 :body $9))
+  ((iteration-statement :for :left-paren :var variable-decl-list-no-in :semicolon :semicolon expression :right-paren statement)
+   (make-for :initializer (make-var-decl-statement :var-decls $4) :step $7 :body $9))
   ((iteration-statement :for :left-paren :var variable-decl-list-no-in :semicolon expression :semicolon expression :right-paren statement)
    (make-for :initializer (make-var-decl-statement :var-decls $4) :condition $6 :step $8 :body $10))
+
   ((iteration-statement :for :left-paren left-hand-side-expression :in expression :right-paren statement)
    (make-for-in :binding $3 :collection $5 :body $7))
   ((iteration-statement :for :left-paren :var variable-decl-no-in :in expression :right-paren statement)
    (make-for-in :binding (make-var-decl-statement :var-decls (list $4)) :collection $6 :body $8))
 
- ((iteration-statement-no-if :do statement :while :left-paren expression :right-paren :semicolon) (make-do-statement :condition $5 :body $2))
+  ((iteration-statement-no-if :do statement :while :left-paren expression :right-paren :semicolon) (make-do-statement :condition $5 :body $2))
   ((iteration-statement-no-if :while :left-paren expression :right-paren statement-no-if) (make-while :condition $3 :body $5))
 
-  ;;TODO Almost every expression in a for statement should be optional; add that (probably by writing a utility to calculate it for us)
+  ;; (generate-rules-with-optional '(iteration-statement :for :left-paren ?expression-no-in :semicolon ?expression :semicolon ?expression :right-paren statement))
+  ((iteration-statement-no-if :for :left-paren :semicolon :semicolon :right-paren statement-no-if)
+   (make-for :body $6))
+  ((iteration-statement-no-if :for :left-paren expression-no-in :semicolon :semicolon :right-paren statement-no-if)
+   (make-for :initializer $3 :body $7))
+  ((iteration-statement-no-if :for :left-paren :semicolon expression :semicolon :right-paren statement-no-if)
+   (make-for :condition $4 :body $7))
+  ((iteration-statement-no-if :for :left-paren expression-no-in :semicolon expression :semicolon :right-paren statement-no-if)
+   (make-for :initializer $3 :condition $5 :body $8))
+  ((iteration-statement-no-if :for :left-paren :semicolon :semicolon expression :right-paren statement-no-if)
+   (make-for :step $5 :body $7))
+  ((iteration-statement-no-if :for :left-paren expression-no-in :semicolon :semicolon expression :right-paren statement-no-if)
+   (make-for :initializer $3 :step $6 :body $8))
+  ((iteration-statement-no-if :for :left-paren :semicolon expression :semicolon expression :right-paren statement-no-if)
+   (make-for :condition $4 :step $6 :body $8))
   ((iteration-statement-no-if :for :left-paren expression-no-in :semicolon expression :semicolon expression :right-paren statement-no-if)
    (make-for :initializer $3 :condition $5 :step $7 :body $9))
+
+  ;; (generate-rules-with-optional '(iteration-statement :for :left-paren :var variable-decl-list-no-in :semicolon ?expression :semicolon ?expression :right-paren statement))
+  ((iteration-statement-no-if :for :left-paren :var variable-decl-list-no-in :semicolon :semicolon :right-paren statement-no-if)
+   (make-for :initializer (make-var-decl-statement :var-decls $4) :body $8))
+  ((iteration-statement-no-if :for :left-paren :var variable-decl-list-no-in :semicolon expression :semicolon :right-paren statement-no-if)
+   (make-for :initializer (make-var-decl-statement :var-decls $4) :condition $6 :body $9))
+  ((iteration-statement-no-if :for :left-paren :var variable-decl-list-no-in :semicolon :semicolon expression :right-paren statement-no-if)
+   (make-for :initializer (make-var-decl-statement :var-decls $4) :step $7 :body $9))
   ((iteration-statement-no-if :for :left-paren :var variable-decl-list-no-in :semicolon expression :semicolon expression :right-paren statement-no-if)
    (make-for :initializer (make-var-decl-statement :var-decls $4) :condition $6 :step $8 :body $10))
+
   ((iteration-statement-no-if :for :left-paren left-hand-side-expression :in expression :right-paren statement-no-if)
    (make-for-in :binding $3 :collection $5 :body $7))
   ((iteration-statement-no-if :for :left-paren :var variable-decl-no-in :in expression :right-paren statement-no-if)
@@ -497,6 +558,34 @@
   ((source-element function-decl) $1)
 )
 
+;;;; ======= Helper functions ======================================================================
+
+(defun generate-rules-with-optional (rule-spec &optional (mask 0))
+  "Accepts a PARSERGEN rulespec and transforms it by treating each symbol that begins with a
+   #\\Question-Mark character as being optional.  The output is a list of one or more rules that
+   exhaust all the present/absent possibilities.  This is an internal utility for generating
+   rules for the different grammar rules that are specified with wildcards."
+  (labels ((optional-p (symbol)
+             (char= #\Question-Mark (aref (symbol-name symbol) 0)))
+           (strip-optional (symbol)
+             (if (optional-p symbol)
+               (intern (subseq (symbol-name symbol) 1)
+                       (symbol-package symbol))
+               symbol)))
+    (let* ((optionals-count (loop for symbol in rule-spec
+                                  count (optional-p symbol)))
+           (end-mask (expt 2 optionals-count)))
+      (unless (>= mask end-mask)
+        (cons
+         (loop for symbol in rule-spec
+               for symbol-index upfrom 0
+               count (optional-p symbol) into optional-index
+               unless (and (optional-p symbol)
+                           (zerop (logand (expt 2 (1- optional-index)) mask)))
+               collect (strip-optional symbol))
+         (generate-rules-with-optional rule-spec (1+ mask)))))))
+
+;;;; ======= Public interface ======================================================================
 (defun parse (str)
   "Parse a string as a Javascript script, returning a list of statements."
   #+use-yacc (yacc:parse-with-lexer (make-javascript-lexer str) javascript-script)
