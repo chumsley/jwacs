@@ -34,6 +34,12 @@
   (transform 'remove-administratives
              (transform xform elm)))
 
+(defun compile-lang-tests ()
+  (let* ((module (asdf:find-component (asdf:find-system :jwacs-tests) "tests"))
+         (component (asdf:find-component module "lang-tests")))
+    (jw:process (asdf:component-pathname component))))
+    
+
 
 ;;TODO Automated benchmarks?
 ;;TODO Randomized testing?  (a la Quickcheck)

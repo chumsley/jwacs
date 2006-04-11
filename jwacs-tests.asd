@@ -7,6 +7,15 @@
   (:nicknames :jw-tests-system))
 (in-package :jwacs-tests-system)
 
+;;;; Custom ASDF file types
+(defclass jwacs-file (static-file) ())
+(defmethod source-file-type ((c jwacs-file) (s module)) "jw")
+(defmethod operation-done-p ((o load-op) (c jwacs-file))  
+  t)
+(defmethod operation-done-p ((o compile-op) (c jwacs-file))
+  t)
+
+;;;; System definition
 (asdf:defsystem jwacs-tests
     :version "0.1"
     :author "James Wright <chumsley@gmail.com>, Greg Smolyn <greg@smolyn.org>"
@@ -32,7 +41,8 @@
                (:file "test-cps-transformation")
                (:file "test-loop-transformation")
                (:file "test-trampoline-transformation")
-               (:file "test-runtime-transformation"))))
+               (:file "test-runtime-transformation")
+               (:jwacs-file "lang-tests"))))
     :depends-on (jwacs))
 
 (defmethod perform ((o test-op) (c (eql (find-system 'jwacs-tests))))
