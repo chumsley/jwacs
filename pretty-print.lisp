@@ -433,9 +433,13 @@
   (cond
     ;; If there's only one statement in the body, try to fit everything onto one line
     ((<= (length (function-expression-body elm)) 1)
-     (format s "~a{~a" *opt-space* *opt-space*)
-     (pretty-print (first (function-expression-body elm)) s)
-     (format s ";~a}" *opt-space*))
+     (let ((first-stmt (first (function-expression-body elm))))
+       (format s "~a{~a" *opt-space* *opt-space*)
+       (pretty-print first-stmt s)
+       (when (or (expression-p first-stmt)
+                 (var-decl-statement-p first-stmt))
+         (format s ";"))
+       (format s "~a}" *opt-space*)))
     (t
      (fresh-line-indented s)
      (format s "{")
