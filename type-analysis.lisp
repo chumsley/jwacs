@@ -880,6 +880,36 @@
     is in TERMINATORS, return statements are considered to terminate a control path; similarly
     for the other keywords."))
 
+;;; Non-escaping label tracking
+;;;
+;;; We track 'non-escaping' breaks and continues that don't terminate the entire statement
+;;; being considered.  For example, this call:
+;;;
+;;;    (EXPLICITLY-TERMINATED-P (PARSE "x = 10; break;"))
+;;;
+;;; should return non-NIL, but this one:
+;;;
+;;;    (EXPLICITLY-TERMINATED-P (PARSE "x = 10; while(true) { break; } x = 20;"))
+;;;
+;;; should return NIL, because the `break` statement only terminates the `while` loop,
+;;; not the entire control path being considered.
+
+(defparameter *non-escaping-break-labels* nil
+  "Non-escaping label names that are valid targets for a `break` statement")
+
+(defparameter *non-escaping-continue-labels* nil
+  "Non-escaping label names that are valid targets for a `continue` statement")
+
+(defmacro with-non-escaping-break-target ((elm) &body body)
+  `(let ((*non-escaping-break-labels* (cons (source-element-label ,elm)
+                                            *non-escaping-break-labels*)))
+    ,@body))
+
+(defmacro with-non-escaping-continue-target ((elm) &body body)
+  `(let ((*non-escaping-continue-labels* (cons (source-element-label ,elm)
+                                            *non-escaping-continue-labels*)))
+    ,@body))
+
 ;;; Unless otherwise specified, a source element does not explicitly terminate
 (defmethod explicitly-terminated-p (elm terminators)
   nil)
@@ -898,10 +928,20 @@
   (find :suspend terminators))
 
 (defmethod explicitly-terminated-p ((elm break-statement) terminators)
-  (find :break terminators))
+  (with-slots (target-label) elm
+    (unless (or (and (null target-label)
+                     (> (length *non-escaping-break-labels*) 0))
+                (member target-label *non-escaping-break-labels*
+                        :test 'equal))
+      (find :break terminators))))
   
 (defmethod explicitly-terminated-p ((elm continue-statement) terminators)
-  (find :continue terminators))
+  (with-slots (target-label) elm
+    (unless (or (and (null target-label)
+                     (> (length *non-escaping-continue-labels*) 0))
+                (member target-label *non-escaping-continue-labels*
+                        :test 'equal))
+      (find :continue terminators))))
 
 ;;; Sequences
 (defmethod explicitly-terminated-p ((elm-list list) terminators)
@@ -915,11 +955,12 @@
        (explicitly-terminated-p (if-statement-else-statement elm) terminators)))
 
 (defmethod explicitly-terminated-p ((elm switch) terminators)
-  (reduce (lambda (x y)
-            (and x y))
-          (switch-clauses elm)
-          :key (lambda (clause)
-                 (explicitly-terminated-p clause terminators))))
+  (with-non-escaping-break-target (elm)
+    (reduce (lambda (x y)
+              (and x y))
+            (switch-clauses elm)
+            :key (lambda (clause)
+                   (explicitly-terminated-p clause terminators)))))
 
 (defmethod explicitly-terminated-p ((elm try) terminators)
   (with-slots (body catch-clause finally-clause) elm
@@ -940,17 +981,43 @@
   (explicitly-terminated-p (default-clause-body elm) terminators))
 
 (defmethod explicitly-terminated-p ((elm do-statement) terminators)
-  (explicitly-terminated-p (do-statement-body elm) terminators))
+  ;; If the body of a do loop is explicitly terminated, then so is the whole
+  ;; statement, because the body always executes at least once.
+  (with-non-escaping-break-target (elm)
+    (with-non-escaping-continue-target (elm)
+      (explicitly-terminated-p (do-statement-body elm) terminators))))
 
 (defmethod explicitly-terminated-p ((elm while) terminators)
-  (explicitly-terminated-p (while-body elm) terminators))
+  ;; The only time that a while loop's body is statically guaranteed to execute is
+  ;; when its condition is true
+  (when (and (special-value-p (while-condition elm))
+             (eq (special-value-symbol (while-condition elm))
+                 :true))
+    (with-non-escaping-break-target (elm)
+      (with-non-escaping-continue-target (elm)
+        (explicitly-terminated-p (while-body elm) terminators)))))
 
 (defmethod explicitly-terminated-p ((elm for) terminators)
-  (explicitly-terminated-p (for-body elm) terminators))
+  ;; The only time that a for loop's body is statically guaranteed to execute is
+  ;; when its condition is true
+  (when (and (special-value-p (for-condition elm))
+             (eq (special-value-symbol (for-condition elm))
+                 :true))
+    (with-non-escaping-break-target (elm)
+      (with-non-escaping-continue-target (elm)
+        (explicitly-terminated-p (for-body elm) terminators)))))
 
 (defmethod explicitly-terminated-p ((elm for-in) terminators)
-  (explicitly-terminated-p (for-in-body elm) terminators))
-
+  ;; The only time that a for-in loop's body is statically guaranteed to execute is
+  ;; when its collection is a non-empty literal
+  (when (or (and (object-literal-p (for-in-collection elm))
+                 (> (length (object-literal-properties (for-in-collection elm))) 0))
+            (and (array-literal-p (for-in-collection elm))
+                 (> (length (array-literal-elements (for-in-collection elm))) 0)))
+    (with-non-escaping-break-target (elm)
+      (with-non-escaping-continue-target (elm)
+        (explicitly-terminated-p (for-in-body elm) terminators)))))
+  
 (defmethod explicitly-terminated-p ((elm with) terminators)
   (explicitly-terminated-p (with-body elm) terminators))
 

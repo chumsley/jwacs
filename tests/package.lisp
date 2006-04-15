@@ -125,5 +125,6 @@
                 compute-types
                 value-node
                 location-node
+                explicitly-terminated-p
                 ))
                 
