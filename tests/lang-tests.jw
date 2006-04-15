@@ -25,6 +25,8 @@ function runTests()
   runTest("for/1", matrixReduce([[10, 20, 30], [10, 20, 30]]), 120);
   runTest("for/2", matrixReduce([]), 0);
   runTest("for/3", matrixReduce([[10, 20], [1]]), null);
+  runTest("for/4", negativeOddSum(4), 10);
+  runTest("for/5", negativeOddSum(5), -15);
   runTest("for-in/1", sumWords([]), 0);
   runTest("switch/1", wordToNumber("one"), 1);
   runTest("switch/2", wordToNumber("two"), 2);
@@ -216,4 +218,17 @@ function wordToNumber(word)
   }
 }
 
-      
+function negativeOddSum(upTo)
+{
+  var result = 0;
+  if(upTo % 2 == 0)
+    for(var i = 0; i <= upTo; i++)
+      result += i;
+  else
+    for(var i = 0; i <= upTo; i++)
+      result -= i;
+
+  return result;
+}
+          
+     
