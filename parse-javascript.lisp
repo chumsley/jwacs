@@ -21,12 +21,6 @@
 (defparameter undefined-id (make-identifier :name "undefined")
   "Contains the `undefined` identifier")
 
-;;TODO Get rid of this stupid variable by fixing the DEFPARSER-GENERIC macro
-(defparameter one 1
-  "The macro that we use to translate parsergen grammars to cl-yacc grammars
-   only currently deals with symbols and lists.  So we'll use this variable for 
-   now instead of the (non-symbol, non-list) number 1.")
-
 (defparser-generic javascript-script
     
     ((program source-elements) $1) ; Starting production
@@ -61,7 +55,7 @@
                                                                             (make-list $3 :initial-element undefined-id)
                                                                             (list $4)))
   
-  ((elision :comma) one)
+  ((elision :comma) 1)
   ((elision elision :comma) (1+ $1))
 
   ((object-literal :left-curly :right-curly) (make-object-literal :properties nil))

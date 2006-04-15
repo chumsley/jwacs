@@ -70,18 +70,21 @@
 ; go through every symbol
 
 (defun replace-dollar-signs (item)
-  "Takes a symbol or a list and replaces $n with (nth n-1 expr)"
+  "If item is a symbol or list, replaces $n with (nth n-1 expr).
+   If item is neither, returns it unchanged."
   (cond
     ((null item) nil)
-    ((not (listp item))
+    ((consp item) (cons (replace-dollar-signs (car item))
+                        (replace-dollar-signs (cdr item))))
+    ((symbolp item)
      (replace-dollar-sign-in-symbol item))
-    (t (cons (replace-dollar-signs (car item))
-             (replace-dollar-signs (cdr item))))))
+    (t
+     item)))
 
 (defun replace-dollar-sign-in-symbol (sym)
   "Replace $n in a symbol with (nth n-1 expr)"
   (let* ((symname (symbol-name sym)))
     (if (not (eq (char symname 0) #\$))
-	sym
-	`(nth ,(1- (parse-integer (subseq symname 1))) expr))))
+      sym
+      `(nth ,(1- (parse-integer (subseq symname 1))) expr))))
 
