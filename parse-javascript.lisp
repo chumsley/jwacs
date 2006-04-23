@@ -555,11 +555,17 @@
   ((function-body :left-curly source-elements :right-curly) $2)
   ((function-body :left-curly :right-curly) nil)
 
+  ((import-decl :import :identifier :string-literal :semicolon)
+   (make-import-decl :type-symbol (intern (string-upcase $2) :jwacs)
+                     :uri $3))
+  ((import-decl :import :string-literal :semicolon) (make-import-decl :uri $2))
+
   ((source-elements source-element) (list $1))
   ((source-elements source-elements source-element) (append $1 (list $2)))
 
   ((source-element statement) $1)
   ((source-element function-decl) $1)
+  ((source-element import-decl) $1)
 )
 
 ;;;; ======= Helper functions ======================================================================

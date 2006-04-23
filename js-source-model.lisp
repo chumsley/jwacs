@@ -180,6 +180,10 @@
   (target nil :type source-element)
   (arg nil :type (or source-element null)))
 
+(defelement (import-decl (:include source-element))
+  (type-symbol nil :type symbol)
+  (uri nil :type string))
+
 ;;;; ======= Static source element properties ======================================================
 
 ;;;; ------- Operator precedence and associativity -------------------------------------------------

@@ -53,6 +53,7 @@
                 continuation-call
                 suspend-statement
                 resume-statement
+                import-decl
                 
                 ;; constructors for source-model structures
                 make-source-element
@@ -93,6 +94,7 @@
                 make-function-expression
                 make-suspend-statement
                 make-resume-statement
+                make-import-decl
                 
                 ;; structure management
                 structure-slots

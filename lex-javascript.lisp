@@ -161,15 +161,16 @@
 (deftoken :finally      "finally" :keyword)
 (deftoken :for          "for"    :keyword)
 (deftoken :function     "function" :keyword)
-(deftoken :function_continuation "function_continuation" :keyword) ; JWACS-only syntax
+(deftoken :function_continuation "function_continuation" :keyword) ; jwacs-only syntax
 (deftoken :if           "if"     :keyword)
+(deftoken :import      "import"  :keyword) ; jwacs-only syntax
 (deftoken :in           "in"     :keyword)
 (deftoken :instanceof   "instanceof" :keyword) ;???
 (deftoken :new          "new"    :keyword)
 (deftoken :null         "null"   :keyword)
-(deftoken :resume       "resume" :keyword) ; JWACS-only syntax
+(deftoken :resume       "resume" :keyword) ; jwacs-only syntax
 (deftoken :return       "return" :keyword)
-(deftoken :suspend      "suspend" :keywork) ; JWACS-only syntax
+(deftoken :suspend      "suspend" :keywork) ; jwacs-only syntax
 (deftoken :switch       "switch" :keyword)
 (deftoken :this         "this"   :keyword)
 (deftoken :throw        "throw"  :keyword)

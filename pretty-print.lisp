@@ -466,3 +466,8 @@
     (pretty-print (resume-statement-arg elm) s))
   (format s ";"))
 
+(defmethod pretty-print ((elm import-decl) s)
+  (format s "import ")
+  (when (import-decl-type-symbol elm)
+    (format s "~A " (string-downcase (symbol-name (import-decl-type-symbol elm)))))
+  (format s "\"~A\";" (import-decl-uri elm)))
