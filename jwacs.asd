@@ -41,6 +41,11 @@
 (defmethod operation-done-p ((o compile-op) (c js-file))
   t)
 
+(defmethod operation-done-p ((o load-op) (c html-file))  
+  t)
+(defmethod operation-done-p ((o compile-op) (c html-file))
+  t)
+
 ;;;; System definition
 (asdf:defsystem jwacs 
   :version "0.1"
@@ -50,7 +55,10 @@
   :components ((:module "external"
                         :components
                         ((:file "yacc")))
+               ;;TODO Should these three non-Lisp files go into a separate module?
                (:js-file "jw-runtime")
+               (:html-file "default-template")
+               (:html-file "default-bootframe")
                (:file "package")
                (:file "general-utilities")
                (:file "lexer-macros")

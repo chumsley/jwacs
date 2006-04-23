@@ -1,7 +1,7 @@
 <html>
 <head>
-	<script src='lang-tests.js'>
-	</script>
+<title>jwacs language tests</title>
+<% jwacs_imports %>
 </head>
 <body onLoad='runTests();'>
 <h2>jwacs language tests</h2>
