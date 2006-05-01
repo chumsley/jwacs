@@ -332,6 +332,14 @@
   (with-nesting
     (call-next-method)))
 
+(defmethod tx-explicitize ((elm property-access))
+  (multiple-value-bind (target-proxy target-prereqs)
+      (nested-explicitize (property-access-target elm))
+    (multiple-value-bind (field-proxy field-prereqs)
+        (nested-explicitize (property-access-field elm))
+      (values (make-property-access :target target-proxy :field field-proxy)
+              (append target-prereqs field-prereqs)))))
+
 (defmethod tx-explicitize ((elm comma-expr))
   (loop for expr in (comma-expr-exprs elm)
         for (expr-proxy expr-prereqs) = (multiple-value-list (nested-explicitize expr))

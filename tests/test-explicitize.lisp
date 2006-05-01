@@ -374,4 +374,12 @@
         var JW2 = j(z);
         return h(JW2);
       }"))
-        
+
+(deftest explicitize/property-access/1 :notes explicitize
+  (with-fresh-genvar
+    (transform 'explicitize (parse "
+      var foo = bar(20).baz;")))
+  #.(parse "
+      var JW0 = bar(20);
+      var foo = JW0.baz;"))
+
