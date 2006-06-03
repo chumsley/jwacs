@@ -70,19 +70,115 @@ function $call0(f, k, thisObj, a1, a2, a3, a4, a5, a6, a7, a8)
 {
   if(thisObj)
   {
-    if(f.$jw)
-      return thisObj[f](k, a1, a2, a3, a4, a5, a6, a7, a8);
+    if(thisObj[f].$jw)
+    {
+      switch(arguments.length)
+      {
+      case 3:
+        return thisObj[f](k);
+      case 4:
+        return thisObj[f](k, a1);
+      case 5:
+        return thisObj[f](k, a1, a2);
+      case 6:
+        return thisObj[f](k, a1, a2, a3);
+      case 7:
+        return thisObj[f](k, a1, a2, a3, a4);
+      case 8:
+        return thisObj[f](k, a1, a2, a3, a4, a5);
+      case 9:
+        return thisObj[f](k, a1, a2, a3, a4, a5, a6);
+      case 10:
+        return thisObj[f](k, a1, a2, a3, a4, a5, a6, a7);
+      case 11:
+        return thisObj[f](k, a1, a2, a3, a4, a5, a6, a7, a8);
+      default:
+        throw "too many/few arguments to $call0";
+      }
+    }
     else
-      return k(thisObj[f](a1, a2, a3, a4, a5, a6, a7, a8));
+    {
+      switch(arguments.length)
+      {
+      case 3:
+        return k(thisObj[f]());
+      case 4:
+        return k(thisObj[f](a1));
+      case 5:
+        return k(thisObj[f](a1, a2));
+      case 6:
+        return k(thisObj[f](a1, a2, a3));
+      case 7:
+        return k(thisObj[f](a1, a2, a3, a4));
+      case 8:
+        return k(thisObj[f](a1, a2, a3, a4, a5));
+      case 9:
+        return k(thisObj[f](a1, a2, a3, a4, a5, a6));
+      case 10:
+        return k(thisObj[f](a1, a2, a3, a4, a5, a6, a7));
+      case 11:
+        return k(thisObj[f](a1, a2, a3, a4, a5, a6, a7, a8));
+      default:
+        throw "too many/few arguments to $call0";
+      }
+    }
   }
   else
   {
     if(f.$jw)
-      return f(k, a1, a2, a3, a4, a5, a6, a7, a8);
+    {
+      switch(arguments.length)
+      {
+      case 3:
+        return f(k);
+      case 4:
+        return f(k, a1);
+      case 5:
+        return f(k, a1, a2);
+      case 6:
+        return f(k, a1, a2, a3);
+      case 7:
+        return f(k, a1, a2, a3, a4);
+      case 8:
+        return f(k, a1, a2, a3, a4, a5);
+      case 9:
+        return f(k, a1, a2, a3, a4, a5, a6);
+      case 10:
+        return f(k, a1, a2, a3, a4, a5, a6, a7);
+      case 11:
+        return f(k, a1, a2, a3, a4, a5, a6, a7, a8);
+      default:
+        throw "too many/few arguments to $call0";
+      }
+    }
     else
-      return k(f(a1, a2, a3, a4, a5, a6, a7, a8));
+    {
+      switch(arguments.length)
+      {
+      case 3:
+        return k(f());
+      case 4:
+        return k(f(a1));
+      case 5:
+        return k(f(a1, a2));
+      case 6:
+        return k(f(a1, a2, a3));
+      case 7:
+        return k(f(a1, a2, a3, a4));
+      case 8:
+        return k(f(a1, a2, a3, a4, a5));
+      case 9:
+        return k(f(a1, a2, a3, a4, a5, a6));
+      case 10:
+        return k(f(a1, a2, a3, a4, a5, a6, a7));
+      case 11:
+        return k(f(a1, a2, a3, a4, a5, a6, a7, a8));
+      default:
+        throw "too many/few arguments to $call0";
+      }
+    }
   }
-}  
+}
 
 // "Pogo-stick" function for running a call to a trampoline-style
 // function.
