@@ -35,7 +35,7 @@
 ;;; The explicitize transformation has a more complicated protocol than most of
 ;;; the other transformations, so the TRANSFORM method is just a thin wrapper that
 ;;; calls a separate generic function called TX-EXPLICITIZE and translates the
-;;; results to the TRANSFORM protocol
+;;; results to the TRANSFORM protocol.
 ;;;
 ;;; Sometimes a source-element will be in a position
 ;;; in the code where it can be replaced with a series of new statements.  Ex:

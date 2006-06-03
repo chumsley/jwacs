@@ -155,11 +155,10 @@
                   :body (in-local-scope (tx-cps statement-tail nil)))))
 
 (defun make-void-continuation (current-cont)
-  "Returns a function expression that accepts an argument (which it ignores),
-   and then calls CURRENT-CONT with no arguments.  This allows us to preserve
-   the behaviour of functions that return no value."
+  "Returns a function expression that calls CURRENT-CONT with no arguments.
+   This allows us to preserve the behaviour of functions that return no value."
   (make-continuation-function
-   :parameters (list (genvar "dummy"))
+   :parameters nil
    :body (list (make-return-statement :arg
                                       (make-fn-call :fn current-cont
                                                     :args nil)))))
@@ -186,7 +185,7 @@
            ;; Call w/statement-tail
            (make-fn-call
             :fn (fn-call-fn elm)
-            :args (cons (make-continuation-function :parameters (list (genvar "dummy"))
+            :args (cons (make-continuation-function :parameters nil
                                                     :body (tx-cps statement-tail nil))
                           (mapcar (lambda (item)
                                     (tx-cps item nil))

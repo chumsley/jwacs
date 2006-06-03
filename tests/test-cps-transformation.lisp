@@ -64,12 +64,12 @@
       {
         var ifK$0 = function()
         {
-          return baz(function(dummy$1) { return $k(); });
+          return baz(function() { return $k(); });
         };
         if(branch)
-          return foo(function(dummy$2) { resume ifK$0; });
+          return foo(function() { resume ifK$0; });
         else
-          return bar(function(dummy$3) { resume ifK$0; });
+          return bar(function() { resume ifK$0; });
       }"))
 
 (deftest cps/asymmetric-dangling-tail/1 :notes cps
@@ -128,7 +128,7 @@
           return $k(40);
         else
           resume userK;
-        return output(function(dummy$0) { return $k(); }, 'this will never be seen');
+        return output(function() { return $k(); }, 'this will never be seen');
       }"))
 
 (deftest cps/if/terminated-then-null-else/1 :notes cps
@@ -153,7 +153,7 @@
             return $k(80);
           else
             resume userK <- 80;
-        return output(function(dummy$0) { return $k(); }, 'might see this');
+        return output(function() { return $k(); }, 'might see this');
       }"))
 
 (deftest cps/if/terminated-then-null-else/2 :notes cps
@@ -172,8 +172,8 @@
       function foo($k, x)
       {
         if(x)
-          return output(function(dummy$0) { return $k(true); }, 'yes');
-        return output(function(dummy$1) { return $k(); }, 'no');
+          return output(function() { return $k(true); }, 'yes');
+        return output(function() { return $k(); }, 'no');
       }"))
 
 
@@ -202,8 +202,8 @@
           else
             resume userK <- 80;
         else
-          return output(function(dummy$0) {
-                                return output(function(dummy$1) { return $k(); },
+          return output(function() {
+                                return output(function() { return $k(); },
                                               'might see this');
                         }, 'also this');
       }"))
@@ -229,8 +229,8 @@
       function foo($k, userK)
       {
         if(x)
-          return output(function(dummy$0) {
-                                return output(function(dummy$1) { return $k(); },
+          return output(function() {
+                                return output(function() { return $k(); },
                                               'might see this');
                         }, 'also this');
         else
@@ -261,10 +261,10 @@
           return foo($k, false);
         else
         {
-          return WScript.echo(function(dummy$0) { return foo($k, true); }, 'hi');
+          return WScript.echo(function() { return foo($k, true); }, 'hi');
         }
       }
-      foo(function(dummy$1) { return $k(); }, false);"))
+      foo(function() { return $k(); }, false);"))
 
 (deftest cps/post-function-dangling-tail/2 :notes cps
   (with-fresh-genvar
@@ -279,9 +279,9 @@
       {
         onEvent = function($k, e)
                   {
-                    return process(function(dummy$0) { return $k(); }, e);
+                    return process(function() { return $k(); }, e);
                   };
-        return bar(function(dummy$1) { return $k(); });
+        return bar(function() { return $k(); });
       }"))
 
 (deftest cps/no-tail-after-if/1 :notes cps
@@ -330,7 +330,7 @@
         switch(x)
         {
           case 1:
-            return bar(function(dummy$1) { resume switchK$0; });
+            return bar(function() { resume switchK$0; });
           default:
             return $k(88);
         }
@@ -359,7 +359,7 @@
         switch(x)
         {
           case 10:
-            return bar(function(dummy$1) { resume switchK$0; });
+            return bar(function() { resume switchK$0; });
           default:
             resume switchK$0;
         }
@@ -387,7 +387,7 @@
         switch(x)
         {
           case 10:
-            return bar(function(dummy$1) { resume switchK$0; });
+            return bar(function() { resume switchK$0; });
           default:
             resume switchK$0;
         }
@@ -418,10 +418,10 @@
         switch(x)
         {
           case 10:
-            return foo(function(dummy$1) { return bar(function(dummy$2) { resume switchK$0; }); });
+            return foo(function() { return bar(function() { resume switchK$0; }); });
           case 15:
           case 20:
-            return bar(function(dummy$3) { resume switchK$0; });
+            return bar(function() { resume switchK$0; });
           default:
             resume switchK$0;
         }
@@ -460,12 +460,12 @@
           case 10:
             var switchK$1 = function()
             {
-              return doSomethingElse(function(dummy$2) { resume switchK$0; });
+              return doSomethingElse(function() { resume switchK$0; });
             };
             switch(y)
             {
               case 20:
-                return doSomething(function(dummy$3) { resume switchK$1; });
+                return doSomething(function() { resume switchK$1; });
               default:
                 resume switchK$1;
             }
@@ -507,12 +507,12 @@
           case 10:
             var switchK$1 = function()
             {
-              return doSomethingElse(function(dummy$2) { resume switchK$0; });
+              return doSomethingElse(function() { resume switchK$0; });
             };
             switch(y)
             {
               case 20:
-                return doSomething(function(dummy$3) { resume switchK$0; });
+                return doSomething(function() { resume switchK$0; });
               default:
                 resume switchK$1;
             }
@@ -541,7 +541,7 @@
       {
         if(x++ > 10)
           resume break$0;
-        return output(function(dummy$2) { resume continue$1; }, x);
+        return output(function() { resume continue$1; }, x);
       };
       resume continue$1;"))
 
@@ -688,7 +688,7 @@
       function foo($k) { return $k(); }
       function bar($k)
       {
-        return foo(function (dummy$0) {
+        return foo(function () {
                      x += 10;
                      return $k();
                    });
@@ -725,7 +725,7 @@
       function fn($k)
       {
         var y = obj.field + 1;
-        return obj.method(function(dummy$0) { return $k(); }, y);
+        return obj.method(function() { return $k(); }, y);
       }"))
 
 (deftest cps/implicit-return/1 :notes cps
@@ -772,7 +772,7 @@
         return $k();
       };
       if(x)
-        return bar(function(dummy$1) { resume ifK$0; });
+        return bar(function() { resume ifK$0; });
       else
       {
         y = 10;

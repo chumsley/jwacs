@@ -20,7 +20,7 @@
         {
             if(!$k || !$k.$isK)
               return $callFromDirect(foo, this, arguments);
-            return bar($makeK(function (dummy$0) { return baz($k); }));
+            return bar($makeK(function () { return baz($k); }));
         }
         foo.$jw = true;"))
 
@@ -80,7 +80,7 @@
         {
           if(!$k || !$k.$isK)
             return $callFromDirect(foo, this, arguments);
-          return bar($makeK(function(dummy$0) {
+          return bar($makeK(function() {
                               return $call0(baz, $k, null, 100);
                               }), 50);
         }
@@ -109,7 +109,7 @@
         {
           if(!$k || !$k.$isK)
             return $callFromDirect(foo, this, arguments);
-          return bar($makeK(function(dummy$0) {
+          return bar($makeK(function() {
                               return $call(Foo.Bar.Baz.quux, $k, Foo.Bar.Baz, [100, 101, 102, 103, 104, 105, 106, 107, 108, 109]); 
                               }), 50);
         }
