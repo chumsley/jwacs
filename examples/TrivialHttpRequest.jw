@@ -1,6 +1,6 @@
 // TrivialHttpRequest.jw
 //
-// Demonstrates the motivating XmlHttpRequest usage pattern.
+// Demonstrates the motivating XMLHttpRequest usage pattern.
 // To use it:
 //
 //   1. Process this file using JW::PROCESS.  It will produce TrivialHttpRequest.js.
@@ -34,7 +34,7 @@ function fetchData(method, url)
 		}
 	};
 
-	http.open(method, url, true);
+	http.open(method, url);
 	http.send(null);
 	suspend;
 }
