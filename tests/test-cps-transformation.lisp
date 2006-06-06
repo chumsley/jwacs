@@ -787,3 +787,62 @@
   (transform 'cps
              (parse "x = function_continuation;"))
   #.(parse "x = $k;"))
+
+(deftest cps/void-new-expr-with-tail/1 :notes cps
+  (in-local-scope
+    (test-transform 'cps
+                    (parse "
+        new Foo;
+        bar(10);")))
+  #.(parse "
+        return new Foo(function() { return bar(function() { return $k(); }, 10); });"))
+
+(deftest cps/void-new-expr-with-tail/2 :notes cps
+  (test-transform 'cps
+                  (parse "
+        new Foo;
+        bar(10);"))
+  #.(parse "
+        new Foo(function() { return bar(function() { return $k(); }, 10); });"))
+
+(deftest cps/new-expr-with-tail/1 :notes cps
+  (in-local-scope
+    (test-transform 'cps
+                    (parse "
+        var x = new Foo(50);
+        bar(x[10]);")))
+  #.(parse "
+        return new Foo(function(x) { return bar(function() { return $k();}, x[10]); }, 50);"))
+
+(deftest cps/new-expr-with-tail/2 :notes cps
+  (test-transform 'cps
+                  (parse "
+        var x = new Foo(50);
+        bar(x[10]);"))
+  #.(parse "
+        new Foo(function(x) { return bar(function() { return $k(); }, x[10]); }, 50);"))
+
+(deftest cps/void-function-call-with-tail/1 :notes cps
+  (in-local-scope
+    (test-transform 'cps
+                    (parse "
+        foo(10);
+        bar(20);")))
+  #.(parse "
+        return foo(function() { return bar(function() { return $k(); }, 20); }, 10);"))
+
+(deftest cps/void-function-call-with-tail/2 :notes cps
+  (test-transform 'cps
+                  (parse "
+        foo(10);
+        bar(20);"))
+  #.(parse "
+        foo(function() { return bar(function() { return $k(); }, 20); }, 10);"))
+
+(deftest cps/toplevel-function-call-with-tail/1 :notes cps
+  (test-transform 'cps
+                  (parse "
+        var x = foo(10);
+        bar(x);"))
+  #.(parse "
+        foo(function(x) { return bar(function() { return $k(); }, x); }, 10);"))

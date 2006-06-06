@@ -6,6 +6,7 @@
 ;;;; CPS transformation
 ;;; Initial, naive version does the following:
 ;;; - All function calls transformed to fn-calls in continuation-passing style
+;;; - All new expressions transformed to new expressions that pass a continuation as the first argument
 ;;; - All assignments transformed to new continuations
 ;;; - All returns transformed to returns of the arg passed to the current continuation
 ;;;
@@ -147,12 +148,13 @@
 
 (defun make-labelled-continuation (name statement-tail)
   "Constructs a continuation from STATEMENT-TAIL and returns a var-decl-statement
-   that initializes a variable named NAME to the new continuation.  Note that named
+   that initializes a variable named NAME to the new continuation.  Note that labelled
    continuations accept no arguments."
   (make-var-init name
                  (make-continuation-function
                   :parameters nil
-                  :body (in-local-scope (tx-cps statement-tail nil)))))
+                  :body (in-local-scope
+                          (tx-cps statement-tail nil)))))
 
 (defun make-void-continuation (current-cont)
   "Returns a function expression that calls CURRENT-CONT with no arguments.
@@ -176,7 +178,7 @@
          (if (null statement-tail)
            ;; Tailless call
            (make-fn-call
-            :fn (fn-call-fn elm)
+            :fn (fn-call-fn elm) ; No need for recursive call here, because explicitization guarantees that the function will be a simple expression
             :args (cons (make-void-continuation *cont-id*)
                         (mapcar (lambda (item)
                                   (tx-cps item nil))
@@ -184,15 +186,39 @@
 
            ;; Call w/statement-tail
            (make-fn-call
-            :fn (fn-call-fn elm)
+            :fn (fn-call-fn elm) ; No need for recursive call here (see above)
             :args (cons (make-continuation-function :parameters nil
-                                                    :body (tx-cps statement-tail nil))
+                                                    :body (in-local-scope
+                                                            (tx-cps statement-tail nil)))
                           (mapcar (lambda (item)
                                     (tx-cps item nil))
                                   (fn-call-args elm)))))))
     (if *in-local-scope*
       (values (make-return-statement :arg new-fn-call) t)
       (values new-fn-call t))))
+
+(defmethod tx-cps ((elm new-expr) statement-tail)
+  (let ((tx-expr
+         (if (null statement-tail)
+           ;; Tailless construction
+           (make-new-expr
+            :constructor (new-expr-constructor elm) ; Explicitization guarantees simple expr as constructor, so no need for recusive call
+            :args (cons (make-void-continuation *cont-id*)
+                        (mapcar (lambda (item)
+                                  (tx-cps item nil))
+                                (new-expr-args elm))))
+           ;; Call w/statement-tail
+           (make-new-expr
+            :constructor (new-expr-constructor elm) ; No need for recursive call here (see above)
+            :args (cons (make-continuation-function :parameters nil
+                                                    :body (in-local-scope
+                                                            (tx-cps statement-tail nil)))
+                        (mapcar (lambda (item)
+                                  (tx-cps item nil))
+                                (new-expr-args elm)))))))
+    (if *in-local-scope*
+      (values (make-return-statement :arg tx-expr) t)
+      (values tx-expr t))))
 
 (defmethod tx-cps ((elm-list list) statement-tail)
   (unless (null elm-list)
@@ -223,17 +249,37 @@
     (let ((name (var-decl-name (car var-decls)))
           (initializer (var-decl-initializer (car var-decls))))
 
-      (if (fn-call-p initializer)
-        (let ((new-call (make-fn-call :fn (fn-call-fn initializer)
-                                      :args (cons
-                                             (make-continuation-function :parameters (list name)
-                                                                         :body (tx-cps statement-tail nil))
-                                             (fn-call-args initializer)))))
-          (values (make-return-statement :arg new-call) t))
-        (multiple-value-bind (new-decl consumed)
-            (tx-cps (car var-decls) statement-tail)
-          (values (make-var-decl-statement :var-decls (list new-decl))
-                  consumed))))))
+      (cond
+        ;; eg: var x = fn();
+        ((fn-call-p initializer)
+         (let ((new-call (make-fn-call :fn (fn-call-fn initializer)
+                                       :args (cons
+                                              (make-continuation-function :parameters (list name)
+                                                                          :body (in-local-scope
+                                                                                  (tx-cps statement-tail nil)))
+                                              (fn-call-args initializer)))))
+           (if *in-local-scope*
+             (values (make-return-statement :arg new-call) t)
+             (values new-call t))))
+
+        ;; eg: var x = new Foo;
+        ((new-expr-p initializer)
+         (let ((new-construction (make-new-expr :constructor (new-expr-constructor initializer)
+                                                :args (cons
+                                                       (make-continuation-function :parameters (list name)
+                                                                                   :body (in-local-scope
+                                                                                           (tx-cps statement-tail nil)))
+                                                       (new-expr-args initializer)))))
+           (if *in-local-scope*
+             (values (make-return-statement :arg new-construction) t)
+             (values new-construction t))))
+
+        ;; eg: var x = 20;
+        (t
+         (multiple-value-bind (new-decl consumed)
+             (tx-cps (car var-decls) statement-tail)
+           (values (make-var-decl-statement :var-decls (list new-decl))
+                   consumed)))))))
 
 ;;;================================================================================
 ;;;; function_continuation transformation
