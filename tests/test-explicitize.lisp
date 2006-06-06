@@ -361,6 +361,44 @@
         bar(50);
       };"))
 
+(deftest explicitize/new/1 :notes explicitize
+  (with-fresh-genvar
+    (transform 'explicitize (parse "
+      new Foo(bar(), baz(quux()), quuux() + 1);")))
+  #.(parse "
+      var JW0 = bar();
+      var JW1 = quux();
+      var JW2 = baz(JW1);
+      var JW3 = quuux();
+      new Foo(JW0, JW2, JW3 + 1);"))
+
+(deftest explicitize/new/2 :notes explicitize
+  (with-fresh-genvar
+    (transform 'explicitize (parse "
+      var foo = new Bar(100 + baz());")))
+  #.(parse "
+      var JW0 = baz();
+      var foo = new Bar(100 + JW0);"))
+
+(deftest explicitize/new/3 :notes explicitize
+  (with-fresh-genvar
+    (transform 'explicitize (parse "
+      var foo = bar(new Baz());")))
+  #.(parse "
+      var JW0 = new Baz();
+      var foo = bar(JW0);"))
+
+(deftest explicitize/new/4 :notes explicitize
+  (with-fresh-genvar
+    (transform 'explicitize (parse "
+      new (foo(bar()))(baz());"))) ; Uses constructor returned by foo
+  #.(parse "
+      var JW1 = bar();
+      var JW2 = foo(JW1);
+      var JW0 = baz();
+      new JW2(JW0);"))
+      
+
 (deftest explicitize/comma-expr/1 :notes explicitize
   (with-fresh-genvar
     (transform 'explicitize (parse "

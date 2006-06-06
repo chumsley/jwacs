@@ -164,6 +164,27 @@
               (return (values new-elm
                               new-stmts)))))))
 
+(defmethod tx-explicitize ((elm new-expr))
+  (loop for arg in (new-expr-args elm)
+        for (proxy prereq) = (multiple-value-list (nested-explicitize arg))
+        collect proxy into new-args
+        append prereq into new-stmts
+        finally
+        (multiple-value-bind (ctor-proxy ctor-prereqs)
+            (nested-explicitize (new-expr-constructor elm))
+          (let ((new-stmts (append ctor-prereqs new-stmts))
+                (new-elm (make-new-expr :constructor ctor-proxy
+                                        :args new-args)))
+            ;; A new expression is an implicit function call to the constructor
+            ;; TODO which we make explicit through a call to $new,
+            ;; so we need to pull it out of nested contexts.
+            (if *nested-context*
+              (let ((new-var (genvar)))
+                (return (values (make-identifier :name new-var)
+                                (postpend new-stmts (make-var-init new-var new-elm)))))
+              (return (values new-elm
+                              new-stmts)))))))
+
 (defmethod tx-explicitize ((elm var-decl-statement))
   (if (> (length (var-decl-statement-var-decls elm)) 1)
     (tx-explicitize (mapcar (lambda (decl)
