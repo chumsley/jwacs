@@ -45,7 +45,7 @@
   (labels ((f-b-h (environment)
              (if (null environment)
                nil
-               (let ((var-pair (assoc var-name (car environment) :test #'equalp)))
+               (let ((var-pair (assoc var-name (car environment) :test #'equal)))
                  (if (null var-pair)
                    (f-b-h (cdr environment))
                    (cdr var-pair))))))

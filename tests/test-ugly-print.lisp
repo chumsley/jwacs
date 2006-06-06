@@ -102,7 +102,7 @@
                              return z + y;
                           }
                           var y = 3;
-                          bar(3); 
+                          BAR(3); 
                          }")))
   "function FOO(JW0){function JW2(JW3){return JW3+JW1;}var JW1=3;JW2(3);}")
 
@@ -113,7 +113,7 @@
                           function BAR(z) {
                              return z + y;
                           }
-                          bar(3); 
+                          BAR(3); 
                          }")))
   "function FOO(JW0){var JW1=3;function JW2(JW3){return JW3+JW1;}JW2(3);}")
 
@@ -127,7 +127,7 @@
                              return z + y + BAZ(3);
                           }
                           var y = 3;
-                          bar(3); 
+                          BAR(3); 
                          }")))
 "function FOO(JW0){function JW2(JW3){function JW4(JW5){return 3+JW1;}return JW3+JW1+JW4(3);}var JW1=3;JW2(3);}")
 
@@ -199,3 +199,20 @@
           echo(top);
         }")))
    "var top=10;for(var top in topVars){echo(top);}")
+
+(deftest ugly-print/case-sensitivity/1 :notes ugly-print
+  (with-fresh-genvar
+    (ugly-string (parse "
+        function Counter() {}
+        function foo()
+        {
+          var counter = new Counter;
+        }")))
+  "function Counter(){}function foo(){var JW0=new Counter;}")
+
+(deftest ugly-print/case-sensitivity/2 :notes ugly-print
+  (with-fresh-genvar
+    (ugly-string (parse "
+        function Counter() {}
+        var counter = new Counter;")))
+  "function Counter(){}var counter=new Counter;") ; Toplevel identifiers (including the `counter` var) should not be changed
