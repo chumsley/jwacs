@@ -55,7 +55,8 @@
 
 (defmethod transform ((xform (eql 'trampoline)) (elm return-statement))
   (with-slots (arg) elm
-    (if (fn-call-p (return-statement-arg elm))
+    (if (or (fn-call-p arg)
+            (new-expr-p arg)) ; new expressions are "effective function calls", because the runtime transform will turn them into calls to `$new`.
       (make-return-statement :arg (make-thunk (make-return-statement :arg (transform 'trampoline arg))))
       (make-return-statement :arg (make-result (transform 'trampoline arg))))))
 

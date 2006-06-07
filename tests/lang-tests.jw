@@ -32,7 +32,11 @@ function runTests()
   runTest("switch/2", wordToNumber("two"), 2);
   runTest("switch/3", isNaN(sumWords(["hi", "zero", "ten"])), true);
   runTest("switch/4", sumWords(["one", "three", "ten"]), 14);
-
+  runTest("resume/1", fetchValue(32), 32);
+  runTest("new/1", testCpsNew(), true);
+  runTest("new/2", testCpsManyArgNew(), true);
+  runTest("new/3", testBuiltinNew(), true);
+          
 	output("<hr>");
 	outputLine(bold("Ran " + (passed + failed) + " tests"));
 	outputLine(bold(passed) + " tests passed");
@@ -230,5 +234,36 @@ function negativeOddSum(upTo)
 
   return result;
 }
-          
-     
+
+function fetchValue(value)
+{
+  var cc = function_continuation;
+  setTimeout(function() { resume cc <- value; }, 50);
+  suspend;
+}
+
+function CtorWithFetch(argValue)
+{
+  var self = this; // TODO Should not be necessary in future
+  self.arg = fetchValue(argValue);
+}
+
+function testCpsNew()
+{
+  var obj = new CtorWithFetch(55);
+  return obj.arg == 55;
+}
+
+function testCpsManyArgNew()
+{
+  var obj = new CtorWithFetch('a', 1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7);
+  return obj.arg == 'a';
+}
+
+function testBuiltinNew()
+{
+  var obj1 = new Number(123);
+  var obj2 = new String('hello');
+  var obj = obj2 + obj1;
+  return obj == "hello123";
+}

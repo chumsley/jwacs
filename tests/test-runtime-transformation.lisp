@@ -131,3 +131,41 @@
           return $call0('Baz', $k, Foo.Bar, 10, 20);
         }
         foo.$jw = true;"))
+
+(deftest runtime/new-expr/1 :notes runtime
+  (with-fresh-genvar
+    (in-local-scope
+      (test-transform 'runtime
+                      (transform 'cps (parse "
+        function bar(z) { return z; }
+        var x = new Foo(50, 55);
+        return bar(x);")))))
+  #.(parse "
+        function bar($k, z)
+        {
+          if(!$k || !$k.$isK)
+            return $callFromDirect(bar, this, arguments);
+          return $k(z);
+        }
+        bar.$jw = true;
+
+        return $new0(Foo, $makeK(function(x) { return bar($k, x); }), 50, 55);"))
+
+(deftest runtime/new-expr/2 :notes runtime
+  (with-fresh-genvar
+    (in-local-scope
+      (test-transform 'runtime
+                      (transform 'cps (parse "
+        function bar(z) { return z; }
+        var x = new Foo(1,2,3,4,5,6,7,8,9,10,11,12);
+        return bar(x);")))))
+  #.(parse "
+        function bar($k, z)
+        {
+          if(!$k || !$k.$isK)
+            return $callFromDirect(bar, this, arguments);
+          return $k(z);
+        }
+        bar.$jw = true;
+
+        return $new(Foo, $makeK(function(x) { return bar($k, x); }), [1,2,3,4,5,6,7,8,9,10,11,12]);"))

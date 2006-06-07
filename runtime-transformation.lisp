@@ -44,6 +44,17 @@
   "Runtime function that we use to make indirect calls with large numbers of arguments
    to targets that may not be transformed")
 
+(defparameter *new0-fn* (make-identifier :name "$new0")
+  "Runtime function that we use to make indirect constructions with a small number of arguments
+   to constructors that may have been transformed")
+
+(defparameter *max-new0-args* 8
+  "Maximum number of arguments that can be passed to a constructor using $new0")
+
+(defparameter *new-fn* (make-identifier :name "$new")
+  "Runtime function that we use to make indirect constructions with a large number of arguments
+   to constructors that may have been transformed")
+
 ;;;; Call-style guards
 ;;;
 ;;; We are only transforming our own code; we're not transforming anyone else's.
@@ -98,16 +109,6 @@
   (and (identifier-p fn-elm)
        (or (function-in-scope-p (identifier-name fn-elm)) ; Calling a transformed function
            (equalp *cont-id* fn-elm)))) ; Calling the function's continuation
-
-(defun make-indirected-call (fn-call-elm)
-  "Wraps FN-CALL-ELM (which should be a function call) in a call to the runtime
-   function `$trampolineResult`, which will determine at runtime whether to generate
-   a thunk that makes the call or to make the call directly and return a result."
-  (assert (fn-call-p fn-call-elm))
-  (make-fn-call :fn *callFromDirect-fn*
-                :args (list (fn-call-fn fn-call-elm)
-                            (make-special-value :symbol :this)
-                            (make-array-literal :elements (fn-call-args fn-call-elm)))))
 
 (defmethod transform :around ((xform (eql 'runtime)) (elm-list list))
   (let ((*function-decls-in-scope* (append (mapcar 'function-decl-name
@@ -197,6 +198,20 @@
                                                   (mapcar #'runtime-transform
                                                           (cdr (fn-call-args elm)))))))))))
 
+(defmethod transform ((xform (eql 'runtime)) (elm new-expr))
+  (flet ((runtime-transform (elm)
+           (transform 'runtime elm)))
+    (with-slots (constructor args) elm
+      (if (<= (length args) *max-new0-args*)
+        (make-fn-call :fn *new0-fn*
+                      :args (cons (runtime-transform constructor)
+                                  (runtime-transform args))) ; We assume that the continuation is already the first arg
+        (make-fn-call :fn *new-fn*
+                      :args (list (runtime-transform constructor)
+                                  (runtime-transform (car args))
+                                  (make-array-literal :elements (mapcar #'runtime-transform
+                                                                        (cdr args)))))))))
+  
 ;; We can be sure that we don't need to indirect through $call for a continuation-call, because those
 ;; are only produced by resume statements.
 (defmethod transform ((xform (eql 'runtime)) (elm continuation-call))

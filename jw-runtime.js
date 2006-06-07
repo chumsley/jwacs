@@ -180,6 +180,156 @@ function $call0(f, k, thisObj, a1, a2, a3, a4, a5, a6, a7, a8)
   }
 }
 
+// Helper function for creating a "blank" constructor for creating objects
+// that will have the same prototype as objects created by the specified
+// constructor.  We use a separate high-level function to avoid unnecessarily
+// capturing the environment in $new/$new0.
+function $makeBlank(ctor)
+{
+  var blank = function() {};
+  blank.prototype = ctor.prototype;
+  return blank;
+}
+    
+// Used for replacing expressions of the form `new ctor(arg1, arg2, ...)` with
+// an explicit function call.  An object is constructed using the specified
+// constructor `ctor`, which is passed the arguments of the array `args`.
+// The continuation `k` will be called with the result.
+//
+// The constructor will be called in either direct style or cps style, depending
+// upon the presence or absence of a non-false $jw property on `ctor`.  The
+// continuation `k` is called with the result of the construction regardless of
+// the calling style.
+function $new(ctor, k, args)
+{
+  if(ctor.$jw)
+  {
+    if(!ctor.$blank)
+      ctor.$blank = $makeBlank(ctor);
+
+    var obj = new ctor.$blank;
+    var augmentedK = $makeK(function(x) {
+      if(x)
+        return k(x);
+      else
+        return k(obj);
+    });
+    
+    return ctor.apply(obj, [augmentedK].concat(args));
+  }
+  else
+  {
+    var privateCtor = function ()
+    {
+      return ctor.apply(this, args);
+    };
+    privateCtor.prototype = ctor.prototype;
+
+    return k(new privateCtor);
+  }
+}
+
+// Used for replacing expressions of the form `new ctor(arg1, arg2, ...)` with
+// an explicit function call for constructors that accept 8 arguments or fewer.
+//
+// An object is constructed using the specified constructor `ctor`, which is
+// passed the arguments of the array `args`.  The continuation `k` will be called
+// with the result.
+//
+// The constructor will be called in either direct style or cps style, depending
+// upon the presence or absence of a non-false $jw property on `ctor`.  The
+// continuation `k` is called with the result of the construction regardless of
+// the calling style.
+//
+// This function can only be called on constructors that have 8 arguments or fewer.
+// For constructors with 9 arguments or more, `$new` must be used.
+function $new0(ctor, k, a1, a2, a3, a4, a5, a6, a7, a8)
+{
+  if(ctor.$jw)
+  {
+    if(!ctor.$blank)
+      ctor.$blank = $makeBlank(ctor);
+      
+    var obj = new ctor.$blank;
+    obj.$init = ctor;
+    var augmentedK = $makeK(function(x) {
+      delete obj.$init;
+      if(x)
+        return k(x);
+      else
+        return k(obj);
+    });
+    
+    switch(arguments.length)
+    {
+    case 2:
+      return obj.$init(augmentedK);
+      break;
+    case 3:
+      return obj.$init(augmentedK, a1);
+      break;
+    case 4:
+      return obj.$init(augmentedK, a1, a2);
+      break;
+    case 5:
+      return obj.$init(augmentedK, a1, a2, a3);
+      break;
+    case 6:
+      return obj.$init(augmentedK, a1, a2, a3, a4);
+      break;
+    case 7:
+      return obj.$init(augmentedK, a1, a2, a3, a4, a5);
+      break;
+    case 8:
+      return obj.$init(augmentedK, a1, a2, a3, a4, a5, a6);
+      break;
+    case 9:
+      return obj.$init(augmentedK, a1, a2, a3, a4, a5, a6, a7);
+      break;
+    case 10:
+      return obj.$init(augmentedK, a1, a2, a3, a4, a5, a6, a7, a8);
+      break;
+    default:
+      throw "too many/few arguments to $new";
+    }
+  }
+  else
+  {
+    switch(arguments.length)
+    {
+    case 2:
+      return k(new ctor());
+      break;
+    case 3:
+      return k(new ctor(a1));
+      break;
+    case 4:
+      return k(new ctor(a1, a2));
+      break;
+    case 5:
+      return k(new ctor(a1, a2, a3));
+      break;
+    case 6:
+      return k(new ctor(a1, a2, a3, a4));
+      break;
+    case 7:
+      return k(new ctor(a1, a2, a3, a4, a5));
+      break;
+    case 8:
+      return k(new ctor(a1, a2, a3, a4, a5, a6));
+      break;
+    case 9:
+      return k(new ctor(a1, a2, a3, a4, a5, a6, a7));
+      break;
+    case 10:
+      return k(new ctor(a1, a2, a3, a4, a5, a6, a7, a8));
+      break;
+    default:
+      throw "too many/few arguments to $new";
+    }
+  }
+}
+
 // "Pogo-stick" function for running a call to a trampoline-style
 // function.
 function $trampoline(origThunk)
@@ -205,3 +355,4 @@ function $callFromDirect(f, thisObj, args)
                        return f.apply(thisObj, [$id].concat(argArray));
                      });
 }
+
