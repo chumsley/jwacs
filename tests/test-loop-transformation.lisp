@@ -125,7 +125,7 @@
     (transform 'loop-canonicalize
                (parse "for(var_x in some_collection) { foo(); }")))
   #.(parse "{
-  var JW0 = new Array, JW1 = 0, JW3 = 0;
+  var JW0 = [], JW1 = 0, JW3 = 0;
   for(var JW2 in some_collection)
   {
     JW0[JW1++] = JW2;
@@ -145,7 +145,7 @@
     (transform 'loop-canonicalize
                (parse "yar: for(var_x in some_collection) { foo(); }")))
   #.(parse "{
-  var JW0 = new Array, JW1 = 0, JW3 = 0;
+  var JW0 = [], JW1 = 0, JW3 = 0;
   for(var JW2 in some_collection)
   {
     JW0[JW1++] = JW2;

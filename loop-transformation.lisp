@@ -235,9 +235,7 @@
                                                 
     (single-statement ;TODO Use COMBINE-STATEMENTS instead?
      (make-var-decl-statement 
-      :var-decls (list (make-var-decl :name new-array :initializer (make-new-expr 
-                                                                    :constructor (make-identifier :name "Array") 
-                                                                    :args nil))
+      :var-decls (list (make-var-decl :name new-array :initializer (make-array-literal :elements nil))
                        (make-var-decl :name new-count :initializer (make-numeric-literal :value 0))
                        (make-var-decl :name new-count-rec :initializer (make-numeric-literal :value 0))))
      (make-for-in 
