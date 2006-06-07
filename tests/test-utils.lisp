@@ -37,7 +37,7 @@
 (defun compile-lang-tests ()
   (let* ((module (asdf:find-component (asdf:find-system :jwacs-tests) "tests"))
          (component (asdf:find-component module "lang-tests")))
-    (jw:process (asdf:component-pathname component))))
+    (jw::build-app (asdf:component-pathname component))))
     
 
 

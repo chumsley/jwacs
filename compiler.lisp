@@ -278,8 +278,9 @@
             (format out "~A" *default-bootframe*))))
 
       ;; If no runtime file exists, generate one
-      (when (null (probe-file (module-path runtime-module)))
-        (with-open-file (out (module-path runtime-module) :direction :output)
+;TEST      (when (null (probe-file (module-path runtime-module)))
+      (when t
+        (with-open-file (out (module-path runtime-module) :direction :output :if-exists :supersede)
           (format out "~A" *runtime-text*)))
 
       ;; Wrap the modules.  Note that we force the runtime onto the front of the list
