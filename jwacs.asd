@@ -72,6 +72,7 @@
                (:file "ugly-print")
                (:file "type-analysis")
                (:file "explicitize-transformation")
+               (:file "shadow-values-transformation")
                (:file "cps-transformation")
                (:file "loop-transformation")
                (:file "trampoline-transformation")

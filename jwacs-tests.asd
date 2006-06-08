@@ -38,6 +38,7 @@
                (:file "test-source-transformations")
                (:file "test-shift-function-decls")
                (:file "test-explicitize")
+               (:file "test-shadow-values-transformation")
                (:file "test-cps-transformation")
                (:file "test-loop-transformation")
                (:file "test-trampoline-transformation")

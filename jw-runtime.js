@@ -39,6 +39,40 @@ function $makeK(fn)
   return fn;
 }
 
+// Make a copy of the arguments object `origArgs` that
+// doesn't include the continuation argument (if any)
+// as one of the numbered arguments.  The continuation
+// is still available as the 'continuation' property.
+//
+// The constructed arguments object is different from
+// the original in these ways:
+//   1) Doesn't include continuation in args list (good)
+//   2) All properties are enumerable (indifferent)
+//   3) Changing a parameter value doesn't change its
+//      corresponding property, nor vice versa (bad)
+function $makeArguments(origArgs)
+{
+  var newArgs = new Object;
+  newArgs.callee = origArgs.callee;
+  newArgs.caller = origArgs.caller;
+
+  if(origArgs[0] && origArgs[0].$isK)
+  {
+    newArgs.continuation = origArgs[0];
+    newArgs.length = origArgs.length - 1;
+    for(var i = 1; i < origArgs.length; i++)
+      newArgs[i - 1] = origArgs[i];
+  }
+  else
+  {
+    newArgs.length = origArgs.length;
+    for(var i = 0; i < origArgs.length; i++)
+      newArgs[i] = origArgs[i];
+  }
+
+  return newArgs;
+}
+
 // Call function `f` in either CPS or direct style, depending upon
 // the value of `f`'s  $jw property.  The continuation `k`
 // will be called with the results regardless of the style that

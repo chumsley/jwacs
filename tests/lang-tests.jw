@@ -36,7 +36,11 @@ function runTests()
   runTest("new/1", testCpsNew(), true);
   runTest("new/2", testCpsManyArgNew(), true);
   runTest("new/3", testBuiltinNew(), true);
-          
+  runTest("this/1", testThisShadowingDecls(), true);
+  runTest("this/2", testThisShadowingExprs(), true);
+  runTest("arguments/1", testArgumentsShadowingDecls(), true);
+  runTest("arguments/2", testArgumentsShadowingExprs(), true);
+  
 	output("<hr>");
 	outputLine(bold("Ran " + (passed + failed) + " tests"));
 	outputLine(bold(passed) + " tests passed");
@@ -267,3 +271,58 @@ function testBuiltinNew()
   var obj = obj2 + obj1;
   return obj == "hello123";
 }
+
+function testThisShadowingDecls()
+{
+  function PrivateCtor(x)
+  {
+    this.field = fetchValue(x);
+  }
+
+  var obj = new PrivateCtor(23);
+  return obj.field == 23;
+}
+
+function testThisShadowingExprs()
+{
+  function PrivateCtor(x)
+  {
+    this.field = fetchValue(x);
+  }
+
+  PrivateCtor.prototype.incr = function(delta) {
+    this.field += fetchValue(delta);
+  };
+
+  var obj = new PrivateCtor(10);
+  obj.incr(100);
+
+  return obj.field == 110;
+}
+
+function testArgumentsShadowingDecls()
+{
+  function fcn(a, b, c)
+  {
+    var x = fetchValue(arguments[0]);
+    var y = fetchValue(arguments[1]) + fetchValue(arguments[2]);
+
+    return x + y + arguments.length;
+  }
+
+  return (fcn(10, 20, 30) == 63);
+}
+
+function testArgumentsShadowingExprs()
+{
+  var fcn = function(a, b, c) {
+    var x = fetchValue(arguments[0]);
+    var y = fetchValue(arguments[1]) + fetchValue(arguments[2]);
+
+    return x + y + arguments.length;
+  };
+  
+  return (fcn(10, 20, 30) == 63);
+}
+
+    

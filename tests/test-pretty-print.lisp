@@ -65,6 +65,10 @@
   (pretty-string (make-special-value :symbol :null))
   "null")
 
+(deftest pretty-print/special-value/5 :notes pretty-print
+  (pretty-string (make-special-value :symbol :arguments))
+  "arguments")
+
 (deftest pretty-print/property-access/1 :notes pretty-print
   (pretty-string (make-property-access :target foo-id :field (make-string-literal :value "bar")))
   "foo.bar")

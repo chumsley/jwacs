@@ -98,9 +98,13 @@
 ;;;; ------- Standard Javascript -------------------------------------------------------------------
 
 (defmethod pretty-print ((elm special-value) s)
-  (if (find (special-value-symbol elm) *keyword-symbols*)
-    (format s "~A" (string-downcase (special-value-symbol elm)))
-    (error "Unknown special value symbol ~S" (special-value-symbol elm))))
+  (cond
+    ((find (special-value-symbol elm) *keyword-symbols*)
+     (format s "~A" (string-downcase (special-value-symbol elm))))
+    ((eq :arguments (special-value-symbol elm))
+     (format s "arguments"))
+    (t
+     (error "Unknown special value symbol ~S" (special-value-symbol elm)))))
    
 (defmethod pretty-print ((elm identifier) s)
   (format s "~A" (identifier-name elm)))

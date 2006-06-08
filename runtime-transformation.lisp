@@ -55,6 +55,11 @@
   "Runtime function that we use to make indirect constructions with a large number of arguments
    to constructors that may have been transformed")
 
+(defparameter *makeArguments-fn* (make-identifier :name "$makeArguments")
+  "Runtime function that constructs a shadowing `arguments` object that omits the continuation
+   argument from the numbered arguments (but which includes it as the 'continuation' field)")
+  
+
 ;;;; Call-style guards
 ;;;
 ;;; We are only transforming our own code; we're not transforming anyone else's.
@@ -122,13 +127,14 @@
 ;;; 2. Add call-style guards to allow functions to be called in direct style without
 ;;;    causing confusing errors.
 ;;; 3. Add code to flag each function decl and expression with its type
+;;; 4. Replace references to `arguments` with a call to `$makeArguments` applied to `arguments`.
 
 (defmethod transform ((xform (eql 'runtime)) (elm function-decl))
   (list
    (make-function-decl :name (function-decl-name elm)
                        :parameters (function-decl-parameters elm)
                        :body (cons (make-call-style-guard (function-decl-name elm))
-                                   (transform 'runtime (function-decl-body elm))))
+                                     (transform 'runtime (function-decl-body elm))))
    (make-binary-operator :op-symbol :assign
                          :left-arg
                          (make-property-access :target (make-identifier :name (function-decl-name elm))
@@ -146,8 +152,8 @@
                           :name fn-name
                           :parameters (function-expression-parameters elm)
                           :body (cons (make-call-style-guard fn-name)
-                                      (transform 'runtime
-                                                 (function-expression-body elm))))))))
+                                        (transform 'runtime
+                                                   (function-expression-body elm))))))))
 
 (defmethod transform ((xform (eql 'runtime)) (elm continuation-function))
   (make-fn-call :fn *makeK-fn*
@@ -212,6 +218,12 @@
                                   (make-array-literal :elements (mapcar #'runtime-transform
                                                                         (cdr args)))))))))
   
+(defmethod transform ((xform (eql 'runtime)) (elm special-value))
+  (if (eq :arguments (special-value-symbol elm))
+    (make-fn-call :fn *makeArguments-fn*
+                  :args (list (make-identifier :name *arguments-name*)))
+    (call-next-method)))
+
 ;; We can be sure that we don't need to indirect through $call for a continuation-call, because those
 ;; are only produced by resume statements.
 (defmethod transform ((xform (eql 'runtime)) (elm continuation-call))

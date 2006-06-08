@@ -134,6 +134,7 @@
     uniquify                            ; TODO we should talk about whether this step is necessary/desirable
     loop-canonicalize                   ; Convert loops to a canonical form for easier CPS conversion
     explicitize                         ; Give all intermediate values a name
+    shadow-values                       ; "Shadow" references to `this` and `arguments`
     cps                                 ; Convert functions and loops to continuation-passing style functions
     trampoline                          ; Convert functions to trampoline-style functions
     runtime)                            ; Add calls into the runtime to support dynamic behaviour

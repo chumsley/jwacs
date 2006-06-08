@@ -121,6 +121,7 @@
                 in-local-scope
                 trampoline
                 runtime
+                shadow-values
 
                 ;; type-analysis symbols
                 type-analyze

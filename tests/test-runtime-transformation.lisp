@@ -169,3 +169,49 @@
         bar.$jw = true;
 
         return $new(Foo, $makeK(function(x) { return bar($k, x); }), [1,2,3,4,5,6,7,8,9,10,11,12]);"))
+
+(deftest runtime/arguments/1 :notes runtime
+  (with-fresh-genvar
+    (test-transform 'runtime
+                    (transform 'shadow-values
+                               (transform 'cps (parse "
+      function foo()
+      {
+        return arguments;
+      }")))))
+  #.(parse "
+     function foo($k)
+     {
+        if(!$k || !$k.$isK)
+          return $callFromDirect(foo, this, arguments);
+        var arguments$0 = $makeArguments(arguments);
+        return $k(arguments$0);
+     }
+     foo.$jw = true;"))
+
+(deftest runtime/arguments/2 :notes runtime
+  (test-transform 'runtime
+                  (transform 'shadow-values
+                             (transform 'cps (parse "
+      function foo()
+      {
+        var arguments = 99;
+        return arguments;
+      }"))))
+  #.(parse "
+     function foo($k)
+     {
+        if(!$k || !$k.$isK)
+          return $callFromDirect(foo, this, arguments);
+        var arguments = 99;
+        return $k(arguments);
+     }
+     foo.$jw = true;"))
+
+(deftest runtime/arguments/3 :notes runtime
+  (test-transform 'runtime
+                  (transform 'shadow-values
+                             (transform 'cps (parse "
+      var x = arguments;"))))
+  #.(parse "var x = arguments;"))
+      

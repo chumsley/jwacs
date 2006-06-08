@@ -28,6 +28,11 @@
   (make-fn-call :fn (jw::fn-call-fn elm)
                 :args (jw::fn-call-args elm)))
 
+(defmethod transform ((xform (eql 'remove-administratives)) (elm special-value))
+  (if (eq :arguments (jw::special-value-symbol elm))
+    (make-identifier :name jw::*arguments-name*)
+    (call-next-method)))
+
 (defun test-transform (xform elm)
   "Return the results of applying XFORM to ELM with any administrative source-elements
    converted to their non-administrative equivalents"
