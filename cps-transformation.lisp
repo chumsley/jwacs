@@ -178,7 +178,7 @@
          (if (null statement-tail)
            ;; Tailless call
            (make-fn-call
-            :fn (fn-call-fn elm) ; No need for recursive call here, because explicitization guarantees that the function will be a simple expression
+            :fn (tx-cps (fn-call-fn elm) nil)
             :args (cons (make-void-continuation *cont-id*)
                         (mapcar (lambda (item)
                                   (tx-cps item nil))
@@ -186,7 +186,7 @@
 
            ;; Call w/statement-tail
            (make-fn-call
-            :fn (fn-call-fn elm) ; No need for recursive call here (see above)
+            :fn (tx-cps (fn-call-fn elm) nil)
             :args (cons (make-continuation-function :parameters nil
                                                     :body (in-local-scope
                                                             (tx-cps statement-tail nil)))
@@ -202,14 +202,14 @@
          (if (null statement-tail)
            ;; Tailless construction
            (make-new-expr
-            :constructor (new-expr-constructor elm) ; Explicitization guarantees simple expr as constructor, so no need for recusive call
+            :constructor (tx-cps (new-expr-constructor elm) nil)
             :args (cons (make-void-continuation *cont-id*)
                         (mapcar (lambda (item)
                                   (tx-cps item nil))
                                 (new-expr-args elm))))
            ;; Call w/statement-tail
            (make-new-expr
-            :constructor (new-expr-constructor elm) ; No need for recursive call here (see above)
+            :constructor (tx-cps (new-expr-constructor elm) nil)
             :args (cons (make-continuation-function :parameters nil
                                                     :body (in-local-scope
                                                             (tx-cps statement-tail nil)))
@@ -252,7 +252,7 @@
       (cond
         ;; eg: var x = fn();
         ((fn-call-p initializer)
-         (let ((new-call (make-fn-call :fn (fn-call-fn initializer)
+         (let ((new-call (make-fn-call :fn (tx-cps (fn-call-fn initializer) nil)
                                        :args (cons
                                               (make-continuation-function :parameters (list name)
                                                                           :body (in-local-scope
@@ -264,7 +264,7 @@
 
         ;; eg: var x = new Foo;
         ((new-expr-p initializer)
-         (let ((new-construction (make-new-expr :constructor (new-expr-constructor initializer)
+         (let ((new-construction (make-new-expr :constructor (tx-cps (new-expr-constructor initializer) nil)
                                                 :args (cons
                                                        (make-continuation-function :parameters (list name)
                                                                                    :body (in-local-scope

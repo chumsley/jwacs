@@ -315,14 +315,15 @@ function testArgumentsShadowingDecls()
 
 function testArgumentsShadowingExprs()
 {
-  var fcn = function(a, b, c) {
-    var x = fetchValue(arguments[0]);
-    var y = fetchValue(arguments[1]) + fetchValue(arguments[2]);
-
-    return x + y + arguments.length;
-  };
+  var ret =
+    (function(a, b, c) {
+      var x = fetchValue(arguments[0]);
+      var y = fetchValue(arguments[1]) + fetchValue(arguments[2]);
+      
+      return x + y + arguments.length;
+    })(10, 20, 30);
   
-  return (fcn(10, 20, 30) == 63);
+  return (ret == 63);
 }
 
     
