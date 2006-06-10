@@ -4,8 +4,7 @@
 ;;; functionality.
 (in-package :jwacs)
 
-;;================================================================================
-;;;; Explicitize transformation
+;;;; ======= Explicitize transformation ============================================================
 ;;;
 ;;; Makes intermediate values explicit by assigning them to named variables.
 ;;; An intermediate value is any value that is passed to an operator or
@@ -29,8 +28,7 @@
 ;;;   var x = 10;
 ;;;   var y = 20;
 
-;;================================================================================
-;;;; Implementation note
+;;;; ======= Implementation note ===================================================================
 ;;;
 ;;; The explicitize transformation has a more complicated protocol than most of
 ;;; the other transformations, so the TRANSFORM method is just a thin wrapper that
@@ -85,8 +83,7 @@
 ;;; The second value is a list of "prerequisite" statements that should go before the
 ;;; innermost enclosing non-nested statement (which may be this statement).
 
-;;================================================================================
-;;;; Sub-expression protocol
+;;;; ======= Sub-expression protocol ===============================================================
 ;;;
 ;;; Transformations are responsible for knowing whether they are nested within subexpressions
 ;;; or not, and therefore whether they should return using a proxy.  For example, the element
@@ -118,8 +115,7 @@
   `(let ((*nested-context* t))
     ,@body))
 
-;;================================================================================
-;;;; TRANSFORM method
+;;;; ======= TRANSFORM method ======================================================================
 
 (defmethod transform ((xform (eql 'explicitize)) elm)
   (multiple-value-bind (proxy prereqs)
@@ -131,8 +127,7 @@
 ;; These elements should have been removed by LOOP-TO-FUNCTION
 (forbid-transformation-elements explicitize (do-statement for))
 
-;;================================================================================
-;;;; TX-EXPLICITIZE methods
+;;;; ======= TX-EXPLICITIZE methods ================================================================
 
 (defgeneric tx-explicitize (elm)
   (:documentation
