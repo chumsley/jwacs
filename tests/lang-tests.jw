@@ -36,6 +36,7 @@ function runTests()
   runTest("new/1", testCpsNew(), true);
   runTest("new/2", testCpsManyArgNew(), true);
   runTest("new/3", testBuiltinNew(), true);
+  runTest("new/4", testNewReturn(17), 17);
   runTest("this/1", testThisShadowingDecls(), true);
   runTest("this/2", testThisShadowingExprs(), true);
   runTest("arguments/1", testArgumentsShadowingDecls(), true);
@@ -270,6 +271,11 @@ function testBuiltinNew()
   var obj2 = new String('hello');
   var obj = obj2 + obj1;
   return obj == "hello123";
+}
+
+function testNewReturn(val)
+{
+  return new Number(val);
 }
 
 function testThisShadowingDecls()

@@ -822,6 +822,32 @@
   #.(parse "
         new Foo(function(x) { return bar(function() { return $k(); }, x[10]); }, 50);"))
 
+(deftest cps/new-expr-tail-return/1 :notes cps
+  (test-transform 'cps
+                  (parse "
+      function foo()
+      {
+        return new bar(50);
+      }"))
+  #.(parse "
+      function foo($k)
+      {
+        return new bar($k, 50);
+      }"))
+
+(deftest cps/new-expr-tail-return/2 :notes cps
+  (test-transform 'cps
+                  (parse "
+      function foo()
+      {
+        return new (function(n) { return n; }) (50);
+      }"))
+  #.(parse "
+      function foo($k)
+      {
+        return new (function($k, n) { return $k(n); }) ($k, 50);
+      }"))
+
 (deftest cps/void-function-call-with-tail/1 :notes cps
   (in-local-scope
     (test-transform 'cps

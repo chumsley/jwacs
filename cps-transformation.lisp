@@ -130,17 +130,28 @@
 (defmethod tx-cps ((elm return-statement) statement-tail)
   (with-slots (arg) elm
     (let ((new-fn-call
-           (if (fn-call-p arg)
+           (cond
              ;; Tail call
-             (make-fn-call :fn (fn-call-fn arg)
-                           :args (cons *cont-id*
-                                       (mapcar (lambda (item)
-                                                 (tx-cps item nil))
-                                               (fn-call-args arg))))
-             ;; Simple return
-             (make-fn-call :fn *cont-id*
-                           :args (unless (null (return-statement-arg elm))
-                                   (list (tx-cps (return-statement-arg elm) nil)))))))
+             ((fn-call-p arg)
+              (make-fn-call :fn (tx-cps (fn-call-fn arg) nil)
+                            :args (cons *cont-id*
+                                        (mapcar (lambda (item)
+                                                  (tx-cps item nil))
+                                                (fn-call-args arg)))))
+
+             ;; Tail call to $new0
+             ((new-expr-p arg)
+              (make-new-expr :constructor (tx-cps (new-expr-constructor arg) nil)
+                             :args (cons *cont-id*
+                                         (mapcar (lambda (item)
+                                                   (tx-cps item nil))
+                                                 (new-expr-args arg)))))
+              
+              ;; Simple return
+              (t
+               (make-fn-call :fn *cont-id*
+                             :args (unless (null (return-statement-arg elm))
+                                     (list (tx-cps (return-statement-arg elm) nil))))))))
       (values
        (make-return-statement :arg new-fn-call)
        nil))))
