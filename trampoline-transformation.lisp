@@ -4,7 +4,7 @@
 ;;; into trampolined cps-form Javascript.
 (in-package :jwacs)
 
-;;;; Trampoline transformation 
+;;;; ======= Trampoline transformation =============================================================
 ;;;
 ;;; 1. Every return statement whose argument is a function call
 ;;;    to a trampoline-style function is transformed into a trampolining
@@ -21,6 +21,7 @@
 ;;; tail calls; the above two rules are obviously not sufficient when
 ;;; this condition doesn't hold.
 
+;;;; ======= Helpers ===============================================================================
 (defparameter *thunk-prop* (make-string-literal :value "thunk")
   "property name for the thunk field of a boxed result object")
 
@@ -53,6 +54,8 @@
                           (cons *done-prop* (make-special-value :symbol :true))
                           (cons *result-prop* elm)))))     
 
+;;;; ======= TRANSFORM methods =====================================================================
+
 (defmethod transform ((xform (eql 'trampoline)) (elm return-statement))
   (with-slots (arg) elm
     (if (or (fn-call-p arg)
@@ -60,7 +63,7 @@
       (make-return-statement :arg (make-thunk (make-return-statement :arg (transform 'trampoline arg))))
       (make-return-statement :arg (make-result (transform 'trampoline arg))))))
 
-;;;; `suspend` and `resume` transformation
+;;;; ------- `suspend` and `resume` transformation -------------------------------------------------
 
 (defmethod transform ((xform (eql 'trampoline)) (elm suspend-statement))
   (make-return-statement :arg (make-result nil)))

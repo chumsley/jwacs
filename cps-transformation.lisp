@@ -475,8 +475,7 @@
                                    :else-statement (single-statement tx-else))
                 (or then-consumed else-consumed)))))
 
-          ;; When neither branch is terminated and a non-null else branch exists,
-          ;; we need to generate a labelled continuation.
+          ;; When neither branch is terminated we need to generate a labelled continuation.
           ;; TODO We could further optimize this to only use a labelled continuation if
           ;; both statements actually /consume/ the tail.
           ((and (not then-terminated) (not else-terminated))
