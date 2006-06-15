@@ -41,6 +41,7 @@ function runTests()
   runTest("this/2", testThisShadowingExprs(), true);
   runTest("arguments/1", testArgumentsShadowingDecls(), true);
   runTest("arguments/2", testArgumentsShadowingExprs(), true);
+  runTest("globalVar/1", reportElm(0), 'one');
   
 	output("<hr>");
 	outputLine(bold("Ran " + (passed + failed) + " tests"));
@@ -96,6 +97,13 @@ function output(string, warningP)
 
 /// ======= Test functions ===================================================================
 // The actual functions being tested
+
+function reportElm(idx)
+{
+  return globalArray[idx];
+}
+
+var globalArray = new Array('one', 'two');
 
 function factorial(n)
 {
