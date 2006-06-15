@@ -9,7 +9,7 @@
   (:nicknames :jw-system))
 (in-package :jwacs-system)
 
-;;;; Compilation configuration
+;;;; ======= Compilation configuration =============================================================
 (defparameter *use-yacc*
   #+lispworks nil
   #-lispworks t
@@ -33,7 +33,7 @@
    at all other times (so that SBCL won't drop into the debugger when
    we're trying to load parse-javascript.lisp).")
 
-;;;; Custom ASDF file types
+;;;; ======= Custom ASDF file types ================================================================
 (defclass js-file (static-file) ())
 (defmethod source-file-type ((c js-file) (s module)) "js")
 (defmethod operation-done-p ((o load-op) (c js-file))  
@@ -46,7 +46,7 @@
 (defmethod operation-done-p ((o compile-op) (c html-file))
   t)
 
-;;;; System definition
+;;;; ======= System definition =====================================================================
 (asdf:defsystem jwacs 
   :version "0.1"
   :author "James Wright <chumsley@gmail.com>, Greg Smolyn <greg@smolyn.org>"
@@ -68,7 +68,7 @@
                (:file "parse-javascript")
                (:file "pretty-print")
                (:file "source-transformations")
-               (:file "shift-function-decls-transformation")
+               (:file "shift-decls-transformation")
                (:file "ugly-print")
                (:file "type-analysis")
                (:file "explicitize-transformation")
@@ -80,6 +80,10 @@
                (:file "compiler"))
   :depends-on (cl-ppcre))
 
+;;;; ======= Test operation ========================================================================
 (defmethod perform ((o test-op) (c (eql (find-system 'jwacs))))
   (operate 'load-op 'jwacs-tests)
-  (operate 'test-op 'jwacs-tests :force t))
+  (operate 'test-op 'jwacs-tests))
+
+(defmethod operation-done-p ((o test-op) (c (eql (find-system 'jwacs))))
+  nil)

@@ -7,7 +7,7 @@
   (:nicknames :jw-tests-system))
 (in-package :jwacs-tests-system)
 
-;;;; Custom ASDF file types
+;;;; ======= Custom ASDF file types ================================================================
 (defclass jwacs-file (static-file) ())
 (defmethod source-file-type ((c jwacs-file) (s module)) "jw")
 (defmethod operation-done-p ((o load-op) (c jwacs-file))  
@@ -15,7 +15,7 @@
 (defmethod operation-done-p ((o compile-op) (c jwacs-file))
   t)
 
-;;;; System definition
+;;;; ======= System definition =====================================================================
 (asdf:defsystem jwacs-tests
     :version "0.1"
     :author "James Wright <chumsley@gmail.com>, Greg Smolyn <greg@smolyn.org>"
@@ -36,7 +36,7 @@
                (:file "test-type-analysis")
                (:file "test-ugly-print")
                (:file "test-source-transformations")
-               (:file "test-shift-function-decls")
+               (:file "test-shift-decls-transformation")
                (:file "test-explicitize")
                (:file "test-shadow-values-transformation")
                (:file "test-cps-transformation")
@@ -46,6 +46,10 @@
                (:jwacs-file "lang-tests"))))
     :depends-on (jwacs))
 
+;;;; ======= Test operation ========================================================================
 (defmethod perform ((o test-op) (c (eql (find-system 'jwacs-tests))))
   (operate 'load-op :jwacs)
   (funcall (intern (symbol-name '#:do-tests) (find-package :jw-tests))))
+
+(defmethod operation-done-p ((o test-op) (c (eql (find-system 'jwacs-tests))))
+  nil)
