@@ -410,6 +410,40 @@ finally
   baz();
 }")
 
+(deftest pretty-print/inner-function-decl/1 :notes pretty-print
+  (pretty-string
+   (make-function-decl :name "foo"
+                       :parameters '("x")
+                       :body (list
+                              (make-function-decl :name "bar"
+                                                  :parameters '("a" "b")
+                                                  :body (list (make-return-statement :arg #s(special-value :symbol :this)))))))
+  "function foo(x)
+{
+  function bar(a, b)
+  {
+    return this;
+  }
+}")
+
+(deftest pretty-print/inner-function-decl/2 :notes pretty-print
+  (pretty-string
+   (make-function-decl :name "foo"
+                       :parameters '("x")
+                       :body (list
+                              (make-return-statement)
+                              (make-function-decl :name "bar"
+                                                  :parameters '("a" "b")
+                                                  :body (list (make-return-statement :arg #s(special-value :symbol :this)))))))
+  "function foo(x)
+{
+  return;
+  function bar(a, b)
+  {
+    return this;
+  }
+}")
+
 ;;  TODO Add test case(s) for function expressions (at least one for single-line and one for multi-line)
 
 (deftest pretty-print/object-literal/1 :notes pretty-print

@@ -416,7 +416,6 @@
   (format s "}"))
 
 (defmethod pretty-print ((elm function-decl) s)
-  (fresh-line-indented s)
   (format s "function ~A(" (function-decl-name elm))
   (pretty-print-separated-list (function-decl-parameters elm) s)
   (format s ")")
