@@ -1,13 +1,15 @@
 ;;;; test-shift-function-decls.lisp
 ;;;
-;;; Tests for the shift-function-decls transformation
+;;; Tests for the shift-decls transformation
 (in-package :jwacs-tests)
 
-(deftest shift-function-decls/1
-  (transform 'shift-function-decls (parse "
+(deftest shift-decls/1
+  (transform 'shift-decls (parse "
     var global1, global2 = 20;
+    WScript.echo(global2);
     function foo()
     {
+      bar();
       var a = 10;
       function inner(h)
       {
@@ -18,21 +20,27 @@
     var global3 = /h/g;
     function bar() { return -88; }"))
   #.(parse "
+    var global1;
+    var global2;
+    var global3;
     function foo()
     {
       function inner(h)
       {
         return h * 10;
       }
+      bar();
       var a = 10;
       var b = 20;
     }
     function bar() { return -88; }
-    var global1, global2 = 20;
-    var global3 = /h/g;"))
+    global2 = 20;
+    WScript.echo(global2);
+    global3 = /h/g;"))
 
-(deftest shift-function-decls/2
-  (transform 'shift-function-decls (parse "
+
+(deftest shift-decls/2
+  (transform 'shift-decls (parse "
     function foo()
     {
       var a = 1;
@@ -63,18 +71,19 @@
       }
     }"))
 
-(deftest shift-function-decls/3
-  (transform 'shift-function-decls (parse "
+(deftest shift-decls/3
+  (transform 'shift-decls (parse "
       var obj = { field: 44, method: function() { return this.field * 2; }};
       function fn()
       {
         obj.method(obj.field);
       }"))
   #.(parse "
+      var obj;
       function fn()
       {
         obj.method(obj.field);
       }
-      var obj = { field: 44, method: function() { return this.field * 2; }};"))
+      obj = { field: 44, method: function() { return this.field * 2; }};"))
 
    

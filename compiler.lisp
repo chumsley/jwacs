@@ -130,7 +130,7 @@
 
 (defparameter *compiler-pipeline*
   '(strip-imports                       ; Remove import decls (which we're done with and which aren't valid Javascript)
-    shift-function-decls                ; Move function-decls to front of each scope
+    shift-decls                         ; Move function-decls to front of each scope, global var-decls to front of toplevel
     uniquify                            ; TODO we should talk about whether this step is necessary/desirable
     loop-canonicalize                   ; Convert loops to a canonical form for easier CPS conversion
     explicitize                         ; Give all intermediate values a name

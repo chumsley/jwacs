@@ -115,7 +115,7 @@
                 transform
                 cps
                 explicitize
-                shift-function-decls
+                shift-decls
                 uniquify
                 loop-canonicalize
                 in-local-scope
