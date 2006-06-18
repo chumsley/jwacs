@@ -42,6 +42,8 @@ function runTests()
   runTest("arguments/1", testArgumentsShadowingDecls(), true);
   runTest("arguments/2", testArgumentsShadowingExprs(), true);
   runTest("globalVar/1", reportElm(0), 'one');
+  runTest("short-circuit-and/1", testShortCircuitAnd(), true);
+  runTest("short-circuit-and/2", poit, true);
   
 	output("<hr>");
 	outputLine(bold("Ran " + (passed + failed) + " tests"));
@@ -340,4 +342,11 @@ function testArgumentsShadowingExprs()
   return (ret == 63);
 }
 
-    
+var narf = "hello";
+function testShortCircuitAnd()
+{
+  if(narf && narf.charAt(0) == 'h')
+    return true;
+}
+
+var poit = narf && narf.charAt(0) == 'h';

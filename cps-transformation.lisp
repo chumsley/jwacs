@@ -7,7 +7,7 @@
 ;;; Initial, naive version does the following:
 ;;; - All function calls transformed to fn-calls in continuation-passing style
 ;;; - All new expressions transformed to new expressions that pass a continuation as the first argument
-;;; - All assignments transformed to new continuations
+;;; - All assignments to function call or `new` results transformed to new continuations
 ;;; - All returns transformed to returns of the arg passed to the current continuation
 ;;;
 ;;;; Preconditions
@@ -35,6 +35,13 @@
 
 (defparameter *cont-id* (make-identifier :name *cont-name*)
   "An identifier whose name is *cont-name*")
+
+(defparameter *escaping-references* nil
+  "List of variable names that are referenced in a statement tail that is going to be
+   reordered into a labelled continuation.  We use this to determine when it is safe
+   to convert a variable declaration directly into a continuation parameter, vs when
+   we need to retain the variable declaration and assign it at the beginning of a
+   continuation.")
 
 ;;;; Statement tails 
 ;;;
@@ -79,8 +86,20 @@
 ;;; TX-CPS generic function.
 
 (defmethod transform ((xform (eql 'cps)) elm)
-  (values
-   (tx-cps elm nil)))
+  (bind-with-backchannels (new-elm :bare-var-decl-required bare-var-decls)
+      (tx-cps elm nil)
+    (cond
+      ((listp new-elm)
+       (append bare-var-decls new-elm))
+      (bare-var-decls
+       (postpend bare-var-decls new-elm))
+      (t
+       new-elm))))
+
+(defmethod transform ((xform (eql 'cps)) (elm-list list))
+  (bind-with-backchannels (new-list :bare-var-decl-required bare-var-decls)
+      (tx-cps elm-list nil)
+    (append bare-var-decls new-list)))
     
 ;;;================================================================================
 ;;;; TX-CPS
@@ -91,6 +110,12 @@
 ;;; The first return value of the TX-CPS function is the transformed source element.
 ;;; The second return value indicates whether the statement-tail has been consumed
 ;;; or not.
+;;;
+;;; Backchannel return values are sent on channel :BARE-VAR-DECL-REQUIRED by the
+;;; VAR-DECL-STATEMENT method.  It sends VAR-DECL-STATEMENTS that need to be placed
+;;; at the beginning of the neared enclosing scope.  These backchannel messages are
+;;; collected by the FUNCTION-DECL and FUNCTION-EXPRESSION methods, as well as by
+;;; the generic TRANSFORM methods.
 
 (defgeneric tx-cps (elm statement-tail)
   (:documentation
@@ -102,15 +127,19 @@
   (declare (ignore statement-tail))
   ;; The body has an empty return statement appended if not every control path
   ;; has an explicit return.
-  (let ((body (if (explicit-return-p (function-decl-body elm))
+  (let ((new-parameters (cons *cont-name* (function-decl-parameters elm)))
+        (body (if (explicit-return-p (function-decl-body elm))
                 (function-decl-body elm)
                 (postpend (function-decl-body elm) #s(return-statement)))))
-    (values
-     (make-function-decl :name (function-decl-name elm)
-                         :parameters (cons *cont-name* (function-decl-parameters elm))
-                         :body (in-local-scope
-                                 (tx-cps body nil))) ; Each function starts with a fresh statement-tail
-     nil)))
+    (bind-with-backchannels (tx-body :bare-var-decl-required bare-var-decls)
+        (in-local-scope
+          (tx-cps body nil)) ; Each function starts with a fresh statement-tail
+      (values
+       (make-function-decl :name (function-decl-name elm)
+                           :parameters new-parameters
+                           :body (append bare-var-decls
+                                         tx-body))
+       nil))))
 
 (defmethod tx-cps ((elm function-expression) statement-tail)
   (declare (ignore statement-tail))
@@ -120,12 +149,15 @@
         (body (if (explicit-return-p (function-expression-body elm))
                 (function-expression-body elm)
                 (postpend (function-expression-body elm) #s(return-statement)))))
+    (bind-with-backchannels (tx-body :bare-var-decl-required bare-var-decls)
+        (in-local-scope
+          (tx-cps body nil)) ; Each function starts with a fresh statement-tail
     (values
      (make-function-expression :name (function-expression-name elm)
                                 :parameters new-parameters
-                                :body (in-local-scope
-                                        (tx-cps body nil))) ; Each function starts with a fresh statement-tail
-     nil)))
+                                :body (append bare-var-decls
+                                              tx-body))
+     nil))))
 
 (defmethod tx-cps ((elm return-statement) statement-tail)
   (with-slots (arg) elm
@@ -257,21 +289,37 @@
   ;; Assuming one decl per statment because that is one of the results of explicitization
   (with-slots (var-decls) elm
     (assert (<= (length var-decls) 1))
-    (let ((name (var-decl-name (car var-decls)))
-          (initializer (var-decl-initializer (car var-decls))))
+    (let* ((name (var-decl-name (car var-decls)))
+           (initializer (var-decl-initializer (car var-decls)))
+           (escaping-reference (find name *escaping-references* :test #'equal))
+           (k-param-name (if escaping-reference
+                           (genvar)
+                           name))
+           (assignment-stmt (make-binary-operator :op-symbol :assign
+                                                  :left-arg (make-identifier :name name)
+                                                  :right-arg (make-identifier :name k-param-name)))
+           (augmented-statement-tail (if escaping-reference
+                                  (cons assignment-stmt statement-tail)
+                                  statement-tail)))
 
+      ;; If this var-decl is for an escaping reference, then we will replace it with a statement
+      ;; that _assigns_ the variable rather than _declaring_ it, so signal up the call chain that
+      ;; a bare declaration will be required.
+      (when escaping-reference
+        (backchannel-signal :bare-var-decl-required (make-var-init escaping-reference nil)))
+        
       (cond
         ;; eg: var x = fn();
         ((fn-call-p initializer)
          (let ((new-call (make-fn-call :fn (tx-cps (fn-call-fn initializer) nil)
-                                       :args (cons
-                                              (make-continuation-function :parameters (list name)
-                                                                          :body (in-local-scope
-                                                                                  (tx-cps statement-tail nil)))
-                                              (fn-call-args initializer)))))
-           (if *in-local-scope*
-             (values (make-return-statement :arg new-call) t)
-             (values new-call t))))
+                                         :args (cons
+                                                (make-continuation-function :parameters (list k-param-name)
+                                                                            :body (in-local-scope
+                                                                                    (tx-cps augmented-statement-tail nil)))
+                                                (fn-call-args initializer)))))
+             (if *in-local-scope*
+               (values (make-return-statement :arg new-call) t)
+               (values new-call t))))
 
         ;; eg: var x = new Foo;
         ((new-expr-p initializer)
@@ -279,18 +327,28 @@
                                                 :args (cons
                                                        (make-continuation-function :parameters (list name)
                                                                                    :body (in-local-scope
-                                                                                           (tx-cps statement-tail nil)))
+                                                                                           (tx-cps augmented-statement-tail nil)))
                                                        (new-expr-args initializer)))))
            (if *in-local-scope*
              (values (make-return-statement :arg new-construction) t)
              (values new-construction t))))
 
         ;; eg: var x = 20;
+        (initializer
+         (if escaping-reference
+           (multiple-value-bind (new-stmt consumed)
+               (tx-cps assignment-stmt statement-tail)
+             (values new-stmt consumed))
+           (multiple-value-bind (new-decl consumed)
+               (tx-cps (car var-decls) statement-tail)
+             (values (make-var-decl-statement :var-decls (list new-decl))
+                     consumed))))
+
+        ;; eg: var x;
         (t
-         (multiple-value-bind (new-decl consumed)
-             (tx-cps (car var-decls) statement-tail)
-           (values (make-var-decl-statement :var-decls (list new-decl))
-                   consumed)))))))
+         (if escaping-reference
+           (values nil nil)
+           (values elm nil)))))))
 
 ;;;================================================================================
 ;;;; function_continuation transformation
@@ -379,6 +437,7 @@
     (let* ((break-k (genvar "break"))
            (continue-k (genvar "continue"))
            (break-k-decl (make-labelled-continuation break-k statement-tail))
+           (*escaping-references* (union *escaping-references* (find-free-variables statement-tail)))
            (*nearest-break* break-k)
            (*nearest-continue* continue-k))
       (when-let (label (source-element-label elm))
@@ -481,6 +540,7 @@
           ((and (not then-terminated) (not else-terminated))
            (let* ((if-k-name (genvar "ifK"))
                   (if-k-decl (make-labelled-continuation if-k-name statement-tail))
+                  (*escaping-references* (union *escaping-references* (find-free-variables statement-tail)))
                   (if-k-resume (make-resume-statement :target (make-identifier :name if-k-name))))
              (values
               (list
@@ -498,6 +558,7 @@
   (with-added-environment
     (let* ((switch-k-name (genvar "switchK"))
            (switch-k-decl (make-labelled-continuation switch-k-name statement-tail))
+           (*escaping-references* (union *escaping-references* (find-free-variables statement-tail)))
            (*nearest-break* switch-k-name)
            (terminated-clauses (compute-terminated-clauses (switch-clauses elm))))
       (when-let (label (switch-label elm))
@@ -621,3 +682,63 @@
                                   collect (cons (slot-tx prop-name)
                                                 (slot-tx prop-value))))
        consumed))))
+
+;;;; ======= FIND-FREE-VARIABLES generic function ==================================================
+
+;; TODO this is horrible because it duplicates so much code in uniquify
+
+(defgeneric find-free-variables (elm)
+  (:documentation
+   "Return a list of all the free variables in ELM"))
+
+(defun find-free-variables-in-scope (elm)
+  "This is basically TRANSFORM-IN-SCOPE.  It adds bindings for each variable and function
+   declaration that it encounters."
+  (dolist (var-decl (collect-in-scope elm 'var-decl)) 
+    (add-binding (var-decl-name var-decl) t))
+  (dolist (fun-decl (collect-in-scope elm 'function-decl))
+    (add-binding (function-decl-name fun-decl) t))
+  (find-free-variables elm))
+
+(defmethod find-free-variables ((elm identifier))
+  (with-slots (name) elm
+    (unless (find-binding name)
+      (list name))))
+
+(defmethod find-free-variables ((elm function-decl))
+  (with-added-environment
+    (find-free-variables-in-scope (function-decl-body elm))))
+
+(defmethod find-free-variables ((elm function-expression))
+  (with-added-environment
+    (when-let (name (function-expression-name elm))
+      (add-binding name t))
+    (find-free-variables-in-scope (function-expression-body elm))))
+
+(defmethod find-free-variables ((elm-list list))
+  (remove-duplicates
+   (mapcan #'find-free-variables elm-list)
+   :test #'equal))
+
+(defmethod find-free-variables ((elm source-element))
+  (remove-duplicates
+   (loop for slot in (structure-slots elm)
+         append (find-free-variables (slot-value elm slot)))
+   :test #'equal))
+
+(defmethod find-free-variables ((elm object-literal))
+  (remove-duplicates
+   (loop for prop-cell in (object-literal-properties elm)
+         append (find-free-variables (cdr prop-cell)))
+   :test #'equal))
+
+(defmethod find-free-variables (elm)
+  nil)
+
+(defmethod find-free-variables :around (elm)
+  (if (null *environment*)
+    (with-added-environment
+      (if (listp elm)
+        (find-free-variables-in-scope elm)
+        (call-next-method)))
+    (call-next-method)))

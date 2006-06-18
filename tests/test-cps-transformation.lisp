@@ -872,3 +872,207 @@
         bar(x);"))
   #.(parse "
         foo(function(x) { return bar(function() { return $k(); }, x); }, 10);"))
+
+(deftest cps/strip-var-decls/function-decl/1 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+      function foo(narf)
+      {
+        if(narf)
+          var intermediate = narf.charAt(0); 
+        if(narf && intermediate == 'f')
+          foo('m');
+      }")))
+  #.(parse "
+      function foo($k, narf)
+      {
+        var intermediate;
+        var ifK$0 = function() {
+          var ifK$1 = function() {
+            return $k();
+          };
+          if(narf && intermediate == 'f')
+            return foo(function() { resume ifK$1; }, 'm');
+          else
+            resume ifK$1;
+        };
+
+        if(narf)
+          return narf.charAt(function(JW2) { intermediate = JW2; resume ifK$0; }, 0);
+        else
+          resume ifK$0;
+      }"))
+
+(deftest cps/strip-var-decls/function-expression/1 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+      var foo = function(narf)
+      {
+        if(narf)
+          var intermediate = narf.charAt(0); 
+        if(narf && intermediate == 'f')
+          foo('m');
+      };")))
+  #.(parse "
+      var foo = function($k, narf)
+      {
+        var intermediate;
+        var ifK$0 = function() {
+          var ifK$1 = function() {
+            return $k();
+          };
+          if(narf && intermediate == 'f')
+            return foo(function() { resume ifK$1; }, 'm');
+          else
+            resume ifK$1;
+        };
+
+        if(narf)
+          return narf.charAt(function(JW2) { intermediate = JW2; resume ifK$0; }, 0);
+        else
+          resume ifK$0;
+      };"))
+
+(deftest cps/strip-var-decls/function-expression/2 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+      function bar()
+      {
+        var foo = function(narf)
+        {
+          if(narf)
+            var intermediate = narf.charAt(0); 
+          if(narf && intermediate == 'f')
+            foo('m');
+        };
+      }")))
+  #.(parse "
+      function bar($k)
+      {
+        var foo = function($k, narf)
+        {
+          var intermediate;
+          var ifK$0 = function() {
+            var ifK$1 = function() {
+              return $k();
+            };
+            if(narf && intermediate == 'f')
+              return foo(function() { resume ifK$1; }, 'm');
+            else
+              resume ifK$1;
+          };
+
+          if(narf)
+            return narf.charAt(function(JW2) { intermediate = JW2; resume ifK$0; }, 0);
+          else
+            resume ifK$0;
+        };
+        return $k();
+      }"))
+
+(deftest cps/strip-var-decls/switch/1 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (transform 'explicitize (parse "
+      function foo()
+      {
+        switch(narf && narf.charAt(0))
+        {
+          case 'a':
+          global = 10;
+          break;
+          default:
+          global = 20;
+        }
+        bar();
+      }"))))
+  #.(parse "
+      function foo($k)
+      {
+        var JW0;
+        var ifK$1 = function() {
+          var switchK$2 = function() {
+            return bar(function() {
+                return $k();
+            });
+          };
+          switch(narf && JW0)
+          {
+            case 'a':
+            global = 10;
+            resume switchK$2;
+            default:
+            global = 20;
+            resume switchK$2;
+          }
+        };
+        if(narf)
+          return narf.charAt(function(JW3) {
+            JW0 = JW3;
+            resume ifK$1;
+          }, 0);
+        else
+          resume ifK$1;
+      }"))
+            
+(deftest cps/strip-var-decls/while/1 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (transform 'explicitize (parse "
+      function loopy()
+      {
+        var x = 0;
+        while(true)
+        {
+          if(!(foo(x) && bar(x)))
+            break;
+          x++;
+          continue;
+        }
+        return baz();
+      }"))))
+  #.(parse "
+      function loopy($k)
+      {
+        var JW1;
+        var x = 0;
+        var break$2 = function() {
+          return baz($k);
+        };
+        var continue$3 = function() {
+          return foo(function(JW0) {
+            var ifK$4 = function() {
+              if(!(JW0 && JW1))
+                resume break$2;
+              x++;
+              resume continue$3;
+            };
+            if(JW0)
+              return bar(function(JW5) {
+                JW1 = JW5;
+                resume ifK$4;
+              }, x);
+            else
+              resume ifK$4;
+          }, x);
+        };
+        resume continue$3;
+      }"))
+
+(deftest cps/strip-var-decls/toplevel/1 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+      if(narf)
+        var intermediate = narf.charAt(0); 
+      if(narf && intermediate == 'f')
+        foo('m');")))
+  #.(parse "
+      var intermediate;
+      var ifK$0 = function() {
+        if(narf && intermediate == 'f')
+          return foo(function() { return $k(); }, 'm');
+      };
+
+      if(narf)
+        narf.charAt(function(JW1) { intermediate = JW1; resume ifK$0; }, 0);
+      else
+        resume ifK$0;"))
+        
