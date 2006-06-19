@@ -15,7 +15,7 @@
 ;;;    field is `true` and whose `result` field contains the original
 ;;;
 ;;; The return continuation for a function to convert to trampoline form
-;;; is assumed to be in trampoline form.
+;;; is assumed to already be in trampoline form.
 ;;;
 ;;; It is assumed that all calls to trampoline-style functions are
 ;;; tail calls; the above two rules are obviously not sufficient when
@@ -31,7 +31,7 @@
 (defparameter *result-prop* (make-string-literal :value "result")
   "property name for the result field of a boxed result object")
 
-(defun make-thunk (ret-elm)
+(defun make-boxed-thunk (ret-elm)
   "Returns an object literal whose `done` field is `false` and whose
    `thunk` field contains a thunk whose only line is RET-ELM (which
    should be a return statement)"
@@ -42,7 +42,7 @@
                         (cons *thunk-prop*
                               (make-thunk-function :body (list ret-elm))))))
 
-(defun make-result (elm)
+(defun make-boxed-result (elm)
   "Returns an object literal whose `done` field is `true` and whose
    `result` field contains ELM.  If ELM is NIL, the result field will
    be left undefined."
@@ -60,20 +60,30 @@
   (with-slots (arg) elm
     (if (or (fn-call-p arg)
             (new-expr-p arg)) ; new expressions are "effective function calls", because the runtime transform will turn them into calls to `$new`.
-      (make-return-statement :arg (make-thunk (make-return-statement :arg (transform 'trampoline arg))))
-      (make-return-statement :arg (make-result (transform 'trampoline arg))))))
+      (make-return-statement :arg (make-boxed-thunk (make-return-statement :arg (transform 'trampoline arg))))
+      (make-return-statement :arg (make-boxed-result (transform 'trampoline arg))))))
 
 ;;;; ------- `suspend` and `resume` transformation -------------------------------------------------
 
 (defmethod transform ((xform (eql 'trampoline)) (elm suspend-statement))
-  (make-return-statement :arg (make-result nil)))
+  (make-return-statement :arg (make-boxed-result nil)))
 
 (defmethod transform ((xform (eql 'trampoline)) (elm resume-statement))
   (with-slots (target arg) elm
-    (make-return-statement
-     :arg
-     (make-thunk (make-return-statement
-                  :arg
-                  (make-continuation-call :fn (transform 'trampoline target)
-                                          :args (when arg
-                                                  (list arg))))))))
+    (let ((new-call (make-continuation-call :fn (transform 'trampoline target)
+                                            :args (when arg
+                                                    (list arg)))))
+      (if *in-local-scope*
+        (make-return-statement
+         :arg (make-boxed-thunk (make-return-statement :arg new-call)))
+        new-call)))) ; Toplevel calls need to go through `$trampoline`, which the runtime transform will add
+
+;;;; ------- Scope tracking ------------------------------------------------------------------------
+    
+(defmethod transform ((xform (eql 'trampoline)) (elm function-decl))
+  (in-local-scope
+    (call-next-method)))
+
+(defmethod transform ((xform (eql 'trampoline)) (elm function-expression))
+  (in-local-scope
+    (call-next-method)))

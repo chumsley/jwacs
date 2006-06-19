@@ -214,4 +214,48 @@
                              (transform 'cps (parse "
       var x = arguments;"))))
   #.(parse "var x = arguments;"))
-      
+
+(deftest runtime/toplevel/resume/1 :notes runtime
+  (test-transform 'runtime
+                  (list
+                   (jw::make-continuation-call :fn (make-identifier :name "foo"))))
+  #.(parse "
+      $trampoline(function() { return foo(); });"))
+
+(deftest runtime/toplevel/indirect-call/1 :notes runtime
+  (test-transform 'runtime
+                  (transform 'trampoline
+                             (transform 'cps (parse "
+      foo(10);
+      bar(20);"))))
+  #.(parse "
+      $trampoline(function() {
+        return $call0(foo, $makeK(function() {
+          return {done: false, thunk: function() {
+            return $call0(bar, $makeK(function() {
+              return {done: false, thunk: function() {
+                return $k();
+              }};
+            }), null, 20);
+          }};
+        }), null, 10);
+      });"))
+
+(deftest runtime/toplevel/indirect-new/1 :notes runtime
+  (test-transform 'runtime
+                  (transform 'trampoline
+                             (transform 'cps (parse "
+      new foo(10);
+      new bar(20);"))))
+  #.(parse "
+      $trampoline(function() {
+        return $new0(foo, $makeK(function() {
+          return {done: false, thunk: function() {
+            return $new0(bar, $makeK(function() {
+              return {done: false, thunk: function() {
+                return $k();
+              }};
+            }), 20);
+          }};
+        }), 10);
+      });"))

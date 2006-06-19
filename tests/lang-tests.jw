@@ -44,6 +44,7 @@ function runTests()
   runTest("globalVar/1", reportElm(0), 'one');
   runTest("short-circuit-and/1", testShortCircuitAnd(), true);
   runTest("short-circuit-and/2", poit, true);
+  runTest("toplevel/resume/1", kWasCaptured, true);
   
 	output("<hr>");
 	outputLine(bold("Ran " + (passed + failed) + " tests"));
@@ -104,6 +105,36 @@ function reportElm(idx)
 {
   return globalArray[idx];
 }
+
+function kcapture(done)
+{
+  if(done)
+    return null;
+  else
+    return function_continuation;
+}
+
+var k = null;
+var kWasCaptured = false;
+
+k = kcapture(kWasCaptured);
+
+if(k != null)
+{
+  kWasCaptured = true;
+  resume k <- null;
+}
+else
+  k = null;
+
+var narf = "hello";
+function testShortCircuitAnd()
+{
+  if(narf && narf.charAt(0) == 'h')
+    return true;
+}
+
+var poit = narf && narf.charAt(0) == 'h';
 
 var globalArray = new Array('one', 'two');
 
@@ -341,12 +372,3 @@ function testArgumentsShadowingExprs()
   
   return (ret == 63);
 }
-
-var narf = "hello";
-function testShortCircuitAnd()
-{
-  if(narf && narf.charAt(0) == 'h')
-    return true;
-}
-
-var poit = narf && narf.charAt(0) == 'h';

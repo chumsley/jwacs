@@ -13,7 +13,7 @@
         (append head (transform xform (cdr elm-list)))
         (cons head (transform xform (cdr elm-list)))))))
 
-;;;; Runtime flags
+;;;; ======= Runtime flags =========================================================================
 ;;;
 ;;; We add runtime flags to each function indicating its type (continuation,
 ;;; transformed jwacs function, etc.)
@@ -59,8 +59,11 @@
   "Runtime function that constructs a shadowing `arguments` object that omits the continuation
    argument from the numbered arguments (but which includes it as the 'continuation' field)")
   
+(defparameter *pogo-function* (make-identifier :name "$trampoline")
+  "Runtime function that drives trampoline-style programs; We have to add explicit calls to this
+   function for toplevel calls to trampolined functions.")
 
-;;;; Call-style guards
+;;;; ======= Call-style guards =====================================================================
 ;;;
 ;;; We are only transforming our own code; we're not transforming anyone else's.
 ;;; So there will be lots of cases where untransformed code attempts to call a
@@ -89,7 +92,7 @@
                                               (make-special-value :symbol :this)
                                               (make-identifier :name "arguments"))))))
 
-;;;; Scope tracking
+;;;; ======= Scope tracking ========================================================================
 ;;;
 ;;; We track which function-decls are in scope, on the assumption that anything
 ;;; in scope has been transformed.
@@ -134,7 +137,8 @@
    (make-function-decl :name (function-decl-name elm)
                        :parameters (function-decl-parameters elm)
                        :body (cons (make-call-style-guard (function-decl-name elm))
-                                     (transform 'runtime (function-decl-body elm))))
+                                     (in-local-scope
+                                       (transform 'runtime (function-decl-body elm)))))
    (make-binary-operator :op-symbol :assign
                          :left-arg
                          (make-property-access :target (make-identifier :name (function-decl-name elm))
@@ -152,71 +156,89 @@
                           :name fn-name
                           :parameters (function-expression-parameters elm)
                           :body (cons (make-call-style-guard fn-name)
+                                      (in-local-scope
                                         (transform 'runtime
-                                                   (function-expression-body elm))))))))
+                                                   (function-expression-body elm)))))))))
 
 (defmethod transform ((xform (eql 'runtime)) (elm continuation-function))
   (make-fn-call :fn *makeK-fn*
                 :args (list
                        (make-function-expression :name (function-expression-name elm)
                                                  :parameters (function-expression-parameters elm)
-                                                 :body (transform 'runtime (function-expression-body elm))))))
+                                                 :body (in-local-scope
+                                                         (transform 'runtime (function-expression-body elm)))))))
 
 (defmethod transform ((xform (eql 'runtime)) (elm thunk-function))
   (make-function-expression :name (function-expression-name elm)
                             :parameters (function-expression-parameters elm)
-                            :body (transform 'runtime (function-expression-body elm))))
+                            :body (in-local-scope
+                                    (transform 'runtime (function-expression-body elm)))))
+
+(defun make-pogoed-toplevel-call (elm)
+  "Returns a call to `$trampoline` that passes a thunk which executes ELM.
+   In other words, wrap ELM in a `$trampoline` call to account for its being at the toplevel"
+  (make-fn-call :fn *pogo-function*
+                :args (list (make-thunk-function
+                             :body (list (make-return-statement :arg elm))))))
 
 (defmethod transform ((xform (eql 'runtime)) (elm fn-call))
-  (flet ((runtime-transform (elm)
-           (transform 'runtime elm)))
-    (let ((this-obj (if (property-access-p (fn-call-fn elm))
-                      (runtime-transform (property-access-target (fn-call-fn elm)))
-                      (make-special-value :symbol :null)))
-          (method-name (when (property-access-p (fn-call-fn elm))
-                         (property-access-field (fn-call-fn elm)))))
-      (assert (or (continuation-function-p (first (fn-call-args elm))) ; First argument is a new continuation
-                  (equalp *cont-id* (first (fn-call-args elm))) ; First argument is the function's continuation
-                  (equalp *cont-id* (fn-call-fn elm)))) ; Call's target is the function's continuation
+  (let ((new-call
+         (flet ((runtime-transform (elm)
+                  (transform 'runtime elm)))
+           (let ((this-obj (if (property-access-p (fn-call-fn elm))
+                             (runtime-transform (property-access-target (fn-call-fn elm)))
+                             (make-special-value :symbol :null)))
+                 (method-name (when (property-access-p (fn-call-fn elm))
+                                (property-access-field (fn-call-fn elm)))))
+             (assert (or (continuation-function-p (first (fn-call-args elm))) ; First argument is a new continuation
+                         (equalp *cont-id* (first (fn-call-args elm))) ; First argument is the function's continuation
+                         (equalp *cont-id* (fn-call-fn elm)))) ; Call's target is the function's continuation
     
-      (cond
-        ((inlineable-call-target (fn-call-fn elm))
-         (make-fn-call :fn (runtime-transform (fn-call-fn elm))
-                       :args (mapcar #'runtime-transform (fn-call-args elm))))
-        ((<= (length (fn-call-args elm)) *max-call0-args*)
-         (make-fn-call :fn *call0-fn*
-                       :args (append
-                              (list
-                               (if method-name
-                                 (runtime-transform method-name)
-                                 (runtime-transform (fn-call-fn elm)))
-                               (runtime-transform (first (fn-call-args elm)))
-                               this-obj)
-                              (mapcar #'runtime-transform
-                                      (cdr (fn-call-args elm))))))
-        (t
-         (make-fn-call :fn *call-fn*
-                       :args (list
-                              (runtime-transform (fn-call-fn elm))
-                              (runtime-transform (first (fn-call-args elm)))
-                              this-obj
-                              (make-array-literal :elements
-                                                  (mapcar #'runtime-transform
-                                                          (cdr (fn-call-args elm)))))))))))
+             (cond
+               ((inlineable-call-target (fn-call-fn elm))
+                (make-fn-call :fn (runtime-transform (fn-call-fn elm))
+                              :args (mapcar #'runtime-transform (fn-call-args elm))))
+               ((<= (length (fn-call-args elm)) *max-call0-args*)
+                (make-fn-call :fn *call0-fn*
+                              :args (append
+                                     (list
+                                      (if method-name
+                                        (runtime-transform method-name)
+                                        (runtime-transform (fn-call-fn elm)))
+                                      (runtime-transform (first (fn-call-args elm)))
+                                      this-obj)
+                                     (mapcar #'runtime-transform
+                                             (cdr (fn-call-args elm))))))
+               (t
+                (make-fn-call :fn *call-fn*
+                              :args (list
+                                     (runtime-transform (fn-call-fn elm))
+                                     (runtime-transform (first (fn-call-args elm)))
+                                     this-obj
+                                     (make-array-literal :elements
+                                                         (mapcar #'runtime-transform
+                                                                 (cdr (fn-call-args elm))))))))))))
+    (if *in-local-scope*
+      new-call
+      (make-pogoed-toplevel-call new-call))))
 
 (defmethod transform ((xform (eql 'runtime)) (elm new-expr))
-  (flet ((runtime-transform (elm)
-           (transform 'runtime elm)))
-    (with-slots (constructor args) elm
-      (if (<= (length args) *max-new0-args*)
-        (make-fn-call :fn *new0-fn*
-                      :args (cons (runtime-transform constructor)
-                                  (runtime-transform args))) ; We assume that the continuation is already the first arg
-        (make-fn-call :fn *new-fn*
-                      :args (list (runtime-transform constructor)
-                                  (runtime-transform (car args))
-                                  (make-array-literal :elements (mapcar #'runtime-transform
-                                                                        (cdr args)))))))))
+  (let ((new-call
+         (flet ((runtime-transform (elm)
+                  (transform 'runtime elm)))
+           (with-slots (constructor args) elm
+             (if (<= (length args) *max-new0-args*)
+               (make-fn-call :fn *new0-fn*
+                             :args (cons (runtime-transform constructor)
+                                         (runtime-transform args))) ; We assume that the continuation is already the first arg
+               (make-fn-call :fn *new-fn*
+                             :args (list (runtime-transform constructor)
+                                         (runtime-transform (car args))
+                                         (make-array-literal :elements (mapcar #'runtime-transform
+                                                                               (cdr args))))))))))
+    (if *in-local-scope*
+      new-call
+      (make-pogoed-toplevel-call new-call))))
   
 (defmethod transform ((xform (eql 'runtime)) (elm special-value))
   (if (eq :arguments (special-value-symbol elm))
@@ -227,5 +249,10 @@
 ;; We can be sure that we don't need to indirect through $call for a continuation-call, because those
 ;; are only produced by resume statements.
 (defmethod transform ((xform (eql 'runtime)) (elm continuation-call))
-  (make-fn-call :fn (transform 'runtime (fn-call-fn elm))
-                :args (mapcar (lambda (arg) (transform 'runtime arg)) (fn-call-args elm))))
+  (let ((new-call (make-fn-call :fn (transform 'runtime (fn-call-fn elm))
+                  :args (mapcar (lambda (arg)
+                                  (transform 'runtime arg))
+                                (fn-call-args elm)))))
+    (if *in-local-scope*
+      new-call
+      (make-pogoed-toplevel-call new-call))))

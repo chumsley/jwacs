@@ -70,11 +70,12 @@
                        }};"))
     
 (deftest trampoline/suspend/1 :notes trampoline
-  (transform 'trampoline (parse "
+  (in-local-scope
+    (transform 'trampoline (parse "
     if(flag)
       suspend;
     else
-      return 50;"))
+      return 50;")))
   #.(parse "
     if(flag)
       return {done: true};
@@ -85,14 +86,25 @@
 ;; wrapping it in a thunk or a result object (a "trampoline box"?)
 ;; since it should already be trampoline boxed by the continuation iteself.
 (deftest trampoline/resume/1 :notes trampoline
-  (test-transform 'trampoline (parse "
-      resume foo[bar];"))
+  (in-local-scope
+    (test-transform 'trampoline (parse "
+      resume foo[bar];")))
   #.(parse "
       return {done: false, thunk: function() { return foo[bar](); }};"))
 
 (deftest trampoline/resume/2 :notes trampoline
-  (test-transform 'trampoline (parse "
-      resume foo[bar] <- baz;"))
+  (in-local-scope
+    (test-transform 'trampoline (parse "
+      resume foo[bar] <- baz;")))
   #.(parse "
       return {done: false, thunk: function() { return foo[bar](baz); }};"))
 
+(deftest trampoline/resume/toplevel/1 :notes trampoline
+  (test-transform 'trampoline (parse "
+      resume foo;"))
+  #.(parse "foo();"))
+
+(deftest trampoline/resume/toplevel/2 :notes trampoline
+  (test-transform 'trampoline (parse "
+      resume foo <- bar;"))
+  #.(parse "foo(bar);"))
