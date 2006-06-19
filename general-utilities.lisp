@@ -68,20 +68,7 @@
   (:documentation
    "A condition that indicates that a function further down the call chain has a message
     to pass back.  BACKCHANNEL-MESSAGE should never be directly instantiated or used;
-    use BIND-BACKCHANNEL-MESSAGES and BACKCHANNEL-SIGNAL instead."))
-
-(defmacro bind-backchannel-messages ((channel-name binding-name) form &body body)
-  "FORM is executed in a context where all backchannel messages with a channel eq to CHANNEL-NAME
-   will be received.  BODY is then executed with BINDING-NAME bound to a list of the received
-   messages in order of reception."
-  `(let ((,binding-name nil))
-    (handler-bind ((backchannel-message #'(lambda (msg)
-                                            (when (eq (channel-name msg) ',channel-name)
-                                              (push (message-value msg) ,binding-name)
-                                              (invoke-restart 'backchannel-message-received)))))
-      ,form)
-    (setf ,binding-name (reverse ,binding-name))
-    ,@body))
+    use BIND-WITH-BACKCHANNELS and BACKCHANNEL-SIGNAL instead."))
 
 (defun backchannel-signal (channel value)
   "Signals VALUE on backchannel CHANNEL.  Returns T if the message was received."
