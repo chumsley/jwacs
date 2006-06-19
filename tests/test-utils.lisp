@@ -25,8 +25,8 @@
                             :body (transform xform (jw::function-expression-body elm))))
 
 (defmethod transform ((xform (eql 'remove-administratives)) (elm continuation-call))
-  (make-fn-call :fn (jw::fn-call-fn elm)
-                :args (jw::fn-call-args elm)))
+  (make-fn-call :fn (transform xform (jw::fn-call-fn elm))
+                :args (transform xform (jw::fn-call-args elm))))
 
 (defmethod transform ((xform (eql 'remove-administratives)) (elm special-value))
   (if (eq :arguments (jw::special-value-symbol elm))
