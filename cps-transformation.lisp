@@ -707,12 +707,16 @@
 
 (defmethod find-free-variables ((elm function-decl))
   (with-added-environment
+    (dolist (param (function-decl-parameters elm))
+      (add-binding param t))
     (find-free-variables-in-scope (function-decl-body elm))))
 
 (defmethod find-free-variables ((elm function-expression))
   (with-added-environment
     (when-let (name (function-expression-name elm))
       (add-binding name t))
+    (dolist (param (function-expression-parameters elm))
+      (add-binding param t))
     (find-free-variables-in-scope (function-expression-body elm))))
 
 (defmethod find-free-variables ((elm-list list))

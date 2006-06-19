@@ -1075,4 +1075,34 @@
         narf.charAt(function(JW1) { intermediate = JW1; resume ifK$0; }, 0);
       else
         resume ifK$0;"))
-        
+
+(deftest cps/find-free-variables/1 :notes cps
+  (find-free-variables (parse "
+      x = 10;
+      x += 2;
+      var x;
+      function foo(y)
+      {
+        if(y)
+          foo(10);
+        else
+          bar(y);
+      }"))
+  ("bar"))
+
+(deftest cps/find-free-variables/2 :notes cps
+  (sort 
+   (find-free-variables (parse "
+      x = 10;
+      x += 2;
+      var x = JW0 && x;
+      function foo(y)
+      {
+        var JW0 = baz(x);
+        if(x)
+          foo(y);
+        else
+          bar(y);
+      }"))
+   #'string<)
+  ("JW0" "bar" "baz"))

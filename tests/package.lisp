@@ -123,6 +123,9 @@
                 runtime
                 shadow-values
 
+                ;; cps transformation symbols
+                find-free-variables
+                
                 ;; type-analysis symbols
                 type-analyze
                 compute-types
