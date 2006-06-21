@@ -474,3 +474,14 @@
   (when (import-decl-type-symbol elm)
     (format s "~A " (string-downcase (symbol-name (import-decl-type-symbol elm)))))
   (format s "\"~A\";" (import-decl-uri elm)))
+
+;;;; ------- administrative elements ---------------------------------------------------------------
+(defmethod pretty-print ((elm add-handler) s)
+  (format s "$addHandler(")
+  (pretty-print (add-handler-handler elm) s)
+  (format s ");"))
+
+(defmethod pretty-print ((elm remove-handler) s)
+  (format s "$removeHandler(")
+  (pretty-print (remove-handler-handler elm) s)
+  (format s ");"))

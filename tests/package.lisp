@@ -54,6 +54,8 @@
                 suspend-statement
                 resume-statement
                 import-decl
+                add-handler
+                remove-handler
                 
                 ;; constructors for source-model structures
                 make-source-element
@@ -95,6 +97,8 @@
                 make-suspend-statement
                 make-resume-statement
                 make-import-decl
+                make-add-handler
+                make-remove-handler
                 
                 ;; structure management
                 structure-slots

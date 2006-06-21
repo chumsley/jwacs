@@ -33,6 +33,14 @@
     (make-identifier :name jw::*arguments-name*)
     (call-next-method)))
 
+(defmethod transform ((xform (eql 'remove-administratives)) (elm add-handler))
+  (make-fn-call :fn (make-identifier :name "$addHandler")
+                :args (list (transform xform (jw::add-handler-handler elm)))))
+
+(defmethod transform ((xform (eql 'remove-administratives)) (elm remove-handler))
+  (make-fn-call :fn (make-identifier :name "$removeHandler")
+                :args (list (transform xform (jw::remove-handler-handler elm)))))
+
 (defun test-transform (xform elm)
   "Return the results of applying XFORM to ELM with any administrative source-elements
    converted to their non-administrative equivalents"

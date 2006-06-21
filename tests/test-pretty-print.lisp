@@ -499,3 +499,16 @@ else
   (pretty-string (parse "while(x++ < 10);"))
   "while(x++ < 10)
   ;")
+
+(deftest pretty-print/add-handler/1 :notes pretty-print
+  (pretty-string (list (make-add-handler :handler foo-id)
+                       (make-suspend-statement)))
+  "$addHandler(foo);
+suspend;")
+
+(deftest pretty-print/remove-handler/1 :notes pretty-print
+  (pretty-string (list (jw::make-remove-handler :handler foo-id)
+                       (jw::make-suspend-statement)))
+  "$removeHandler(foo);
+suspend;")
+                       

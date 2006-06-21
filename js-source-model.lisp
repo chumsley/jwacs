@@ -163,7 +163,7 @@
   (parameters nil :type (or (cons string) null))
   (body nil :type (or (cons source-element) null)))
 
-;;;; ------- "Administrative lambda" source elements -----------------------------------------------
+;;;; ------- "Administrative" source elements ------------------------------------------------------
 (defelement (continuation-function (:include function-expression))
   "A function expression that is used as a continuation")
 
@@ -172,6 +172,14 @@
 
 (defelement (continuation-call (:include fn-call))
   "A call to a continuation (as opposed to a call to any other sort of function)")
+
+(defelement (add-handler (:include source-element))
+  "Indicates that a new handler should be added to the handler stack at this point"
+  (handler nil :type (or identifier function-expression)))
+
+(defelement (remove-handler (:include source-element))
+  "Indicates that a handler should be removed from the top of the handler stack at this point"
+  (handler nil :type (or identifier function-expression)))
 
 ;;;; ------- jwacs extended syntax -----------------------------------------------------------------
 (defelement (suspend-statement (:include source-element)))
