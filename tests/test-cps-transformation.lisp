@@ -32,22 +32,20 @@
                               #s(fn-call :fn #s(identifier :name "$k")
                                          :args (#s(numeric-literal :value 1))))
                 :else-statement
-                #s(statement-block
-                   :statements
-                   (#s(return-statement
-                       :arg
-                       #s(fn-call :fn #s(identifier :name "factorial1")
-                                  :args
-                                  (#s(function-expression
-                                      :parameters ("r1")
-                                      :body (#s(return-statement
-                                                :arg #s(fn-call :fn #s(identifier :name "$k")
-                                                                :args (#s(binary-operator :op-symbol :multiply
-                                                                                          :left-arg #s(identifier :name "n")
-                                                                                          :right-arg #s(identifier :name "r1")))))))
-                                     #s(binary-operator :op-symbol :subtract
-                                                        :left-arg #s(identifier :name "n")
-                                                        :right-arg #s(numeric-literal :value 1))))))))))))
+                #s(return-statement
+                   :arg
+                   #s(fn-call :fn #s(identifier :name "factorial1")
+                              :args
+                              (#s(function-expression
+                                  :parameters ("r1")
+                                  :body (#s(return-statement
+                                            :arg #s(fn-call :fn #s(identifier :name "$k")
+                                                            :args (#s(binary-operator :op-symbol :multiply
+                                                                                      :left-arg #s(identifier :name "n")
+                                                                                      :right-arg #s(identifier :name "r1")))))))
+                                 #s(binary-operator :op-symbol :subtract
+                                                    :left-arg #s(identifier :name "n")
+                                                    :right-arg #s(numeric-literal :value 1))))))))))
 (deftest cps/symmetric-dangling-tail/1 :notes cps
   (with-fresh-genvar
     (test-transform 'cps (parse "
@@ -260,9 +258,7 @@
         if(branch)
           return foo($k, false);
         else
-        {
           return WScript.echo(function() { return foo($k, true); }, 'hi');
-        }
       }
       foo(function() { return $k(); }, false);"))
 

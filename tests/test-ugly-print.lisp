@@ -188,7 +188,7 @@
         {
           echo(top);
         }")))
-   "var top=10;for(var top=0;top<100;top++){echo(top);}")
+   "var top=10;for(var top=0;top<100;top++)echo(top);")
 
 (deftest ugly-print/for-loop-does-not-create-new-scope/2 :notes ugly-print
   (with-fresh-genvar
@@ -198,7 +198,7 @@
         {
           echo(top);
         }")))
-   "var top=10;for(var top in topVars){echo(top);}")
+   "var top=10;for(var top in topVars)echo(top);")
 
 (deftest ugly-print/case-sensitivity/1 :notes ugly-print
   (with-fresh-genvar

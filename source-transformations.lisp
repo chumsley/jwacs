@@ -108,6 +108,13 @@
 
 ;;; The top-level TRANSFORM methods provide the default code-walking behaviour,
 ;;; so that individual transformations can override just the important parts.
+;;;
+;;; The transformation of any "obligate statement" may return a list instead of
+;;; a single source-element, and the default behaviour will handle it correctly.
+;;; An obligate statement is a source element that must be a statement (ie, which
+;;; can never be an expression).  For example, a function call is _not_ an
+;;; obligate statement, since it can appear as a sub-expression, but a break
+;;; statement is.
 
 (defgeneric transform (xform elm)
   (:documentation
@@ -132,10 +139,68 @@
          collect (make-keyword slot)
          collect (transform xform (slot-value elm slot)))))
 
-(defmethod transform (xform (elm list))
-  (mapcar (lambda (arg)
-            (transform xform arg))
-          elm))
+;; Sometimes we're dealing with lists of source elements, and sometimes (rarely) we're
+;; dealing with some other sort of list.  We only flatten source element lists.
+;; We decide if it is a source-element list based on the first element only.
+(defmethod transform (xform (elm-list list))
+  (if (source-element-p (car elm-list))
+    (loop for elm in elm-list
+          for tx-elm = (transform xform elm)
+          if (listp tx-elm)
+          append tx-elm
+          else
+          collect tx-elm)
+    (mapcar (lambda (elm)
+              (transform xform elm))
+            elm-list)))
+
+;; Override the default slot-traversing behaviour for elements that have single-statement
+;; children, since we might need to single-statement them.
+(defmethod transform (xform (elm if-statement))
+  (with-slots (condition then-statement else-statement) elm
+    (make-if-statement :condition (transform xform condition)
+                       :then-statement (single-statement (transform xform then-statement))
+                       :else-statement (single-statement (transform xform else-statement)))))
+
+(defmethod transform (xform (elm while))
+  (with-slots (label body condition) elm
+    (make-while :label label
+                :condition (transform xform condition)
+                :body (single-statement (transform xform body)))))
+
+(defmethod transform (xform (elm do-statement))
+  (with-slots (label body condition) elm
+    (make-do-statement :label label
+                       :condition (transform xform condition)
+                       :body (single-statement (transform xform body)))))
+  
+(defmethod transform (xform (elm for))
+  (with-slots (label body initializer condition step) elm
+    (make-for :label label
+              :initializer (transform xform initializer)
+              :condition (transform xform condition)
+              :step (transform xform step)
+              :body (single-statement (transform xform body)))))
+
+(defmethod transform (xform (elm for-in))
+  (with-slots (label body binding collection) elm
+    (make-for-in :label label
+                 :binding (transform xform binding)
+                 :collection (transform xform collection)
+                 :body (single-statement (transform xform body)))))
+
+(defmethod transform (xform (elm with))
+  (with-slots (label scope-object body) elm
+    (make-with :label label
+               :scope-object (transform xform scope-object)
+               :body (single-statement (transform xform body)))))
+
+(defmethod transform (xform (elm try))
+  (with-slots (label body catch-clause finally-clause) elm
+    (make-try :label label
+              :body (single-statement (transform xform body))
+              :catch-clause (transform xform catch-clause)
+              :finally-clause (transform xform finally-clause))))
 
 ;; Special case for object-literals to account for the fact that object-literal-properties
 ;; is an alist rather than a list of structures.
