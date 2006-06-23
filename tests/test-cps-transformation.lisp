@@ -1102,3 +1102,247 @@
       }"))
    #'string<)
   ("JW0" "bar" "baz"))
+
+(deftest cps/try-catch/1 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+      function boo()
+      {
+        try
+        {
+          foo();
+          bar();
+        }
+        catch(e)
+        {
+          baz();
+        }
+        return quux();
+      }")))
+  #.(parse "
+      function boo($k)
+      {
+        var tryK$1 = function() {
+          return quux($k);
+        };
+        var catchK$0 = function(e) {
+          return baz(function() {
+            resume tryK$1;
+          });
+        };
+        $addHandler(catchK$0);
+        return foo(function() {
+          return bar(function() {
+            $removeHandler(catchK$0);
+            resume tryK$1;
+          });
+        });
+      }"))
+
+(deftest cps/try-catch/2 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+      function boo()
+      {
+        try
+        {
+          foo();
+          var x = bar();
+          if(x)
+            return x;
+        }
+        catch(e)
+        {
+          var y = baz();
+          if(y)
+            return y;
+        }
+        return quux();
+      }")))
+  #.(parse "
+      function boo($k)
+      {
+        var tryK$1 = function() {
+          return quux($k);
+        };
+        var catchK$0 = function(e) {
+          return baz(function(y) {
+            if(y)
+              return $k(y);
+            resume tryK$1;
+          });
+        };
+        $addHandler(catchK$0);
+        return foo(function() {
+          return bar(function(x) {
+            if(x)
+            {
+              $removeHandler(catchK$0);
+              return $k(x);
+            }
+            $removeHandler(catchK$0);
+            resume tryK$1;
+          });
+        });
+      }"))
+
+(deftest cps/try-catch/3 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+      function boo()
+      {
+        try
+        {
+          foo();
+          var x = bar();
+          if(x)
+            return x;
+        }
+        catch(e)
+        {
+          return baz();
+        }
+        return quux();
+      }")))
+  #.(parse "
+      function boo($k)
+      {
+        var catchK$0 = function(e) {
+          return baz($k);
+        };
+        $addHandler(catchK$0);
+        return foo(function() {
+          return bar(function(x) {
+            if(x)
+            {
+              $removeHandler(catchK$0);
+              return $k(x);
+            }
+            $removeHandler(catchK$0);
+            return quux($k);
+          });
+        });
+      }"))
+
+(deftest cps/try-catch/4 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+      function boo()
+      {
+        try
+        {
+          foo();
+          try
+          {
+            var y = bar();
+            if(y)
+              return null;
+            narf = 10;
+          }
+          catch(x)
+          {
+            throw 60;
+          }
+        }
+        catch(e)
+        {
+          baz();
+        }
+        return quux();
+      }")))
+  #.(parse "
+      function boo($k)
+      {
+        var tryK$1 = function() {
+          return quux($k);
+        };
+        var catchK$0 = function(e) {
+          return baz(function() {
+            resume tryK$1;
+          });
+        };
+        $addHandler(catchK$0);
+        return foo(function() {
+          var catchK$2 = function(x) {
+            throw 60;
+          };
+          $addHandler(catchK$2);
+          return bar(function(y) {
+            if(y)
+            {
+              $removeHandler(catchK$0);
+              $removeHandler(catchK$2);
+              return $k(null);
+            }
+            narf = 10;
+            $removeHandler(catchK$2);
+            $removeHandler(catchK$0);
+            resume tryK$1;
+          });
+        });
+      }"))
+
+(deftest cps/try-catch/5 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+      function boo()
+      {
+        outer:
+        while(true)
+        {
+          if(!go)
+            break outer;
+          try
+          {
+            inner:
+            while(true)
+            {
+              if(!go2)
+                break inner;
+ 
+              go--;
+              if(go == 10)
+                continue;
+              else
+                continue outer;
+              continue inner;
+            }
+          }
+          catch(e)
+          {
+            return bar(25);
+          }
+          continue outer;
+        }
+      }")))
+  #.(parse "
+      function boo($k)
+      {
+        var break$0 = function() {
+          return $k();
+        };
+        var continue$1 = function() {
+          if(!go)
+            resume break$0;
+          var catchK$2 = function(e) {
+            return bar($k, 25);
+          };
+          $addHandler(catchK$2);
+          var break$3 = function() {
+            $removeHandler(catchK$2);
+            resume continue$1;
+          };
+          var continue$4 = function() {
+            if(!go2)
+              resume break$3;
+            go--;
+            if(go == 10)
+              resume continue$4;
+            else
+              resume continue$1;
+            resume continue$4;
+          };
+          resume continue$4;
+        };
+        resume continue$1;
+      }"))

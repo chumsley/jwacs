@@ -78,8 +78,7 @@
 ;;; should we need to generate a continuation at this point.
 ;;;
 
-;;;================================================================================
-;;;; TRANSFORM method
+;;;; ======= TRANSFORM method ======================================================================
 ;;;
 ;;; As with the explicitization transformation, the cps transformation has a fairly
 ;;; complicated protocol, so the TRANSFORM method is just a thin wrapper over the
@@ -101,8 +100,7 @@
       (tx-cps elm-list nil)
     (append bare-var-decls new-list)))
     
-;;;================================================================================
-;;;; TX-CPS
+;;;; ======= TX-CPS ================================================================================
 ;;;
 ;;; Previously we bound the *STATEMENT-TAIL* special variable in order to provide
 ;;; it to "downstream" functions, but now we pass it as a parameter.
@@ -350,8 +348,7 @@
            (values nil nil)
            (values elm nil)))))))
 
-;;;================================================================================
-;;;; function_continuation transformation
+;;;; ======= function_continuation transformation ==================================================
 
 (defmethod tx-cps ((elm special-value) statement-tail)
   (if (eq :function_continuation
@@ -359,8 +356,7 @@
     (values *cont-id* nil)
     (call-next-method)))
 
-;;;================================================================================
-;;;; loop transformation
+;;;; ======= loop transformation ===================================================================
 
 ;; while loops only
 ;; break needs to call some break continuation (which is essentially the statement-tail)
@@ -471,8 +467,7 @@
      (make-resume-statement :target (make-identifier :name continue-name))
      nil)))
 
-;;;================================================================================
-;;;; Branch statements
+;;;; ======= Branch statements =====================================================================
 
 ;; Because if statements are so common, we want to be sure that their output is
 ;; pretty close to optimal.  In particular, we don't want to output a non-null
@@ -636,8 +631,82 @@
                     (zerop defaults-encountered))
           collect (make-default-clause :body (list (make-break-statement :target-label nil))))))
 
-;;;================================================================================
-;;;; default behaviour 
+(defun make-labelled-catch-continuation (name catch-clause &optional tail-resume-elm)
+  "Returns a labelled continuation that can be used as a catch handler based on CATCH-CLAUSE.
+   The continuation will accept an argument that represents the binding in the clause.
+   Returns a var-init statement that assigns the catch continuation to a var named NAME.
+   If TAIL-RESUME-ELM is non-NIL, it will be added as the last statement of the handler function.
+   It should be a resume statement that resumes the tail continuation for unterminated catch
+   clauses."
+  (with-slots (body binding) catch-clause
+    (make-var-init name
+                   (if (null tail-resume-elm)
+                     (make-continuation-function :name nil
+                                                 :parameters (list binding)
+                                                 :body (transform 'cps
+                                                                  body))
+                     (make-continuation-function :name nil
+                                                 :parameters (list binding)
+                                                 :body (transform 'cps
+                                                                  (postpend body tail-resume-elm)))))))
+        
+;; TODO
+;; There are some optimizations/improvements possible here:
+;; 1) We're not generating the $removeHandler elements in the correct order.  We should see something
+;;    like `$addHandler(outer); $addHandler(inner); foo(); $removeHandler(inner); $removeHandler(outer);`,
+;;    but for implementation reasons we instead get
+;;    `$addHandler(outer); $addHandler(inner); foo(); $removeHandler(outer); $removeHandler(inner);`.
+;;    This doesn't turn out to be a problem, since we don't do anything with the argument to $removeHandler
+;;    anyway, but it would be nicer if we were getting it right.
+;; 2) We are traversing the body multiple times, since we call INSERT-BEFORE-RETURNS and the TX-CPS.
+;;    If we made the TX-CPS function smarter (so that it knew how to insert in front of returns for us),
+;;    we could avoid the extra processing (by having TX-CPS insert all the $removeHandler elements at
+;;    once, instead of coming back once for each nested try statement).  Interestingly, fixing this
+;;    problem would also fix problem #1, since we'd have an easier opportunity to get the ordering
+;;    right.
+;; 3) Alternatively, maybe we don't need to generate a labelled catch block?  We could have $removeHandler
+;;    accept 0 arguments, and pass an anonymous continuation to $addHandler.
+;; 4) We add $removeHandler at the end of a try block even if all its control paths are explicitly
+;;    terminated; we shouldn't.
+;; 5) The same single-simple-statement labelled-continuation removal optimization that we're pondering for
+;;    if-statements might apply here as well.
+
+(defmethod tx-cps ((elm try) statement-tail)
+  (let* ((catch-k-name (genvar "catchK"))
+         (catch-k-id (make-identifier :name catch-k-name))
+         (remove-handler-elm (make-remove-handler :handler catch-k-id))         
+         ;; We use insert-before-returns because it's not necessary to explicitly insert remove-handler
+         ;; statements before `break` and `continue` statements, since they will be translated into
+         ;; `resume` statements, which replace the handler stack anyway.
+         (augmented-body (combine-statements (insert-before-returns remove-handler-elm (try-body elm))
+                                             remove-handler-elm)))
+    
+    (unless (null (try-finally-clause elm))
+      (error "finally clauses are not yet supported")) ;TODO support finally clauses
+
+    (if (explicit-return-p (try-catch-clause elm))
+      (multiple-value-bind (tx-body consumed)
+          (tx-cps augmented-body statement-tail)
+        (values (combine-statements
+                 (make-labelled-catch-continuation catch-k-name (try-catch-clause elm))
+                 (make-add-handler :handler catch-k-id)
+                 tx-body)
+                consumed))
+      (let* ((tail-k-name (genvar "tryK"))
+             (tail-resume-elm (make-resume-statement :target (make-identifier :name tail-k-name)))
+             (tail-k-decl (make-labelled-continuation tail-k-name statement-tail))
+             (catch-k-decl (make-labelled-catch-continuation catch-k-name (try-catch-clause elm) tail-resume-elm))
+             (*escaping-references* (union *escaping-references* (find-free-variables statement-tail))))
+        (values (combine-statements
+                 tail-k-decl
+                 catch-k-decl
+                 (make-add-handler :handler catch-k-id)
+                 (tx-cps (postpend augmented-body tail-resume-elm) nil))
+                t)))))
+                
+     
+
+;;;; ======= default behaviour =====================================================================
 ;;;
 ;;; We have to re-implement the default behaviour that is normally provided by the
 ;;; TRANSFORM generic function, since we are using a special generic function of
@@ -746,3 +815,30 @@
         (find-free-variables-in-scope elm)
         (call-next-method)))
     (call-next-method)))
+
+;;;; ======= insert-before-returns =============================================================
+
+(defclass insert-before-returns ()
+  ((insert-elm :initarg :insert-elm :reader insert-elm))
+  (:documentation
+   "Represents transformations that adds INSERT-ELM before all return statements.
+    See the INSERT-BEFORE-RETURNS function"))
+
+(defun insert-before-returns (insert-elm elm)
+  "Returns ELM with all the return statements preceded by INSERT-ELM.
+   We process only statements that aren't contained in a nested function declaration or
+   expression."
+  (transform (make-instance 'insert-before-returns :insert-elm insert-elm) elm))
+
+;;; Base cases
+(defmethod transform ((xform insert-before-returns) (elm return-statement))
+  (list
+   (insert-elm xform)
+   (make-return-statement :arg (transform xform (return-statement-arg elm)))))
+
+;;; We do not recurse into functions
+(defmethod transform ((xform insert-before-returns) (elm function-decl))
+  elm)
+
+(defmethod transform ((xform insert-before-returns) (elm function-expression))
+  elm)
