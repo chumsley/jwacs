@@ -198,7 +198,7 @@
 (defmethod transform (xform (elm try))
   (with-slots (label body catch-clause finally-clause) elm
     (make-try :label label
-              :body (single-statement (transform xform body))
+              :body (transform xform body)
               :catch-clause (transform xform catch-clause)
               :finally-clause (transform xform finally-clause))))
 
