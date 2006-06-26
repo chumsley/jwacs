@@ -485,3 +485,8 @@
   (format s "$removeHandler(")
   (pretty-print (remove-handler-handler elm) s)
   (format s ");"))
+
+(defmethod pretty-print ((elm replace-handler-stack) s)
+  (format s "$replaceHandlerStack(")
+  (pretty-print (replace-handler-stack-source elm) s)
+  (format s ");"))

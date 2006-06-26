@@ -181,6 +181,10 @@
   "Indicates that a handler should be removed from the top of the handler stack at this point"
   (handler nil :type (or identifier function-expression)))
 
+(defelement (replace-handler-stack (:include source-element))
+  "Indicates that the global handler stack should be replaced by the stack saved in the SOURCE continuation"
+  (source nil :type expression))
+
 ;;;; ------- jwacs extended syntax -----------------------------------------------------------------
 (defelement (suspend-statement (:include source-element)))
 

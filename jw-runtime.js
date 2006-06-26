@@ -32,10 +32,13 @@ function $lambda(fn)
 // set to true.  This allows us to detect continuations at
 // runtime while still creating them in a single step (ie,
 // without always having to assign them to an intermediate
-// variable first)
+// variable first).  The $exHandlers property is set to the
+// current exception handler stack, so that the exception
+// state can be resumed when the continuation is resumed.
 function $makeK(fn)
 {
   fn.$isK = true;
+  fn.$exHandlers = $handlerStack;
   return fn;
 }
 
@@ -373,8 +376,19 @@ function $trampoline(origThunk)
 	ret.thunk = origThunk;
 	while(!ret.done)
 	{
-		ret = ret.thunk();
-	}
+    try
+    {
+      ret = ret.thunk();
+    }
+    catch(e)
+    {
+      var handler = $removeHandler();
+      if(handler)
+        ret = {done: false, thunk: function() { return handler(e); } };
+      else
+        throw e;
+    }
+  }
 	return ret.result;
 }
 
@@ -388,5 +402,34 @@ function $callFromDirect(f, thisObj, args)
   return $trampoline(function() {
                        return f.apply(thisObj, [$id].concat(argArray));
                      });
+}
+
+// Constructor for a stack entry on the global exception handler stack
+function HandlerStackEntry(k, nextK)
+{
+  this.k = k;
+  this.nextK = nextK;
+}
+
+// The global exception handler stack
+var $handlerStack = null;
+
+// Adds `k` to the top of the global exception handler stack
+function $addHandler(k)
+{
+  $handlerStack = new HandlerStackEntry(k, $handlerStack);
+}
+
+// Removes and returns the top entry from the global exception handler stack
+function $removeHandler()
+{
+  var top = $handlerStack;
+  if(top)
+  {
+    $handlerStack = top.nextK;
+    return top.k;
+  }
+
+  return null;
 }
 

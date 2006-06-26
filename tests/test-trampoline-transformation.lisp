@@ -71,14 +71,17 @@
     
 (deftest trampoline/suspend/1 :notes trampoline
   (in-local-scope
-    (transform 'trampoline (parse "
+    (test-transform 'trampoline (parse "
     if(flag)
       suspend;
     else
       return 50;")))
   #.(parse "
     if(flag)
+    {
+      $replaceHandlerStack(null);
       return {done: true};
+    }
     else
       return {done: true, result: 50};"))
 
@@ -90,21 +93,29 @@
     (test-transform 'trampoline (parse "
       resume foo[bar];")))
   #.(parse "
-      return {done: false, thunk: function() { return foo[bar](); }};"))
+      return {done: false, thunk: function() {
+        $replaceHandlerStack(foo[bar]);
+        return foo[bar](); }};"))
 
 (deftest trampoline/resume/2 :notes trampoline
   (in-local-scope
     (test-transform 'trampoline (parse "
       resume foo[bar] <- baz;")))
   #.(parse "
-      return {done: false, thunk: function() { return foo[bar](baz); }};"))
+      return {done: false, thunk: function() {
+        $replaceHandlerStack(foo[bar]);
+        return foo[bar](baz); }};"))
 
 (deftest trampoline/resume/toplevel/1 :notes trampoline
   (test-transform 'trampoline (parse "
       resume foo;"))
-  #.(parse "foo();"))
+  #.(parse "
+      $replaceHandlerStack(foo);
+      foo();"))
 
 (deftest trampoline/resume/toplevel/2 :notes trampoline
   (test-transform 'trampoline (parse "
       resume foo <- bar;"))
-  #.(parse "foo(bar);"))
+  #.(parse "
+      $replaceHandlerStack(foo);
+      foo(bar);"))

@@ -9,6 +9,8 @@
 ;;; - All new expressions transformed to new expressions that pass a continuation as the first argument
 ;;; - All assignments to function call or `new` results transformed to new continuations
 ;;; - All returns transformed to returns of the arg passed to the current continuation
+;;; - TODO describe loop conversions
+;;; - TODO describe try-catch conversions
 ;;;
 ;;;; Preconditions
 ;;; The CPS transform assumes the following:

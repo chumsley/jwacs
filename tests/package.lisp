@@ -56,6 +56,7 @@
                 import-decl
                 add-handler
                 remove-handler
+                replace-handler-stack
                 
                 ;; constructors for source-model structures
                 make-source-element

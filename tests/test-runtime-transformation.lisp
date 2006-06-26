@@ -216,11 +216,13 @@
   #.(parse "var x = arguments;"))
 
 (deftest runtime/toplevel/resume/1 :notes runtime
-  (test-transform 'runtime
-                  (list
-                   (jw::make-continuation-call :fn (make-identifier :name "foo"))))
+  (test-transform 'runtime (transform 'trampoline (transform 'cps (parse "
+      resume foo;"))))
   #.(parse "
-      $trampoline(function() { return foo(); });"))
+      $handlerStack = foo.$exHandlers;
+      $trampoline(function() {
+        return foo();
+      });"))
 
 (deftest runtime/toplevel/indirect-call/1 :notes runtime
   (test-transform 'runtime
@@ -259,3 +261,21 @@
           }};
         }), 10);
       });"))
+
+(deftest runtime/resume/1 :notes runtime
+  (transform 'runtime (transform 'trampoline (transform 'cps (parse "
+    function foo(target)
+    {
+      resume target <- 55;
+    }"))))
+  #.(parse "
+    function foo($k, target)
+    {
+      if(!$k || !$k.$isK)
+        return $callFromDirect(foo, this, arguments);
+      return {done: false, thunk: function() {
+        $handlerStack = target.$exHandlers;
+        return target(55);
+      }};
+    }
+    foo.$jw = true;"))

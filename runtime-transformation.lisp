@@ -63,6 +63,18 @@
   "Runtime function that drives trampoline-style programs; We have to add explicit calls to this
    function for toplevel calls to trampolined functions.")
 
+(defparameter *addHandler-fn* (make-identifier :name "$addHandler")
+  "Runtime function that adds a new exception handler to the global handler stack")
+
+(defparameter *removeHandler-fn* (make-identifier :name "$removeHandler")
+  "Runtime function that removes the top exception handler from the global handler stack")
+
+(defparameter *handler-prop* (make-string-literal :value "$exHandlers")
+  "Name of the property on continuations that contains the handler stack to use")
+
+(defparameter *handler-stack-var* (make-identifier :name "$handlerStack")
+  "Name of the global variable that contains the global handler stack")
+
 ;;;; ======= Call-style guards =====================================================================
 ;;;
 ;;; We are only transforming our own code; we're not transforming anyone else's.
@@ -256,3 +268,19 @@
     (if *in-local-scope*
       new-call
       (make-pogoed-toplevel-call new-call))))
+
+(defmethod transform ((xform (eql 'runtime)) (elm add-handler))
+  (make-fn-call :fn *addHandler-fn*
+                :args (list (add-handler-handler elm))))
+
+(defmethod transform ((xform (eql 'runtime)) (elm remove-handler))
+  (make-fn-call :fn *removeHandler-fn*))
+
+(defmethod transform ((xform (eql 'runtime)) (elm replace-handler-stack))
+  (with-slots (source) elm
+    (make-binary-operator :op-symbol :assign
+                        :left-arg *handler-stack-var*
+                        :right-arg (if (null source)
+                                     (make-special-value :symbol :null)
+                                     (make-property-access :target source
+                                                           :field *handler-prop*)))))

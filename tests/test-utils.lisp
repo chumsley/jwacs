@@ -41,6 +41,11 @@
   (make-fn-call :fn (make-identifier :name "$removeHandler")
                 :args (list (transform xform (jw::remove-handler-handler elm)))))
 
+(defmethod transform ((xform (eql 'remove-administratives)) (elm replace-handler-stack))
+  (with-slots (jw::source) elm
+    (make-fn-call :fn (make-identifier :name "$replaceHandlerStack")
+                  :args (list jw::source))))
+
 (defun test-transform (xform elm)
   "Return the results of applying XFORM to ELM with any administrative source-elements
    converted to their non-administrative equivalents"

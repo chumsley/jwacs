@@ -34,13 +34,14 @@
 (defun make-boxed-thunk (ret-elm)
   "Returns an object literal whose `done` field is `false` and whose
    `thunk` field contains a thunk whose only line is RET-ELM (which
-   should be a return statement)"
-  (assert (return-statement-p ret-elm))
+   should be either a return statements or a return-terminated list
+   of statements)."
+  (assert (explicit-return-p ret-elm))
   (make-object-literal :properties
                        (list
                         (cons *done-prop* (make-special-value :symbol :false))
                         (cons *thunk-prop*
-                              (make-thunk-function :body (list ret-elm))))))
+                              (make-thunk-function :body (combine-statements ret-elm))))))
 
 (defun make-boxed-result (elm)
   "Returns an object literal whose `done` field is `true` and whose
@@ -66,17 +67,25 @@
 ;;;; ------- `suspend` and `resume` transformation -------------------------------------------------
 
 (defmethod transform ((xform (eql 'trampoline)) (elm suspend-statement))
-  (make-return-statement :arg (make-boxed-result nil)))
+  (list
+   (make-replace-handler-stack :source (make-special-value :symbol :null))
+   (make-return-statement :arg (make-boxed-result nil))))
 
 (defmethod transform ((xform (eql 'trampoline)) (elm resume-statement))
   (with-slots (target arg) elm
     (let ((new-call (make-continuation-call :fn (transform 'trampoline target)
                                             :args (when arg
-                                                    (list arg)))))
+                                                    (list arg))))
+          (replace-stack-elm (make-replace-handler-stack :source (resume-statement-target elm))))
       (if *in-local-scope*
         (make-return-statement
-         :arg (make-boxed-thunk (make-return-statement :arg new-call)))
-        new-call)))) ; Toplevel calls need to go through `$trampoline`, which the runtime transform will add
+         :arg (make-boxed-thunk
+               (list
+                replace-stack-elm
+                (make-return-statement :arg new-call))))
+        (list
+         replace-stack-elm
+         new-call)))))                  ; Toplevel calls need to go through `$trampoline`, which the runtime transform will add
 
 ;;;; ------- Scope tracking ------------------------------------------------------------------------
     
