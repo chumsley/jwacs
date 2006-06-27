@@ -1270,8 +1270,8 @@
           return bar(function(y) {
             if(y)
             {
-              $removeHandler(catchK$0);
               $removeHandler(catchK$2);
+              $removeHandler(catchK$0);
               return $k(null);
             }
             narf = 10;
@@ -1346,3 +1346,35 @@
         };
         resume continue$1;
       }"))
+
+(deftest cps/try-catch/6 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+     function boo(x)
+     {
+       try
+       {
+         if(x)
+           return bar(20);
+       }
+       catch(e)
+       {
+         return null;
+       }
+       return null;
+     }")))
+  #.(parse "
+     function boo($k, x)
+     {
+       var catchK$0 = function(e) {
+         return $k(null);
+       };
+       $addHandler(catchK$0);
+       if(x)
+         return bar(function(JW1) {
+           $removeHandler(catchK$0);
+           return $k(JW1);
+         }, 20);
+       $removeHandler(catchK$0);
+       return $k(null);
+     }"))

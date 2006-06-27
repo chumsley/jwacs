@@ -45,6 +45,11 @@
    we need to retain the variable declaration and assign it at the beginning of a
    continuation.")
 
+(defparameter *lexically-active-handlers* nil
+  "List of handlers that are active in the current lexical scope.  These are the handlers
+   that need to be removed just before a value return, or at the beginning of the continuation
+   of a tail call.")
+
 ;;;; Statement tails 
 ;;;
 ;;; A "statement tail" is a list of the statements that follow the current
@@ -132,8 +137,9 @@
                 (function-decl-body elm)
                 (postpend (function-decl-body elm) #s(return-statement)))))
     (bind-with-backchannels (tx-body :bare-var-decl-required bare-var-decls)
-        (in-local-scope
-          (tx-cps body nil)) ; Each function starts with a fresh statement-tail
+        (let ((*lexically-active-handlers* nil))
+          (in-local-scope
+            (tx-cps body nil))) ; Each function starts with a fresh statement-tail and empty lexical handler environment
       (values
        (make-function-decl :name (function-decl-name elm)
                            :parameters new-parameters
@@ -150,8 +156,9 @@
                 (function-expression-body elm)
                 (postpend (function-expression-body elm) #s(return-statement)))))
     (bind-with-backchannels (tx-body :bare-var-decl-required bare-var-decls)
-        (in-local-scope
-          (tx-cps body nil)) ; Each function starts with a fresh statement-tail
+        (let ((*lexically-active-handlers* nil))
+          (in-local-scope
+            (tx-cps body nil))) ; Each function starts with a fresh statement-tail and empty lexical handler environment
     (values
      (make-function-expression :name (function-expression-name elm)
                                 :parameters new-parameters
@@ -159,34 +166,62 @@
                                               tx-body))
      nil))))
 
+(defun make-tail-call-continuation (cont-id lexically-active-handlers)
+  "If LEXICALLY-ACTIVE-HANDLERS is non-NIL, returns a continuation function that removes all of the active handlers
+   and then calls the continuation represented by CONT-ID; otherwise returns CONT-ID."
+  (if (null lexically-active-handlers)
+    cont-id
+    (let* ((param-name (genvar))
+           (cont-call (make-return-statement :arg
+                                             (make-fn-call :fn cont-id
+                                                           :args (list (make-identifier :name param-name)))))
+           (remove-handlers (mapcar (lambda (handler)
+                                      (make-remove-handler :handler handler))
+                                    lexically-active-handlers)))
+      (make-continuation-function :parameters (list param-name)
+                                  :body (postpend remove-handlers
+                                                  cont-call)))))
+
 (defmethod tx-cps ((elm return-statement) statement-tail)
   (with-slots (arg) elm
-    (let ((new-fn-call
+    (let ((new-ret
            (cond
              ;; Tail call
              ((fn-call-p arg)
-              (make-fn-call :fn (tx-cps (fn-call-fn arg) nil)
-                            :args (cons *cont-id*
-                                        (mapcar (lambda (item)
-                                                  (tx-cps item nil))
-                                                (fn-call-args arg)))))
+              (make-return-statement
+               :arg (make-fn-call :fn (tx-cps (fn-call-fn arg) nil)
+                                  :args (cons (make-tail-call-continuation *cont-id*
+                                                                           *lexically-active-handlers*)
+                                              (mapcar (lambda (item)
+                                                        (tx-cps item nil))
+                                                      (fn-call-args arg))))))
 
              ;; Tail call to $new0
              ((new-expr-p arg)
-              (make-new-expr :constructor (tx-cps (new-expr-constructor arg) nil)
-                             :args (cons *cont-id*
-                                         (mapcar (lambda (item)
-                                                   (tx-cps item nil))
-                                                 (new-expr-args arg)))))
+              (make-return-statement
+               :arg (make-new-expr :constructor (tx-cps (new-expr-constructor arg) nil)
+                                   :args (cons (make-tail-call-continuation *cont-id*
+                                                                            *lexically-active-handlers*)
+                                               (mapcar (lambda (item)
+                                                         (tx-cps item nil))
+                                                       (new-expr-args arg))))))
               
-              ;; Simple return
-              (t
-               (make-fn-call :fn *cont-id*
-                             :args (unless (null (return-statement-arg elm))
-                                     (list (tx-cps (return-statement-arg elm) nil))))))))
-      (values
-       (make-return-statement :arg new-fn-call)
-       nil))))
+             ;; Simple return from a try block
+             (*lexically-active-handlers*
+              (postpend (mapcar (lambda (h)
+                                  (make-remove-handler :handler h))
+                                *lexically-active-handlers*)
+                        (make-return-statement
+                         :arg (make-fn-call :fn *cont-id*
+                                            :args (unless (null (return-statement-arg elm))
+                                                    (list (tx-cps (return-statement-arg elm) nil)))))))
+             ;; Simple return
+             (t
+              (make-return-statement
+               :arg (make-fn-call :fn *cont-id*
+                                  :args (unless (null (return-statement-arg elm))
+                                          (list (tx-cps (return-statement-arg elm) nil)))))))))
+      (values new-ret nil))))
       
 
 (defun make-labelled-continuation (name statement-tail)
@@ -654,20 +689,7 @@
         
 ;; TODO
 ;; There are some optimizations/improvements possible here:
-;; 1) We're not generating the $removeHandler elements in the correct order.  We should see something
-;;    like `$addHandler(outer); $addHandler(inner); foo(); $removeHandler(inner); $removeHandler(outer);`,
-;;    but for implementation reasons we instead get
-;;    `$addHandler(outer); $addHandler(inner); foo(); $removeHandler(outer); $removeHandler(inner);`.
-;;    This doesn't turn out to be a problem, since we don't do anything with the argument to $removeHandler
-;;    anyway, but it would be nicer if we were getting it right.
-;; 2) We are traversing the body multiple times, since we call INSERT-BEFORE-RETURNS and the TX-CPS.
-;;    If we made the TX-CPS function smarter (so that it knew how to insert in front of returns for us),
-;;    we could avoid the extra processing (by having TX-CPS insert all the $removeHandler elements at
-;;    once, instead of coming back once for each nested try statement).  Interestingly, fixing this
-;;    problem would also fix problem #1, since we'd have an easier opportunity to get the ordering
-;;    right.
-;; 3) Alternatively, maybe we don't need to generate a labelled catch block?  We could have $removeHandler
-;;    accept 0 arguments, and pass an anonymous continuation to $addHandler.
+;; 1-3) done
 ;; 4) We add $removeHandler at the end of a try block even if all its control paths are explicitly
 ;;    terminated; we shouldn't.
 ;; 5) The same single-simple-statement labelled-continuation removal optimization that we're pondering for
@@ -676,19 +698,16 @@
 (defmethod tx-cps ((elm try) statement-tail)
   (let* ((catch-k-name (genvar "catchK"))
          (catch-k-id (make-identifier :name catch-k-name))
-         (remove-handler-elm (make-remove-handler :handler catch-k-id))         
-         ;; We use insert-before-returns because it's not necessary to explicitly insert remove-handler
-         ;; statements before `break` and `continue` statements, since they will be translated into
-         ;; `resume` statements, which replace the handler stack anyway.
-         (augmented-body (combine-statements (insert-before-returns remove-handler-elm (try-body elm))
-                                             remove-handler-elm)))
+         (augmented-body (postpend (try-body elm)
+                                   (make-remove-handler :handler catch-k-id))))
     
     (unless (null (try-finally-clause elm))
       (error "finally clauses are not yet supported")) ;TODO support finally clauses
 
     (if (explicit-return-p (try-catch-clause elm))
       (multiple-value-bind (tx-body consumed)
-          (tx-cps augmented-body statement-tail)
+          (let ((*lexically-active-handlers* (cons catch-k-id *lexically-active-handlers*)))
+            (tx-cps augmented-body statement-tail))
         (values (combine-statements
                  (make-labelled-catch-continuation catch-k-name (try-catch-clause elm))
                  (make-add-handler :handler catch-k-id)
@@ -698,7 +717,8 @@
              (tail-resume-elm (make-resume-statement :target (make-identifier :name tail-k-name)))
              (tail-k-decl (make-labelled-continuation tail-k-name statement-tail))
              (catch-k-decl (make-labelled-catch-continuation catch-k-name (try-catch-clause elm) tail-resume-elm))
-             (*escaping-references* (union *escaping-references* (find-free-variables statement-tail))))
+             (*escaping-references* (union *escaping-references* (find-free-variables statement-tail)))
+             (*lexically-active-handlers* (cons catch-k-id *lexically-active-handlers*)))
         (values (combine-statements
                  tail-k-decl
                  catch-k-decl
@@ -706,7 +726,31 @@
                  (tx-cps (postpend augmented-body tail-resume-elm) nil))
                 t)))))
                 
-     
+;; XXX This is a horrible, horrible hack.
+;; When we are processing an unterminated try-body that has a terminated catch clause, the try body
+;; will wind up "absorbing" its statement-tail.  Eg:
+;;
+;;     try { foo(); } catch(e) { return null; } bar();
+;;
+;; becomes
+;;
+;;     ... $addHandler foo(); $removeHandler bar();
+;;
+;; The problem is that *lexically-active-handlers* is bound during that entire processing, even though
+;; we really only want it to be bound up until the $removeHandler; ie, we want it bound for the try-body
+;; but not the statement-tail.
+;;
+;; So what we're doing currently is removing the appropriate handler from the currently-bound
+;; *lexically-active-handlers* when we encounter the REMOVE-HANDLER statement that we insert in the
+;; TRY method.  We won't (shouldn't) encounter REMOVE-HANDLER statements that do not delimit the end
+;; of a try body, because those are inserted into already-transformed code rather than into code that
+;; is awaiting transformation.  Still, it's a pretty gross and tightly-coupled state of affairs, and I'd
+;; like to get rid of it as soon as I can.
+(defmethod tx-cps ((elm remove-handler) statement-tail)
+  (assert (equal (car *lexically-active-handlers*)
+                 (remove-handler-handler elm)))
+  (pop *lexically-active-handlers*)
+  (values elm nil))
 
 ;;;; ======= default behaviour =====================================================================
 ;;;
@@ -817,30 +861,3 @@
         (find-free-variables-in-scope elm)
         (call-next-method)))
     (call-next-method)))
-
-;;;; ======= insert-before-returns =============================================================
-
-(defclass insert-before-returns ()
-  ((insert-elm :initarg :insert-elm :reader insert-elm))
-  (:documentation
-   "Represents transformations that adds INSERT-ELM before all return statements.
-    See the INSERT-BEFORE-RETURNS function"))
-
-(defun insert-before-returns (insert-elm elm)
-  "Returns ELM with all the return statements preceded by INSERT-ELM.
-   We process only statements that aren't contained in a nested function declaration or
-   expression."
-  (transform (make-instance 'insert-before-returns :insert-elm insert-elm) elm))
-
-;;; Base cases
-(defmethod transform ((xform insert-before-returns) (elm return-statement))
-  (list
-   (insert-elm xform)
-   (make-return-statement :arg (transform xform (return-statement-arg elm)))))
-
-;;; We do not recurse into functions
-(defmethod transform ((xform insert-before-returns) (elm function-decl))
-  elm)
-
-(defmethod transform ((xform insert-before-returns) (elm function-expression))
-  elm)
