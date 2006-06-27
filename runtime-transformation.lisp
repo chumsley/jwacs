@@ -4,15 +4,6 @@
 ;;; the dynamic runtime.
 (in-package :jwacs)
 
-;;; We're going to "bubble up" some source elements as part of the RUNTIME
-;;; transformation, so we need to provide a method for the list type.
-(defmethod transform ((xform (eql 'runtime)) (elm-list list))
-  (unless (null elm-list)
-    (let ((head (transform xform (car elm-list))))
-      (if (listp head)
-        (append head (transform xform (cdr elm-list)))
-        (cons head (transform xform (cdr elm-list)))))))
-
 ;;;; ======= Runtime flags =========================================================================
 ;;;
 ;;; We add runtime flags to each function indicating its type (continuation,
@@ -131,10 +122,12 @@
            (equalp *cont-id* fn-elm)))) ; Calling the function's continuation
 
 (defmethod transform :around ((xform (eql 'runtime)) (elm-list list))
-  (let ((*function-decls-in-scope* (append (mapcar 'function-decl-name
-                                                   (collect-in-scope elm-list 'function-decl))
-                                           *function-decls-in-scope*)))
-    (call-next-method)))
+  (let ((new-decls (mapcar 'function-decl-name
+                           (collect-in-scope elm-list 'function-decl))))
+    (if (subsetp new-decls *function-decls-in-scope*)
+      (call-next-method)
+      (let ((*function-decls-in-scope* (union new-decls *function-decls-in-scope*)))
+        (call-next-method)))))
 
 ;;;; The runtime transformation
 ;;;
@@ -280,7 +273,8 @@
   (with-slots (source) elm
     (make-binary-operator :op-symbol :assign
                         :left-arg *handler-stack-var*
-                        :right-arg (if (null source)
-                                     (make-special-value :symbol :null)
+                        :right-arg (if (and (special-value-p source)
+                                            (eq :null (special-value-symbol source)))
+                                     source
                                      (make-property-access :target source
                                                            :field *handler-prop*)))))

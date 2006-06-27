@@ -150,9 +150,9 @@
           append tx-elm
           else
           collect tx-elm)
-    (mapcar (lambda (elm)
-              (transform xform elm))
-            elm-list)))
+    (loop for elm in elm-list
+          for tx-elm = (transform xform elm)
+          collect tx-elm)))
 
 ;; Override the default slot-traversing behaviour for elements that have single-statement
 ;; children, since we might need to single-statement them.

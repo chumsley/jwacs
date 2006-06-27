@@ -279,3 +279,19 @@
       }};
     }
     foo.$jw = true;"))
+
+(deftest runtime/suspend/1 :notes runtime
+  (transform 'runtime (transform 'trampoline (transform 'cps (parse "
+    function foo()
+    {
+      suspend;
+    }"))))
+  #.(parse "
+    function foo($k)
+    {
+      if(!$k || !$k.$isK)
+        return $callFromDirect(foo, this, arguments);
+      $handlerStack = null;
+      return {done: true};
+    }
+    foo.$jw = true;"))
