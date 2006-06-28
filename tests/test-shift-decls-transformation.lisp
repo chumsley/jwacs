@@ -86,4 +86,56 @@
       }
       obj = { field: 44, method: function() { return this.field * 2; }};"))
 
-   
+(deftest shift-decls/nested-var-decls/1
+  (transform 'shift-decls (parse "
+      foo();
+      var x = 10;
+      try
+      {
+        var y = 20;
+      }
+      catch(e)
+      {
+        bar(e);
+      }"))
+  #.(parse "
+      var x;
+      var y;
+      foo();
+      x = 10;
+      try
+      {
+        y = 20;
+      }
+      catch(e)
+      {
+        bar(e);
+      }"))
+
+(deftest shift-decls/nested-var-decls/2
+  (transform 'shift-decls (parse "
+      foo();
+      var x = 10;
+      try
+      {
+        var y = 20;
+      }
+      catch(e)
+      {
+        var z;
+        bar(e);
+      }"))
+  #.(parse "
+      var x;
+      var y;
+      var z;
+      foo();
+      x = 10;
+      try
+      {
+        y = 20;
+      }
+      catch(e)
+      {
+        bar(e);
+      }"))

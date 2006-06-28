@@ -40,17 +40,7 @@
   (let ((stripped-var-decl-stmts (mapcar (lambda (decl)
                                            (make-var-init (var-decl-name decl) nil))
                                          (collect-in-scope elm-list 'var-decl)))
-        (stripped-elm-list (mapcan (lambda (elm)
-                                     (if (var-decl-statement-p elm)
-                                       (loop for decl in (var-decl-statement-var-decls elm)
-                                             for name = (var-decl-name decl)
-                                             for initializer = (var-decl-initializer decl)
-                                             unless (null initializer)
-                                             collect (make-binary-operator :op-symbol :assign
-                                                                           :left-arg (make-identifier :name name)
-                                                                           :right-arg initializer))
-                                       (list elm)))
-                                   elm-list)))
+        (stripped-elm-list (transform 'strip-var-decls-in-scope elm-list)))
     (append stripped-var-decl-stmts
             stripped-elm-list)))
 
@@ -90,3 +80,27 @@
 (defmethod transform ((xform (eql 'shift-decls)) (elm function-expression))
   (in-local-scope
     (call-next-method)))
+
+;;;; ======= strip-var-decls-in-scope transformation ===============================================
+
+;;; Shifting function decls is relatively easy, because they can't be nested inside of other
+;;; statements.  We can get a list of var-decls to shift relatively easily using COLLECT-IN-SCOPE,
+;;; but we need a tranformation to do the actual stripping.
+
+;; Strip all the var decls that we encounter (ie, convert them into assignments)
+(defmethod transform ((xform (eql 'strip-var-decls-in-scope)) (elm var-decl-statement))
+  (loop for decl in (var-decl-statement-var-decls elm)
+        for name = (var-decl-name decl)
+        for initializer = (var-decl-initializer decl)
+        unless (null initializer)
+        collect (make-binary-operator :op-symbol :assign
+                                      :left-arg (make-identifier :name name)
+                                      :right-arg initializer)))
+
+;; Don't recurse into functions (that's the "in-scope" part)
+(defmethod transform ((xform (eql 'strip-var-decls-in-scope)) (elm function-decl))
+  elm)
+
+(defmethod transform ((xform (eql 'strip-var-decls-in-scope)) (elm function-expression))
+  elm)
+

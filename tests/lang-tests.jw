@@ -157,7 +157,8 @@ var globalArray = new Array('one', 'two');
 var globalContainsCaughtHello = null;
 try
 {
-  null.foo();
+  var nil = null;
+  nil.foo();
 }
 catch(e)
 {
