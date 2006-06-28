@@ -335,7 +335,7 @@
 
             ;; If we get to the end of ELM-LIST then we haven't consumed the tail
             finally
-            return (values result nil))))
+            (return (values result nil)))))
 
 (defmethod tx-cps ((elm var-decl-statement) statement-tail)
   ;; Assuming one decl per statment because that is one of the results of explicitization
