@@ -121,3 +121,98 @@
    '(:return :throw :break :continue :resume :suspend))
   nil)
 
+(deftest static-analysis/explicitly-terminated-p/nested-throw/1 :notes static-analysis
+  (explicitly-terminated-p
+   (parse "
+      foo();
+      bar();
+      try
+      {
+        if(baz())
+          return 10;
+        else
+          throw new Error;
+      }
+      catch(e)
+      {
+        errno = e;
+      }")
+   '(:return :throw :break :continue :resume :suspend))
+  nil)
+
+(deftest static-analysis/explicitly-terminated-p/nested-throw/2 :notes static-analysis
+  (explicitly-terminated-p
+   (parse "
+      foo();
+      bar();
+      try
+      {
+        if(baz())
+          return 10;
+        else
+          throw new Error;
+      }
+      catch(e)
+      {
+        errno = e;
+        throw null;
+      }")
+   '(:return :throw :break :continue :resume :suspend))
+  :throw)
+
+(deftest static-analysis/explicitly-terminated-p/nested-throw/3 :notes static-analysis
+  (explicitly-terminated-p
+   (parse "
+      foo();
+      bar();
+      try
+      {
+        try
+        {
+          if(baz())
+            return 10;
+          else
+            throw new Error;
+        }
+        catch(e)
+        {
+          errno = e;
+          throw null;
+        }
+      }
+      catch(e)
+      {
+        x = errno;
+      }
+      baz(x);")
+   '(:return :throw :break :continue :resume :suspend))
+  nil)
+
+(deftest static-analysis/explicitly-terminated-p/nested-throw/4 :notes static-analysis
+  (explicitly-terminated-p
+   (parse "
+      foo();
+      bar();
+      try
+      {
+        try
+        {
+          if(baz())
+            return 10;
+          else
+            throw new Error;
+        }
+        catch(e)
+        {
+          errno = e;
+          throw null;
+        }
+      }
+      catch(e)
+      {
+        x = errno;
+      }
+      break;")
+   '(:return :throw :break :continue :resume :suspend))
+  :break)
+  
