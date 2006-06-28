@@ -240,7 +240,8 @@
 
 (deftest cps/post-function-dangling-tail/1 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (in-local-scope
+      (test-transform 'cps (parse "
       function foo(branch)
       {
         if(branch)
@@ -251,7 +252,7 @@
           return foo(true);
         }
       }
-      foo(false);")))
+      foo(false);"))))
   #.(parse "
       function foo($k, branch)
       {
@@ -260,7 +261,7 @@
         else
           return WScript.echo(function() { return foo($k, true); }, 'hi');
       }
-      foo(function() { return $k(); }, false);"))
+      return foo(function() { return $k(); }, false);"))
 
 (deftest cps/post-function-dangling-tail/2 :notes cps
   (with-fresh-genvar
@@ -519,7 +520,8 @@
   
 (deftest cps/simple-loop/1 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (in-local-scope
+      (test-transform 'cps (parse "
       while(true)
       {
         if(x++ > 10)
@@ -527,7 +529,7 @@
         output(x);
         continue;
       }
-      return 10;")))
+      return 10;"))))
   #.(parse "
       var break$0 = function()
       {
@@ -543,7 +545,8 @@
 
 (deftest cps/nested-loop/1 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (in-local-scope
+      (test-transform 'cps (parse "
       outer:
       while(true)
       {
@@ -558,7 +561,7 @@
         }
         continue;
       }
-      return 10;")))
+      return 10;"))))
   #.(parse "
       var break$0 = function()
       {
@@ -581,7 +584,8 @@
      
 (deftest cps/nested-loop/2 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (in-local-scope
+      (test-transform 'cps (parse "
       outer:
       while(true)
       {
@@ -598,7 +602,7 @@
         }
         continue outer;
       }
-      return 10;")))
+      return 10;"))))
   #.(parse "
       var break$0 = function()
       {
@@ -623,7 +627,8 @@
 
 (deftest cps/nested-loop/3 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (in-local-scope
+      (test-transform 'cps (parse "
       outer:
       while(true)
       {
@@ -640,7 +645,7 @@
         }
         continue outer;
       }
-      return 10;")))
+      return 10;"))))
   #.(parse "
       var break$0 = function()
       {
@@ -780,8 +785,9 @@
 ;; Capturing the current function's current continuation is handled by
 ;; the CPS transformation.
 (deftest cps/function_continuation/1 :notes cps
-  (transform 'cps
-             (parse "x = function_continuation;"))
+  (in-local-scope
+    (transform 'cps
+             (parse "x = function_continuation;")))
   #.(parse "x = $k;"))
 
 (deftest cps/void-new-expr-with-tail/1 :notes cps
@@ -799,7 +805,7 @@
         new Foo;
         bar(10);"))
   #.(parse "
-        new Foo(function() { return bar(function() { return $k(); }, 10); });"))
+        new Foo(function() { return bar(function() { suspend; }, 10); });"))
 
 (deftest cps/new-expr-with-tail/1 :notes cps
   (in-local-scope
@@ -816,7 +822,7 @@
         var x = new Foo(50);
         bar(x[10]);"))
   #.(parse "
-        new Foo(function(x) { return bar(function() { return $k(); }, x[10]); }, 50);"))
+        new Foo(function(x) { return bar(function() { suspend; }, x[10]); }, 50);"))
 
 (deftest cps/new-expr-tail-return/1 :notes cps
   (test-transform 'cps
@@ -859,7 +865,7 @@
         foo(10);
         bar(20);"))
   #.(parse "
-        foo(function() { return bar(function() { return $k(); }, 20); }, 10);"))
+        foo(function() { return bar(function() { suspend; }, 20); }, 10);"))
 
 (deftest cps/toplevel-function-call-with-tail/1 :notes cps
   (test-transform 'cps
@@ -867,7 +873,7 @@
         var x = foo(10);
         bar(x);"))
   #.(parse "
-        foo(function(x) { return bar(function() { return $k(); }, x); }, 10);"))
+        foo(function(x) { return bar(function() { suspend; }, x); }, 10);"))
 
 (deftest cps/strip-var-decls/function-decl/1 :notes cps
   (with-fresh-genvar
@@ -1057,18 +1063,24 @@
   (with-fresh-genvar
     (test-transform 'cps (parse "
       if(narf)
-        var intermediate = narf.charAt(0); 
+        var intermediate = narf_charAt(0); 
       if(narf && intermediate == 'f')
         foo('m');")))
   #.(parse "
       var intermediate;
       var ifK$0 = function() {
+        var ifK$1 = function() {
+          suspend;
+        };
+
         if(narf && intermediate == 'f')
-          return foo(function() { return $k(); }, 'm');
+          return foo(function() { resume ifK$1; }, 'm');
+        else
+          resume ifK$1;
       };
 
       if(narf)
-        narf.charAt(function(JW1) { intermediate = JW1; resume ifK$0; }, 0);
+        narf_charAt(function(JW2) { intermediate = JW2; resume ifK$0; }, 0);
       else
         resume ifK$0;"))
 

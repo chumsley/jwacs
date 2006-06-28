@@ -235,9 +235,8 @@
         return $call0(foo, $makeK(function() {
           return {done: false, thunk: function() {
             return $call0(bar, $makeK(function() {
-              return {done: false, thunk: function() {
-                return $k();
-              }};
+              $handlerStack = null;
+              return {done: true};
             }), null, 20);
           }};
         }), null, 10);
@@ -254,9 +253,8 @@
         return $new0(foo, $makeK(function() {
           return {done: false, thunk: function() {
             return $new0(bar, $makeK(function() {
-              return {done: false, thunk: function() {
-                return $k();
-              }};
+              $handlerStack = null;
+              return {done: true};
             }), 20);
           }};
         }), 10);

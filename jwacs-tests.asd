@@ -33,6 +33,7 @@
                (:file "test-lexer")
                (:file "test-parser")
                (:file "test-pretty-print")
+               (:file "test-static-analysis")
                (:file "test-type-analysis")
                (:file "test-ugly-print")
                (:file "test-source-transformations")

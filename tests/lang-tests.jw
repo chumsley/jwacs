@@ -18,11 +18,12 @@ function runTests()
 	// function can just loop over a global or something.
   try
   {
-    runTest("factorial/1", factorial(5), 120); // commented out to avoid stack overflows
-    runTest("factorial/2", accFactorial(6, 1), 720);
-    runTest("factorial/3", accFactorial(6), 720);
+//     runTest("factorial/1", factorial(5), 120); // commented out to avoid stack overflows
+//     runTest("factorial/2", accFactorial(6, 1), 720);
+//     runTest("factorial/3", accFactorial(6), 720);
     runTest("multishot/1", testMultiShotContinuations(), 50);
-//     runTest("suspend/1", testSuspend(), true);
+    runTest("suspend/1", testSuspend(), true);
+    runTest("suspend/2", suspendBeforeSettingToTrue, false);
     runTest("for-in/1", smooshObject({a:10, b:20, c:30}), "abc=60");
     runTest("for/1", matrixReduce([[10, 20, 30], [10, 20, 30]]), 120);
     runTest("for/2", matrixReduce([]), 0);
@@ -463,3 +464,7 @@ function willThrow(n)
 {
   throw {value: n};
 }
+
+var suspendBeforeSettingToTrue  = false;
+suspend;
+suspendBeforeSettingToTrue = true;

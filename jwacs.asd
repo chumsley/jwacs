@@ -70,6 +70,7 @@
                (:file "source-transformations")
                (:file "shift-decls-transformation")
                (:file "ugly-print")
+               (:file "static-analysis")
                (:file "type-analysis")
                (:file "explicitize-transformation")
                (:file "shadow-values-transformation")

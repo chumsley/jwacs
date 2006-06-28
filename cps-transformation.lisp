@@ -298,27 +298,44 @@
       (values (make-return-statement :arg tx-expr) t)
       (values tx-expr t))))
 
+;; TODO if we really cared, we could make a predicate to tell us whether every control
+;; path _that contains an effective function call_ is terminated.  The current scheme can
+;; result in some spurious additional termination (eg if path A contains a function call
+;; is terminated but path B contains no function call and is unterminated).
+(defun maybe-terminate-toplevel (elm-list)
+  "When *IN-LOCAL-SCOPE* is NIL, returns a list of source elements that is guaranteed to be correctly
+   terminated for the toplevel.  When *IN-LOCAL-SCOPE* is non-NIL, ELM-LIST is returned unchanged.
+ 
+   'Correctly terminated for the toplevel' means that if there are any effective function calls,
+   then all control paths are terminated by either a suspend, resume, or throw statement."
+  (let ((termination-needed-p (and (not *in-local-scope*)
+                                   (introduces-fn-call-p elm-list)
+                                   (not (explicitly-terminated-p elm-list '(:suspend :resume :throw))))))
+    (if termination-needed-p
+      (postpend elm-list (make-suspend-statement))
+      elm-list)))
+
 (defmethod tx-cps ((elm-list list) statement-tail)
   (unless (null elm-list)
-    ;; Transform the first source element with the rest prepended to the statement tail.
-    (multiple-value-bind (head consumed)
-        (tx-cps (car elm-list) (append (cdr elm-list) statement-tail))
-      
-      ;; Guarantee that HEAD is a list
-      (unless (listp head)
-        (setf head (list head)))
-      
-      ;; If the statement tail was consumed, then the incoming STATEMENT-TAIL was consumed,
-      ;; so return T as our second return value.  The CDR of elm-list was also consued,
-      ;; so don't recurse.
-      ;;
-      ;; If the statement tail wasn't consumed, then pass the same statement tail to
-      ;; the recursive call.
-      (if consumed
-        (values head t)
-        (multiple-value-bind (tail recursive-consumed)
-            (tx-cps (cdr elm-list) statement-tail)
-          (values (append head tail) recursive-consumed))))))
+    (loop for cell on (maybe-terminate-toplevel elm-list) ; Note: CELL not ELM; iterating maplist-style, not mapcar-style
+            for (head consumed) = (multiple-value-list
+                                      (tx-cps (car cell)
+                                              (append (cdr cell) statement-tail)))
+            ;; Collect results
+            if (listp head)
+            append head into result
+            else
+            collect head into result
+
+            ;; If the statement tail was consumed, then the incoming STATEMENT-TAIL was consumed,
+            ;; so return T as our second return value.  The CDR of CELL (ie, the rest of ELM-LIST)
+            ;; was also consued, so don't keep iterating.
+            when consumed
+            return (values result t)
+
+            ;; If we get to the end of ELM-LIST then we haven't consumed the tail
+            finally
+            return (values result nil))))
 
 (defmethod tx-cps ((elm var-decl-statement) statement-tail)
   ;; Assuming one decl per statment because that is one of the results of explicitization
@@ -797,67 +814,3 @@
                                   collect (cons (slot-tx prop-name)
                                                 (slot-tx prop-value))))
        consumed))))
-
-;;;; ======= FIND-FREE-VARIABLES generic function ==================================================
-
-;; TODO this is horrible because it duplicates so much code in uniquify
-
-(defgeneric find-free-variables (elm)
-  (:documentation
-   "Return a list of all the free variables in ELM"))
-
-(defun find-free-variables-in-scope (elm)
-  "This is basically TRANSFORM-IN-SCOPE.  It adds bindings for each variable and function
-   declaration that it encounters."
-  (dolist (var-decl (collect-in-scope elm 'var-decl)) 
-    (add-binding (var-decl-name var-decl) t))
-  (dolist (fun-decl (collect-in-scope elm 'function-decl))
-    (add-binding (function-decl-name fun-decl) t))
-  (find-free-variables elm))
-
-(defmethod find-free-variables ((elm identifier))
-  (with-slots (name) elm
-    (unless (find-binding name)
-      (list name))))
-
-(defmethod find-free-variables ((elm function-decl))
-  (with-added-environment
-    (dolist (param (function-decl-parameters elm))
-      (add-binding param t))
-    (find-free-variables-in-scope (function-decl-body elm))))
-
-(defmethod find-free-variables ((elm function-expression))
-  (with-added-environment
-    (when-let (name (function-expression-name elm))
-      (add-binding name t))
-    (dolist (param (function-expression-parameters elm))
-      (add-binding param t))
-    (find-free-variables-in-scope (function-expression-body elm))))
-
-(defmethod find-free-variables ((elm-list list))
-  (remove-duplicates
-   (mapcan #'find-free-variables elm-list)
-   :test #'equal))
-
-(defmethod find-free-variables ((elm source-element))
-  (remove-duplicates
-   (loop for slot in (structure-slots elm)
-         append (find-free-variables (slot-value elm slot)))
-   :test #'equal))
-
-(defmethod find-free-variables ((elm object-literal))
-  (remove-duplicates
-   (loop for prop-cell in (object-literal-properties elm)
-         append (find-free-variables (cdr prop-cell)))
-   :test #'equal))
-
-(defmethod find-free-variables (elm)
-  nil)
-
-(defmethod find-free-variables :around (elm)
-  (if (null *environment*)
-    (with-added-environment
-      (if (listp elm)
-        (find-free-variables-in-scope elm)
-        (call-next-method)))
-    (call-next-method)))
