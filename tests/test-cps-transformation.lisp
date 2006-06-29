@@ -1142,11 +1142,13 @@
             resume tryK$1;
           });
         };
-        $addHandler(catchK$0);
-        return foo(function() {
-          return bar(function() {
-            $removeHandler(catchK$0);
-            resume tryK$1;
+        $addHandler(catchK$0, function() {
+          return foo(function() {
+            return bar(function() {
+              $removeHandler(catchK$0, function() {
+                resume tryK$1;
+              });
+            });
           });
         });
       }"))
@@ -1184,16 +1186,17 @@
             resume tryK$1;
           });
         };
-        $addHandler(catchK$0);
-        return foo(function() {
-          return bar(function(x) {
-            if(x)
-            {
-              $removeHandler(catchK$0);
-              return $k(x);
-            }
-            $removeHandler(catchK$0);
-            resume tryK$1;
+        $addHandler(catchK$0, function() {
+          return foo(function() {
+            return bar(function(x) {
+              if(x)
+                $removeHandler(catchK$0, function() {
+                  return $k(x);
+                });
+              $removeHandler(catchK$0, function() {
+                resume tryK$1;
+              });
+            });
           });
         });
       }"))
@@ -1222,16 +1225,17 @@
         var catchK$0 = function(e) {
           return baz($k);
         };
-        $addHandler(catchK$0);
-        return foo(function() {
-          return bar(function(x) {
-            if(x)
-            {
-              $removeHandler(catchK$0);
-              return $k(x);
-            }
-            $removeHandler(catchK$0);
-            return quux($k);
+        $addHandler(catchK$0, function() {
+          return foo(function() {
+            return bar(function(x) {
+              if(x)
+                $removeHandler(catchK$0, function() {
+                  return $k(x);
+                });
+              $removeHandler(catchK$0, function() {
+                return quux($k);
+              });
+            });
           });
         });
       }"))
@@ -1273,23 +1277,25 @@
             resume tryK$1;
           });
         };
-        $addHandler(catchK$0);
-        return foo(function() {
-          var catchK$2 = function(x) {
-            throw 60;
-          };
-          $addHandler(catchK$2);
-          return bar(function(y) {
-            if(y)
-            {
-              $removeHandler(catchK$2);
-              $removeHandler(catchK$0);
-              return $k(null);
-            }
-            narf = 10;
-            $removeHandler(catchK$2);
-            $removeHandler(catchK$0);
-            resume tryK$1;
+        $addHandler(catchK$0, function() {
+          return foo(function() {
+            var catchK$2 = function(x) {
+              throw 60;
+            };
+            $addHandler(catchK$2, function() {
+              return bar(function(y) {
+                if(y)
+                  $removeHandler([catchK$2, catchK$0], function() {
+                    return $k(null);
+                  });
+                narf = 10;
+                $removeHandler(catchK$2, function() {
+                  $removeHandler(catchK$0, function() {
+                    resume tryK$1;
+                  });
+                });
+              });
+            });
           });
         });
       }"))
@@ -1339,22 +1345,24 @@
           var catchK$2 = function(e) {
             return bar($k, 25);
           };
-          $addHandler(catchK$2);
-          var break$3 = function() {
-            $removeHandler(catchK$2);
-            resume continue$1;
-          };
-          var continue$4 = function() {
-            if(!go2)
-              resume break$3;
-            go--;
-            if(go == 10)
+          $addHandler(catchK$2, function() {
+            var break$3 = function() {
+              $removeHandler(catchK$2, function() {
+                resume continue$1;
+              });
+            };
+            var continue$4 = function() {
+              if(!go2)
+                resume break$3;
+              go--;
+              if(go == 10)
+                resume continue$4;
+              else
+                resume continue$1;
               resume continue$4;
-            else
-              resume continue$1;
+            };
             resume continue$4;
-          };
-          resume continue$4;
+          });
         };
         resume continue$1;
       }"))
@@ -1381,12 +1389,15 @@
        var catchK$0 = function(e) {
          return $k(null);
        };
-       $addHandler(catchK$0);
-       if(x)
-         return bar(function(JW1) {
-           $removeHandler(catchK$0);
-           return $k(JW1);
-         }, 20);
-       $removeHandler(catchK$0);
-       return $k(null);
+       $addHandler(catchK$0, function() {
+         if(x)
+           return bar(function(JW1) {
+             $removeHandler(catchK$0, function() {
+               return $k(JW1);
+             });
+           }, 20);
+         $removeHandler(catchK$0, function() {
+           return $k(null);
+         });
+       });
      }"))

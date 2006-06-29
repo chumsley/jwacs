@@ -435,7 +435,8 @@
 
   (cond
     ;; If there's only one statement in the body, try to fit everything onto one line
-    ((<= (length (function-expression-body elm)) 1)
+    ((and nil ;TEST Disable for now
+          (<= (length (function-expression-body elm)) 1))
      (let ((first-stmt (first (function-expression-body elm))))
        (format s "~a{~a" *opt-space* *opt-space*)
        (pretty-print first-stmt s)
@@ -478,12 +479,16 @@
 ;;;; ------- administrative elements ---------------------------------------------------------------
 (defmethod pretty-print ((elm add-handler) s)
   (format s "$addHandler(")
-  (pretty-print (add-handler-handler elm) s)
+  (pretty-print-separated-list (list (add-handler-handler elm)
+                                     (make-function-expression :body (add-handler-thunk-body elm)))
+                               s)
   (format s ");"))
 
 (defmethod pretty-print ((elm remove-handler) s)
   (format s "$removeHandler(")
-  (pretty-print (remove-handler-handler elm) s)
+  (pretty-print-separated-list (list (remove-handler-handler elm)
+                                     (make-function-expression :body (remove-handler-thunk-body elm)))
+                               s)
   (format s ");"))
 
 (defmethod pretty-print ((elm replace-handler-stack) s)

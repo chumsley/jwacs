@@ -175,11 +175,13 @@
 
 (defelement (add-handler (:include source-element))
   "Indicates that a new handler should be added to the handler stack at this point"
-  (handler nil :type (or identifier function-expression)))
+  (handler nil :type (or identifier function-expression))
+  (thunk-body nil :type (or (cons source-element) null)))
 
 (defelement (remove-handler (:include source-element))
   "Indicates that a handler should be removed from the top of the handler stack at this point"
-  (handler nil :type (or identifier function-expression)))
+  (handler nil :type (or identifier function-expression))
+  (thunk-body nil :type (or (cons source-element) null)))
 
 (defelement (replace-handler-stack (:include source-element))
   "Indicates that the global handler stack should be replaced by the stack saved in the SOURCE continuation"

@@ -501,14 +501,22 @@ else
   ;")
 
 (deftest pretty-print/add-handler/1 :notes pretty-print
-  (pretty-string (list (make-add-handler :handler foo-id)
+  (pretty-string (list (make-add-handler :handler foo-id
+                                         :thunk-body (list (make-return-statement :arg (make-special-value :symbol :null))))
                        (make-suspend-statement)))
-  "$addHandler(foo);
+  "$addHandler(foo, function()
+{
+  return null;
+});
 suspend;")
 
 (deftest pretty-print/remove-handler/1 :notes pretty-print
-  (pretty-string (list (jw::make-remove-handler :handler foo-id)
+  (pretty-string (list (jw::make-remove-handler :handler foo-id
+                                                :thunk-body (list (make-return-statement :arg (make-special-value :symbol :null))))
                        (jw::make-suspend-statement)))
-  "$removeHandler(foo);
+  "$removeHandler(foo, function()
+{
+  return null;
+});
 suspend;")
                        

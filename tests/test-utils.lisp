@@ -35,11 +35,15 @@
 
 (defmethod transform ((xform (eql 'remove-administratives)) (elm add-handler))
   (make-fn-call :fn (make-identifier :name "$addHandler")
-                :args (list (transform xform (jw::add-handler-handler elm)))))
+                :args (list (transform xform (jw::add-handler-handler elm))
+                            (transform xform (jw::make-function-expression
+                                              :body (jw::add-handler-thunk-body elm))))))
 
 (defmethod transform ((xform (eql 'remove-administratives)) (elm remove-handler))
   (make-fn-call :fn (make-identifier :name "$removeHandler")
-                :args (list (transform xform (jw::remove-handler-handler elm)))))
+                :args (list (transform xform (jw::remove-handler-handler elm))
+                            (transform xform (jw::make-function-expression
+                                              :body (jw::remove-handler-thunk-body elm))))))
 
 (defmethod transform ((xform (eql 'remove-administratives)) (elm replace-handler-stack))
   (with-slots (jw::source) elm

@@ -175,12 +175,12 @@
            (cont-call (make-return-statement :arg
                                              (make-fn-call :fn cont-id
                                                            :args (list (make-identifier :name param-name)))))
-           (remove-handlers (mapcar (lambda (handler)
-                                      (make-remove-handler :handler handler))
-                                    lexically-active-handlers)))
+           (remove-handlers (make-remove-handler :handler (if (> (length lexically-active-handlers) 1)
+                                                            (make-array-literal :elements lexically-active-handlers)
+                                                            (car lexically-active-handlers))
+                                                 :thunk-body (list cont-call))))
       (make-continuation-function :parameters (list param-name)
-                                  :body (postpend remove-handlers
-                                                  cont-call)))))
+                                  :body (list remove-handlers)))))
 
 (defmethod tx-cps ((elm return-statement) statement-tail)
   (with-slots (arg) elm
@@ -208,19 +208,20 @@
               
              ;; Simple return from a try block
              (*lexically-active-handlers*
-              (postpend (mapcar (lambda (h)
-                                  (make-remove-handler :handler h))
-                                *lexically-active-handlers*)
-                        (make-return-statement
-                         :arg (make-fn-call :fn *cont-id*
-                                            :args (unless (null (return-statement-arg elm))
-                                                    (list (tx-cps (return-statement-arg elm) nil)))))))
+              (make-remove-handler :handler (if (> (length *lexically-active-handlers*) 1)
+                                              (make-array-literal :elements *lexically-active-handlers*)
+                                              (car *lexically-active-handlers*))
+                                   :thunk-body (list (make-return-statement
+                                                      :arg (make-fn-call :fn *cont-id*
+                                                                         :args (unless (null arg)
+                                                                                 (list (tx-cps arg nil))))))))
+
              ;; Simple return
              (t
               (make-return-statement
                :arg (make-fn-call :fn *cont-id*
-                                  :args (unless (null (return-statement-arg elm))
-                                          (list (tx-cps (return-statement-arg elm) nil)))))))))
+                                  :args (unless (null arg)
+                                          (list (tx-cps arg nil)))))))))
       (values new-ret nil))))
       
 
@@ -351,8 +352,8 @@
                                                   :left-arg (make-identifier :name name)
                                                   :right-arg (make-identifier :name k-param-name)))
            (augmented-statement-tail (if escaping-reference
-                                  (cons assignment-stmt statement-tail)
-                                  statement-tail)))
+                                       (cons assignment-stmt statement-tail)
+                                       statement-tail)))
 
       ;; If this var-decl is for an escaping reference, then we will replace it with a statement
       ;; that _assigns_ the variable rather than _declaring_ it, so signal up the call chain that
@@ -364,14 +365,14 @@
         ;; eg: var x = fn();
         ((fn-call-p initializer)
          (let ((new-call (make-fn-call :fn (tx-cps (fn-call-fn initializer) nil)
-                                         :args (cons
-                                                (make-continuation-function :parameters (list k-param-name)
-                                                                            :body (in-local-scope
-                                                                                    (tx-cps augmented-statement-tail nil)))
-                                                (fn-call-args initializer)))))
-             (if *in-local-scope*
-               (values (make-return-statement :arg new-call) t)
-               (values new-call t))))
+                                       :args (cons
+                                              (make-continuation-function :parameters (list k-param-name)
+                                                                          :body (in-local-scope
+                                                                                  (tx-cps augmented-statement-tail nil)))
+                                              (fn-call-args initializer)))))
+           (if *in-local-scope*
+             (values (make-return-statement :arg new-call) t)
+             (values new-call t))))
 
         ;; eg: var x = new Foo;
         ((new-expr-p initializer)
@@ -388,9 +389,7 @@
         ;; eg: var x = 20;
         (initializer
          (if escaping-reference
-           (multiple-value-bind (new-stmt consumed)
-               (tx-cps assignment-stmt statement-tail)
-             (values new-stmt consumed))
+           (tx-cps assignment-stmt statement-tail)
            (multiple-value-bind (new-decl consumed)
                (tx-cps (car var-decls) statement-tail)
              (values (make-var-decl-statement :var-decls (list new-decl))
@@ -714,59 +713,51 @@
 
 (defmethod tx-cps ((elm try) statement-tail)
   (let* ((catch-k-name (genvar "catchK"))
-         (catch-k-id (make-identifier :name catch-k-name))
-         (augmented-body (postpend (try-body elm)
-                                   (make-remove-handler :handler catch-k-id))))
+         (catch-k-id (make-identifier :name catch-k-name)))
     
     (unless (null (try-finally-clause elm))
       (error "finally clauses are not yet supported")) ;TODO support finally clauses
 
+    ;; TODO we're explicitly handling neither the case where both catch clause and body are terminated (in
+    ;; which case the statement-tail can just be discarded) nor the case where the try body is terminated
+    ;; but not the catch clause (in which case the try body needs no final-remove and the catch clause
+    ;; can consume the statement tail directly).
     (if (explicit-return-p (try-catch-clause elm))
-      (multiple-value-bind (tx-body consumed)
-          (let ((*lexically-active-handlers* (cons catch-k-id *lexically-active-handlers*)))
-            (tx-cps augmented-body statement-tail))
+
+      ;; no labelled continuation required for statement-tail because catch clause is explicitly
+      ;; terminated, so the try body can consume the tail directly.
+      (let ((final-remove (make-remove-handler :handler catch-k-id
+                                               :thunk-body (tx-cps statement-tail nil)))
+            (catch-k-decl (make-labelled-catch-continuation catch-k-name (try-catch-clause elm)))
+            (*lexically-active-handlers* (cons catch-k-id *lexically-active-handlers*)))
         (values (combine-statements
-                 (make-labelled-catch-continuation catch-k-name (try-catch-clause elm))
-                 (make-add-handler :handler catch-k-id)
-                 tx-body)
-                consumed))
+                 catch-k-decl
+                 (make-add-handler :handler catch-k-id
+                                   :thunk-body (tx-cps (postpend (try-body elm) final-remove) nil))) ; We're postpending an already-transformed element to the untransformed body; see the REMOVE-HANDLER method for why this works
+                t))
+
+      ;; the catch clause is unterminated, so both catch and try are sharing the statement-tail,
+      ;; so it needs a labelled continuation.
       (let* ((tail-k-name (genvar "tryK"))
-             (tail-resume-elm (make-resume-statement :target (make-identifier :name tail-k-name)))
+             (tail-k-id (make-identifier :name tail-k-name))
+             (tail-resume-elm (make-resume-statement :target tail-k-id))
              (tail-k-decl (make-labelled-continuation tail-k-name statement-tail))
              (catch-k-decl (make-labelled-catch-continuation catch-k-name (try-catch-clause elm) tail-resume-elm))
-             (*escaping-references* (union *escaping-references* (find-free-variables statement-tail)))
+             (final-remove (make-remove-handler :handler catch-k-id
+                                                :thunk-body (list tail-resume-elm)))
+             (*escaping-references* (union (find-free-variables statement-tail) *escaping-references*))
              (*lexically-active-handlers* (cons catch-k-id *lexically-active-handlers*)))
         (values (combine-statements
                  tail-k-decl
                  catch-k-decl
-                 (make-add-handler :handler catch-k-id)
-                 (tx-cps (postpend augmented-body tail-resume-elm) nil))
+                 (make-add-handler :handler catch-k-id
+                                   :thunk-body (tx-cps (postpend (try-body elm) final-remove) nil)))
                 t)))))
-                
-;; XXX This is a horrible, horrible hack.
-;; When we are processing an unterminated try-body that has a terminated catch clause, the try body
-;; will wind up "absorbing" its statement-tail.  Eg:
-;;
-;;     try { foo(); } catch(e) { return null; } bar();
-;;
-;; becomes
-;;
-;;     ... $addHandler foo(); $removeHandler bar();
-;;
-;; The problem is that *lexically-active-handlers* is bound during that entire processing, even though
-;; we really only want it to be bound up until the $removeHandler; ie, we want it bound for the try-body
-;; but not the statement-tail.
-;;
-;; So what we're doing currently is removing the appropriate handler from the currently-bound
-;; *lexically-active-handlers* when we encounter the REMOVE-HANDLER statement that we insert in the
-;; TRY method.  We won't (shouldn't) encounter REMOVE-HANDLER statements that do not delimit the end
-;; of a try body, because those are inserted into already-transformed code rather than into code that
-;; is awaiting transformation.  Still, it's a pretty gross and tightly-coupled state of affairs, and I'd
-;; like to get rid of it as soon as I can.
+
 (defmethod tx-cps ((elm remove-handler) statement-tail)
-  (assert (equal (car *lexically-active-handlers*)
-                 (remove-handler-handler elm)))
-  (pop *lexically-active-handlers*)
+  ;; The only REMOVE-HANDLER elements that we encounter should be those that we've added during
+  ;; the cps transformation, which means that their slots will already have been processed, so
+  ;; we can just return the element unchanged.
   (values elm nil))
 
 ;;;; ======= default behaviour =====================================================================
