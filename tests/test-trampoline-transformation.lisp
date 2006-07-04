@@ -19,7 +19,7 @@
   (test-transform 'trampoline
              (parse "return fn(4);"))
   #.(parse "return {done: false,
-                    thunk: function() {
+                    thunk: function($e) {
                         return fn(4);
                     }};"))
 
@@ -32,18 +32,19 @@
       #S(object-literal :properties
                         ((#s(string-literal :value "done") . #S(special-value :symbol :false))
                          (#s(string-literal :value "thunk") . #S(thunk-function
-                                                            :body
-                                                            (#s(return-statement
-                                                                :arg
-                                                                #S(fn-call :fn #S(identifier :name "fn")
-                                                                           :args (#S(numeric-literal :value 4))))))))))))
+                                                                 :parameters ("$e")
+                                                                 :body
+                                                                 (#s(return-statement
+                                                                     :arg
+                                                                     #S(fn-call :fn #S(identifier :name "fn")
+                                                                                :args (#S(numeric-literal :value 4))))))))))))
 
 (deftest trampoline/new-expr/1 :notes trampoline
   (test-transform 'trampoline (parse "
         return new Object;"))
   #.(parse "
         return {done: false,
-                thunk: function() {
+                thunk: function($e) {
                         return new Object;
                        }
                };"))
@@ -53,7 +54,7 @@
         return new Foo($k, 10);"))
   #.(parse "
         return {done: false,
-                thunk: function() {
+                thunk: function($e) {
                         return new Foo($k, 10);
                        }
                };"))
@@ -63,9 +64,9 @@
         return factorial(function(JW0) { return $k(n * JW0); }, n-1);"))
   #.(parse "
         return {done: false,
-                thunk: function() {
+                thunk: function($e) {
                         return factorial(function(JW0) {
-                                           return {done: false, thunk: function() { return $k(n * JW0); }};
+                                           return {done: false, thunk: function($e) { return $k(n * JW0); }};
                                          }, n - 1);
                        }};"))
     
@@ -78,10 +79,7 @@
       return 50;")))
   #.(parse "
     if(flag)
-    {
-      $replaceHandlerStack(null);
       return {done: true};
-    }
     else
       return {done: true, result: 50};"))
 
@@ -93,8 +91,7 @@
     (test-transform 'trampoline (parse "
       resume foo[bar];")))
   #.(parse "
-      return {done: false, thunk: function() {
-        $replaceHandlerStack(foo[bar]);
+      return {replaceHandlers: foo[bar].$exHandlers, done: false, thunk: function($e) {
         return foo[bar](); }};"))
 
 (deftest trampoline/resume/2 :notes trampoline
@@ -102,20 +99,17 @@
     (test-transform 'trampoline (parse "
       resume foo[bar] <- baz;")))
   #.(parse "
-      return {done: false, thunk: function() {
-        $replaceHandlerStack(foo[bar]);
+      return {replaceHandlers: foo[bar].$exHandlers, done: false, thunk: function($e) {
         return foo[bar](baz); }};"))
 
 (deftest trampoline/resume/toplevel/1 :notes trampoline
   (test-transform 'trampoline (parse "
       resume foo;"))
   #.(parse "
-      $replaceHandlerStack(foo);
       foo();"))
 
 (deftest trampoline/resume/toplevel/2 :notes trampoline
   (test-transform 'trampoline (parse "
       resume foo <- bar;"))
   #.(parse "
-      $replaceHandlerStack(foo);
       foo(bar);"))

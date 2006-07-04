@@ -183,10 +183,6 @@
   (handler nil :type (or identifier function-expression))
   (thunk-body nil :type (or (cons source-element) null)))
 
-(defelement (replace-handler-stack (:include source-element))
-  "Indicates that the global handler stack should be replaced by the stack saved in the SOURCE continuation"
-  (source nil :type expression))
-
 ;;;; ------- jwacs extended syntax -----------------------------------------------------------------
 (defelement (suspend-statement (:include source-element)))
 

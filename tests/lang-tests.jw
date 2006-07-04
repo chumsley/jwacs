@@ -47,9 +47,10 @@ function runTests()
     runTest("try-catch/1", throwInTry(true), "from catch");
     runTest("try-catch/2", throwInTry(false), "from try");
     runTest("try-catch/3", testNestedThrows(2), 4);
-    runTest("try-catch/4", testNativeThrows(), true);
-    runTest("try-catch/5", globalContainsCaughtHello, "hello");
-    runTest("try-catch/6", testCatchOfTailCall(54), 54);
+    runTest("try-catch/4", tailReturnFromNestedTry(10), 10);
+    runTest("try-catch/5", testNativeThrows(), true);
+    runTest("try-catch/6", globalContainsCaughtHello, "hello");
+    runTest("try-catch/7", testCatchOfTailCall(54), 54);
   }
   catch(ex)
   {
@@ -432,6 +433,30 @@ function testNestedThrows(n)
   }
 
   return null;
+}
+
+function tailReturnFromNestedTry(n)
+{
+  function id(val)
+  {
+    return val;
+  }
+  
+  try
+  {
+    try
+    {
+      return id(n);
+    }
+    catch(e)
+    {
+      throw e;
+    }
+  }
+  catch(e)
+  {
+    throw e;
+  }
 }
 
 function testNativeThrows()

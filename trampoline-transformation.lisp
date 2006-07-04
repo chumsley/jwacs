@@ -31,17 +31,39 @@
 (defparameter *result-prop* (make-string-literal :value "result")
   "property name for the result field of a boxed result object")
 
-(defun make-boxed-thunk (ret-elm)
+(defparameter *add-handler-prop* (make-string-literal :value "addHandler")
+  "property name for the 'add exception handler to stack' operation field of a boxed result object")
+
+(defparameter *remove-handler-prop* (make-string-literal :value "removeHandler")
+  "property name for the 'remove exception handler from stack' operation field of a boxed result object")
+
+(defparameter *replace-handler-stack-prop* (make-string-literal :value "replaceHandlers")
+  "property name for the 'replace exception handler stack' operation field of a boxed result object")
+
+(defparameter *handler-stack-k-prop* (make-string-literal :value "$exHandlers")
+  "Name of the property on continuations that contains the handler stack to use")
+
+(defparameter *handler-stack-var-name* "$e"
+  "standard variable name for storing the current handler stack")
+
+(defparameter *handler-stack-var-id* (make-identifier :name *handler-stack-var-name*)
+  "identifier whose name is *HANDLER-STACK-VAR-NAME*")
+
+(defun make-boxed-thunk (body-elm &optional stack-op stack-op-arg)
   "Returns an object literal whose `done` field is `false` and whose
-   `thunk` field contains a thunk whose only line is RET-ELM (which
-   should be either a return statements or a return-terminated list
-   of statements)."
-  (assert (explicit-return-p ret-elm))
-  (make-object-literal :properties
-                       (list
-                        (cons *done-prop* (make-special-value :symbol :false))
-                        (cons *thunk-prop*
-                              (make-thunk-function :body (combine-statements ret-elm))))))
+   `thunk` field contains a thunk whose body is BODY-ELM.  When STACK-OP
+   is non-NIL, a handler stack operation property will also be added with
+   a value of STACK-OP-ARG."
+  (let ((core-properties (list
+                          (cons *done-prop* (make-special-value :symbol :false))
+                          (cons *thunk-prop*
+                                (make-thunk-function :parameters (list *handler-stack-var-name*)
+                                                     :body (combine-statements body-elm))))))
+    (assert (explicit-return-p body-elm))
+    (make-object-literal :properties (if (null stack-op)
+                                       core-properties
+                                       (cons (cons stack-op stack-op-arg)
+                                             core-properties)))))
 
 (defun make-boxed-result (elm)
   "Returns an object literal whose `done` field is `true` and whose
@@ -53,7 +75,7 @@
     (make-object-literal :properties
                          (list
                           (cons *done-prop* (make-special-value :symbol :true))
-                          (cons *result-prop* elm)))))     
+                          (cons *result-prop* elm)))))
 
 ;;;; ======= TRANSFORM methods =====================================================================
 
@@ -64,28 +86,40 @@
       (make-return-statement :arg (make-boxed-thunk (make-return-statement :arg (transform 'trampoline arg))))
       (make-return-statement :arg (make-boxed-result (transform 'trampoline arg))))))
 
+;;;; ------- handler stack operations --------------------------------------------------------------
+
+(defmethod transform ((xform (eql 'trampoline)) (elm add-handler))
+  (make-return-statement
+   :arg (make-boxed-thunk (transform xform (add-handler-thunk-body elm))
+                          *add-handler-prop*
+                          (add-handler-handler elm))))
+
+(defmethod transform ((xform (eql 'trampoline)) (elm remove-handler))
+  (make-return-statement
+   :arg (make-boxed-thunk (transform xform (remove-handler-thunk-body elm))
+                          *remove-handler-prop*
+                          (remove-handler-handler elm))))
+
 ;;;; ------- `suspend` and `resume` transformation -------------------------------------------------
 
 (defmethod transform ((xform (eql 'trampoline)) (elm suspend-statement))
-  (list
-   (make-replace-handler-stack :source (make-special-value :symbol :null))
-   (make-return-statement :arg (make-boxed-result nil))))
+  ;; We don't bother with a replace-handler operation here since we will be exiting
+  ;; the $trampoline function right away.
+  (make-return-statement :arg (make-boxed-result nil)))
 
 (defmethod transform ((xform (eql 'trampoline)) (elm resume-statement))
   (with-slots (target arg) elm
     (let ((new-call (make-continuation-call :fn (transform 'trampoline target)
                                             :args (when arg
-                                                    (list arg))))
-          (replace-stack-elm (make-replace-handler-stack :source (resume-statement-target elm))))
+                                                    (list arg)))))
       (if *in-local-scope*
         (make-return-statement
          :arg (make-boxed-thunk
-               (list
-                replace-stack-elm
-                (make-return-statement :arg new-call))))
-        (list
-         replace-stack-elm
-         new-call)))))                  ; Toplevel calls need to go through `$trampoline`, which the runtime transform will add
+               (make-return-statement :arg new-call)
+               *replace-handler-stack-prop*
+               (make-property-access :target target
+                                     :field *handler-stack-k-prop*)))
+        new-call))))                  ; Toplevel calls need to go through `$trampoline`, which the runtime transform will add
 
 ;;;; ------- Scope tracking ------------------------------------------------------------------------
     

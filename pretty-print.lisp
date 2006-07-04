@@ -490,8 +490,3 @@
                                      (make-function-expression :body (remove-handler-thunk-body elm)))
                                s)
   (format s ");"))
-
-(defmethod pretty-print ((elm replace-handler-stack) s)
-  (format s "$replaceHandlerStack(")
-  (pretty-print (replace-handler-stack-source elm) s)
-  (format s ");"))

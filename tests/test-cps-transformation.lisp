@@ -1285,8 +1285,10 @@
             $addHandler(catchK$2, function() {
               return bar(function(y) {
                 if(y)
-                  $removeHandler([catchK$2, catchK$0], function() {
-                    return $k(null);
+                  $removeHandler(catchK$2, function() {
+                    $removeHandler(catchK$0, function() {
+                      return $k(null);
+                    });
                   });
                 narf = 10;
                 $removeHandler(catchK$2, function() {
@@ -1401,3 +1403,86 @@
          });
        });
      }"))
+
+(deftest cps/try-catch/7 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+     function boo(x)
+     {
+       try
+       {
+         if(x)
+           return bar(20);
+         else
+           return null;
+       }
+       catch(e)
+       {
+         return null;
+       }
+     }")))
+  #.(parse "
+     function boo($k, x)
+     {
+       var catchK$0 = function(e) {
+         return $k(null);
+       };
+       $addHandler(catchK$0, function() {
+         if(x)
+           return bar(function(JW1) {
+             $removeHandler(catchK$0, function() {
+               return $k(JW1);
+             });
+           }, 20);
+         else
+           $removeHandler(catchK$0, function() {
+             return $k(null);
+           });
+       });
+     }"))
+
+(deftest cps/try-catch/8 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+      function foo()
+      {
+        try
+        {
+          try
+          {
+            return bar(10);
+          }
+          catch(e)
+          {
+            throw e;
+          }
+        }
+        catch(x)
+        {
+          return x;
+        }
+      }")))
+  #.(parse "
+      function foo($k)
+      {
+        var catchK$0 = function(x) {
+          return $k(x);
+        };
+
+        $addHandler(catchK$0, function() {
+          var catchK$1 = function(e) {
+            throw e;
+          };
+          $addHandler(catchK$1, function() {
+            return bar(function(JW2) {
+              $removeHandler(catchK$1, function() {
+                $removeHandler(catchK$0, function() {
+                  return $k(JW2);
+                });
+              });
+            }, 10);
+          });
+        });
+      }"))
+        
+                    

@@ -60,11 +60,10 @@
 (defparameter *removeHandler-fn* (make-identifier :name "$removeHandler")
   "Runtime function that removes the top exception handler from the global handler stack")
 
-(defparameter *handler-prop* (make-string-literal :value "$exHandlers")
-  "Name of the property on continuations that contains the handler stack to use")
-
-(defparameter *handler-stack-var* (make-identifier :name "$handlerStack")
-  "Name of the global variable that contains the global handler stack")
+(defparameter *handler-stack-var-decl* (make-var-init *handler-stack-var-name*
+                                                      (make-property-access :target *cont-id*
+                                                                            :field *handler-stack-k-prop*))
+  "Cached variable declaration that creates the current handler stack variable.")
 
 ;;;; ======= Call-style guards =====================================================================
 ;;;
@@ -129,7 +128,7 @@
       (let ((*function-decls-in-scope* (union new-decls *function-decls-in-scope*)))
         (call-next-method)))))
 
-;;;; The runtime transformation
+;;;; ======= The runtime transformation ============================================================
 ;;;
 ;;; 1. Add indirection for calls to functions that we can't be sure are transformed
 ;;; 2. Add call-style guards to allow functions to be called in direct style without
@@ -137,13 +136,17 @@
 ;;; 3. Add code to flag each function decl and expression with its type
 ;;; 4. Replace references to `arguments` with a call to `$makeArguments` applied to `arguments`.
 
+;; These elements should have been removed by TRAMPOLINE
+(forbid-transformation-elements runtime (resume-statement suspend-statement add-handler remove-handler))
+
 (defmethod transform ((xform (eql 'runtime)) (elm function-decl))
   (list
    (make-function-decl :name (function-decl-name elm)
                        :parameters (function-decl-parameters elm)
                        :body (cons (make-call-style-guard (function-decl-name elm))
-                                     (in-local-scope
-                                       (transform 'runtime (function-decl-body elm)))))
+                                   (cons *handler-stack-var-decl*
+                                         (in-local-scope
+                                           (transform 'runtime (function-decl-body elm))))))
    (make-binary-operator :op-symbol :assign
                          :left-arg
                          (make-property-access :target (make-identifier :name (function-decl-name elm))
@@ -161,9 +164,10 @@
                           :name fn-name
                           :parameters (function-expression-parameters elm)
                           :body (cons (make-call-style-guard fn-name)
-                                      (in-local-scope
-                                        (transform 'runtime
-                                                   (function-expression-body elm)))))))))
+                                      (cons *handler-stack-var-decl*
+                                            (in-local-scope
+                                              (transform 'runtime
+                                                         (function-expression-body elm))))))))))
 
 (defmethod transform ((xform (eql 'runtime)) (elm continuation-function))
   (make-fn-call :fn *makeK-fn*
@@ -171,7 +175,8 @@
                        (make-function-expression :name (function-expression-name elm)
                                                  :parameters (function-expression-parameters elm)
                                                  :body (in-local-scope
-                                                         (transform 'runtime (function-expression-body elm)))))))
+                                                         (transform 'runtime (function-expression-body elm))))
+                       *handler-stack-var-id*)))
 
 (defmethod transform ((xform (eql 'runtime)) (elm thunk-function))
   (make-function-expression :name (function-expression-name elm)
@@ -184,6 +189,7 @@
    In other words, wrap ELM in a `$trampoline` call to account for its being at the toplevel"
   (make-fn-call :fn *pogo-function*
                 :args (list (make-thunk-function
+                             :parameters (list *handler-stack-var-name*)
                              :body (list (make-return-statement :arg elm))))))
 
 (defmethod transform ((xform (eql 'runtime)) (elm fn-call))
@@ -260,21 +266,8 @@
                                 (fn-call-args elm)))))
     (if *in-local-scope*
       new-call
-      (make-pogoed-toplevel-call new-call))))
-
-(defmethod transform ((xform (eql 'runtime)) (elm add-handler))
-  (make-fn-call :fn *addHandler-fn*
-                :args (list (add-handler-handler elm))))
-
-(defmethod transform ((xform (eql 'runtime)) (elm remove-handler))
-  (make-fn-call :fn *removeHandler-fn*))
-
-(defmethod transform ((xform (eql 'runtime)) (elm replace-handler-stack))
-  (with-slots (source) elm
-    (make-binary-operator :op-symbol :assign
-                        :left-arg *handler-stack-var*
-                        :right-arg (if (and (special-value-p source)
-                                            (eq :null (special-value-symbol source)))
-                                     source
-                                     (make-property-access :target source
-                                                           :field *handler-prop*)))))
+      (make-pogoed-toplevel-call
+       (make-boxed-thunk (make-return-statement :arg new-call)
+                         *replace-handler-stack-prop*
+                         (make-property-access :target (fn-call-fn new-call)
+                                               :field *handler-stack-k-prop*))))))

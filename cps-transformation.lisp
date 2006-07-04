@@ -175,10 +175,12 @@
            (cont-call (make-return-statement :arg
                                              (make-fn-call :fn cont-id
                                                            :args (list (make-identifier :name param-name)))))
-           (remove-handlers (make-remove-handler :handler (if (> (length lexically-active-handlers) 1)
-                                                            (make-array-literal :elements lexically-active-handlers)
-                                                            (car lexically-active-handlers))
-                                                 :thunk-body (list cont-call))))
+           (remove-handlers (reduce (lambda (outer-handler inner-elm)
+                                      (make-remove-handler :handler outer-handler
+                                                           :thunk-body (list inner-elm)))
+                                    lexically-active-handlers
+                                    :initial-value cont-call
+                                    :from-end t)))
       (make-continuation-function :parameters (list param-name)
                                   :body (list remove-handlers)))))
 
@@ -206,15 +208,19 @@
                                                          (tx-cps item nil))
                                                        (new-expr-args arg))))))
               
+             
+             
              ;; Simple return from a try block
              (*lexically-active-handlers*
-              (make-remove-handler :handler (if (> (length *lexically-active-handlers*) 1)
-                                              (make-array-literal :elements *lexically-active-handlers*)
-                                              (car *lexically-active-handlers*))
-                                   :thunk-body (list (make-return-statement
-                                                      :arg (make-fn-call :fn *cont-id*
-                                                                         :args (unless (null arg)
-                                                                                 (list (tx-cps arg nil))))))))
+              (reduce (lambda (outer-handler inner-elm)
+                        (make-remove-handler :handler outer-handler
+                                             :thunk-body (list inner-elm)))
+                      *lexically-active-handlers*
+                      :initial-value (make-return-statement
+                                      :arg (make-fn-call :fn *cont-id*
+                                                         :args (unless (null arg)
+                                                                 (list (tx-cps arg nil)))))
+                      :from-end t))
 
              ;; Simple return
              (t
@@ -730,11 +736,17 @@
                                                :thunk-body (tx-cps statement-tail nil)))
             (catch-k-decl (make-labelled-catch-continuation catch-k-name (try-catch-clause elm)))
             (*lexically-active-handlers* (cons catch-k-id *lexically-active-handlers*)))
-        (values (combine-statements
-                 catch-k-decl
-                 (make-add-handler :handler catch-k-id
-                                   :thunk-body (tx-cps (postpend (try-body elm) final-remove) nil))) ; We're postpending an already-transformed element to the untransformed body; see the REMOVE-HANDLER method for why this works
-                t))
+        (if (explicit-return-p (try-body elm))
+          (values (combine-statements
+                   catch-k-decl
+                   (make-add-handler :handler catch-k-id
+                                     :thunk-body (tx-cps (try-body elm) nil)))
+                  t)
+          (values (combine-statements
+                   catch-k-decl
+                   (make-add-handler :handler catch-k-id
+                                     :thunk-body (tx-cps (postpend (try-body elm) final-remove) nil))) ; We're postpending an already-transformed element to the untransformed body; see the REMOVE-HANDLER method for why this works
+                  t)))
 
       ;; the catch clause is unterminated, so both catch and try are sharing the statement-tail,
       ;; so it needs a labelled continuation.
@@ -747,12 +759,19 @@
                                                 :thunk-body (list tail-resume-elm)))
              (*escaping-references* (union (find-free-variables statement-tail) *escaping-references*))
              (*lexically-active-handlers* (cons catch-k-id *lexically-active-handlers*)))
-        (values (combine-statements
-                 tail-k-decl
-                 catch-k-decl
-                 (make-add-handler :handler catch-k-id
-                                   :thunk-body (tx-cps (postpend (try-body elm) final-remove) nil)))
-                t)))))
+        (if (explicit-return-p (try-body elm))
+          (values (combine-statements
+                   tail-k-decl
+                   catch-k-decl
+                   (make-add-handler :handler catch-k-id
+                                     :thunk-body (tx-cps (try-body elm) nil)))
+                  t)
+          (values (combine-statements
+                   tail-k-decl
+                   catch-k-decl
+                   (make-add-handler :handler catch-k-id
+                                     :thunk-body (tx-cps (postpend (try-body elm) final-remove) nil)))
+                  t))))))
 
 (defmethod tx-cps ((elm remove-handler) statement-tail)
   ;; The only REMOVE-HANDLER elements that we encounter should be those that we've added during

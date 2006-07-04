@@ -15,6 +15,7 @@ function $id(x)
   return {done:true, result:x};
 }
 $id.$isK = true;
+$id.$exHandlers = null;
 
 // Tail calls from the global scope should pass $id as the continuation.
 var $k = $id;
@@ -35,10 +36,10 @@ function $lambda(fn)
 // variable first).  The $exHandlers property is set to the
 // current exception handler stack, so that the exception
 // state can be resumed when the continuation is resumed.
-function $makeK(fn)
+function $makeK(fn, handlerStack)
 {
   fn.$isK = true;
-  fn.$exHandlers = $handlerStack;
+  fn.$exHandlers = handlerStack;
   return fn;
 }
 
@@ -371,18 +372,46 @@ function $new0(ctor, k, a1, a2, a3, a4, a5, a6, a7, a8)
 // function.
 function $trampoline(origThunk)
 {
-	var ret = new Object;
+  var handlerStack = null; // The handler stack for this thread
+  var ret = new Object;
 	ret.done = false;
 	ret.thunk = origThunk;
-	while(!ret.done)
+
+  function popHandler(expected)
+  {
+    var top = handlerStack;
+
+    // TEST
+    if(expected && (!top || top.k != expected))
+      alert("assertion failure: expected handler " + expected + ", got " + top);
+
+    if(top)
+    {
+      handlerStack = top.next;
+      return top.k;
+    }
+    
+    return null;
+  }
+  
+  while(!ret.done)
 	{
+    // Perform handler management
+    if(ret.addHandler)
+      handlerStack = new HandlerStackEntry(ret.addHandler, handlerStack);
+    else if(ret.removeHandler)
+      popHandler(ret.removeHandler);
+    else if(ret.replaceHandlers)
+      handlerStack = ret.replaceHandlers;
+    
+    // Do the work
     try
     {
-      ret = ret.thunk();
+      ret = ret.thunk(handlerStack);
     }
     catch(e)
     {
-      var handler = $removeHandler();
+      var handler = popHandler();
       if(handler)
         ret = {done: false, thunk: function() { return handler(e); } };
       else
@@ -405,31 +434,8 @@ function $callFromDirect(f, thisObj, args)
 }
 
 // Constructor for a stack entry on the global exception handler stack
-function HandlerStackEntry(k, nextK)
+function HandlerStackEntry(k, next)
 {
   this.k = k;
-  this.nextK = nextK;
+  this.next = next;
 }
-
-// The global exception handler stack
-var $handlerStack = null;
-
-// Adds `k` to the top of the global exception handler stack
-function $addHandler(k)
-{
-  $handlerStack = new HandlerStackEntry(k, $handlerStack);
-}
-
-// Removes and returns the top entry from the global exception handler stack
-function $removeHandler()
-{
-  var top = $handlerStack;
-  if(top)
-  {
-    $handlerStack = top.nextK;
-    return top.k;
-  }
-
-  return null;
-}
-
