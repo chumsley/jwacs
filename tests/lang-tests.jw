@@ -4,10 +4,6 @@
 // Run the tests by running the `runTests` function.
 // A DOM element with the id 'testOutput' is assumed to exist.
 
-
-/// ======= Test utilities ===================================================================
-// Functions to support the unit tests
-
 // The main entry-point for the test suite
 function runTests()
 {
@@ -18,9 +14,9 @@ function runTests()
 	// function can just loop over a global or something.
   try
   {
-//     runTest("factorial/1", factorial(5), 120); // commented out to avoid stack overflows
-//     runTest("factorial/2", accFactorial(6, 1), 720);
-//     runTest("factorial/3", accFactorial(6), 720);
+    runTest("factorial/1", factorial(5), 120);
+    runTest("factorial/2", accFactorial(6, 1), 720);
+    runTest("factorial/3", accFactorial(6), 720);
     runTest("multishot/1", testMultiShotContinuations(), 50);
     runTest("suspend/1", testSuspend(), true);
     runTest("suspend/2", suspendBeforeSettingToTrue, false);
@@ -83,6 +79,9 @@ function runTests()
     }
   }
 }
+
+/// ======= Test utilities ===================================================================
+// Functions to support the unit tests
 
 function bold(str)
 {
@@ -469,3 +468,4 @@ function willThrow(n)
 var suspendBeforeSettingToTrue  = false;
 suspend;
 suspendBeforeSettingToTrue = true;
+alert("you should never see this");
