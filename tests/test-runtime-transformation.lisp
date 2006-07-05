@@ -234,7 +234,7 @@
       $trampoline(function($e) {
         return {replaceHandlers: foo.$exHandlers, done: false, thunk: function($e) {
           return foo();
-        };
+        }};
       });"))
 
 (deftest runtime/toplevel/indirect-call/1 :notes runtime
