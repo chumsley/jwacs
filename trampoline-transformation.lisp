@@ -46,9 +46,6 @@
 (defparameter *handler-stack-var-name* "$e"
   "standard variable name for storing the current handler stack")
 
-(defparameter *handler-stack-var-id* (make-identifier :name *handler-stack-var-name*)
-  "identifier whose name is *HANDLER-STACK-VAR-NAME*")
-
 (defun make-boxed-thunk (body-elm &optional stack-op stack-op-arg)
   "Returns an object literal whose `done` field is `false` and whose
    `thunk` field contains a thunk whose body is BODY-ELM.  When STACK-OP
@@ -112,21 +109,9 @@
     (let ((new-call (make-continuation-call :fn (transform 'trampoline target)
                                             :args (when arg
                                                     (list arg)))))
-      (if *in-local-scope*
-        (make-return-statement
-         :arg (make-boxed-thunk
-               (make-return-statement :arg new-call)
-               *replace-handler-stack-prop*
-               (make-property-access :target target
-                                     :field *handler-stack-k-prop*)))
-        new-call))))                  ; Toplevel calls need to go through `$trampoline`, which the runtime transform will add
-
-;;;; ------- Scope tracking ------------------------------------------------------------------------
-    
-(defmethod transform ((xform (eql 'trampoline)) (elm function-decl))
-  (in-local-scope
-    (call-next-method)))
-
-(defmethod transform ((xform (eql 'trampoline)) (elm function-expression))
-  (in-local-scope
-    (call-next-method)))
+      (make-return-statement
+       :arg (make-boxed-thunk
+             (make-return-statement :arg new-call)
+             *replace-handler-stack-prop*
+             (make-property-access :target target
+                                   :field *handler-stack-k-prop*))))))

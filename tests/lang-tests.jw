@@ -117,6 +117,17 @@ function output(string, warningP)
 /// ======= Test functions ===================================================================
 // The actual functions being tested
 
+var globalContainsCaughtHello = null;
+try
+{
+  var nil = null;
+  nil.foo();
+}
+catch(e)
+{
+  globalContainsCaughtHello = 'hello';
+}
+
 function reportElm(idx)
 {
   return globalArray[idx];
@@ -153,17 +164,6 @@ function testShortCircuitAnd()
 var poit = narf && narf.charAt(0) == 'h';
 
 var globalArray = new Array('one', 'two');
-
-var globalContainsCaughtHello = null;
-try
-{
-  var nil = null;
-  nil.foo();
-}
-catch(e)
-{
-  globalContainsCaughtHello = 'hello';
-}
 
 function factorial(n)
 {

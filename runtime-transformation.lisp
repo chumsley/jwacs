@@ -4,10 +4,7 @@
 ;;; the dynamic runtime.
 (in-package :jwacs)
 
-;;;; ======= Runtime flags =========================================================================
-;;;
-;;; We add runtime flags to each function indicating its type (continuation,
-;;; transformed jwacs function, etc.)
+;;;; ======= Constants =============================================================================
 
 (defparameter *transformed-property* (make-string-literal :value "$jw")
   "The name of the property that we set on each transformed function")
@@ -60,10 +57,23 @@
 (defparameter *removeHandler-fn* (make-identifier :name "$removeHandler")
   "Runtime function that removes the top exception handler from the global handler stack")
 
-(defparameter *handler-stack-var-decl* (make-var-init *handler-stack-var-name*
-                                                      (make-property-access :target *cont-id*
-                                                                            :field *handler-stack-k-prop*))
-  "Cached variable declaration that creates the current handler stack variable.")
+;;;; ======= Environment tracking ==================================================================
+
+(defparameter *toplevel-handler-stack-reference* (make-special-value :symbol :null)
+  "At the toplevel and outside of a thunk, there is no handler stack yet.")
+
+(defparameter *in-function-handler-stack-reference* (make-property-access :target *cont-id*
+                                                                          :field *handler-stack-k-prop*)
+  "Inside a function but outside of a thunk, the current handler stack is the handler stack property
+   of the function's continuation.")
+
+(defparameter *in-thunk-handler-stack-reference* (make-identifier :name *handler-stack-var-name*)
+  "Inside a thunk, the current handler stack is passed in as a parameter named `$e`.")
+
+(defparameter *current-handler-stack-reference* *toplevel-handler-stack-reference*
+  "Element that refers to the current handler stack.  This should be one of
+   *TOPLEVEL-HANDLER-STACK-REFERENCE*, *IN-FUNCTION-HANDLER-STACK-REFERENCE*, or
+   *IN-THUNK-HANDLER-STACK-REFERENCE*.")
 
 ;;;; ======= Call-style guards =====================================================================
 ;;;
@@ -135,6 +145,7 @@
 ;;;    causing confusing errors.
 ;;; 3. Add code to flag each function decl and expression with its type
 ;;; 4. Replace references to `arguments` with a call to `$makeArguments` applied to `arguments`.
+;;; TODO Make this description more complete
 
 ;; These elements should have been removed by TRAMPOLINE
 (forbid-transformation-elements runtime (resume-statement suspend-statement add-handler remove-handler))
@@ -144,9 +155,9 @@
    (make-function-decl :name (function-decl-name elm)
                        :parameters (function-decl-parameters elm)
                        :body (cons (make-call-style-guard (function-decl-name elm))
-                                   (cons *handler-stack-var-decl*
-                                         (in-local-scope
-                                           (transform 'runtime (function-decl-body elm))))))
+                                   (let ((*current-handler-stack-reference* *in-function-handler-stack-reference*))
+                                     (in-local-scope
+                                       (transform 'runtime (function-decl-body elm))))))
    (make-binary-operator :op-symbol :assign
                          :left-arg
                          (make-property-access :target (make-identifier :name (function-decl-name elm))
@@ -164,10 +175,10 @@
                           :name fn-name
                           :parameters (function-expression-parameters elm)
                           :body (cons (make-call-style-guard fn-name)
-                                      (cons *handler-stack-var-decl*
-                                            (in-local-scope
-                                              (transform 'runtime
-                                                         (function-expression-body elm))))))))))
+                                      (let ((*current-handler-stack-reference* *in-function-handler-stack-reference*))
+                                        (in-local-scope
+                                          (transform 'runtime
+                                                     (function-expression-body elm))))))))))
 
 (defmethod transform ((xform (eql 'runtime)) (elm continuation-function))
   (make-fn-call :fn *makeK-fn*
@@ -176,21 +187,14 @@
                                                  :parameters (function-expression-parameters elm)
                                                  :body (in-local-scope
                                                          (transform 'runtime (function-expression-body elm))))
-                       *handler-stack-var-id*)))
+                       *current-handler-stack-reference*)))
 
 (defmethod transform ((xform (eql 'runtime)) (elm thunk-function))
   (make-function-expression :name (function-expression-name elm)
                             :parameters (function-expression-parameters elm)
-                            :body (in-local-scope
-                                    (transform 'runtime (function-expression-body elm)))))
-
-(defun make-pogoed-toplevel-call (elm)
-  "Returns a call to `$trampoline` that passes a thunk which executes ELM.
-   In other words, wrap ELM in a `$trampoline` call to account for its being at the toplevel"
-  (make-fn-call :fn *pogo-function*
-                :args (list (make-thunk-function
-                             :parameters (list *handler-stack-var-name*)
-                             :body (list (make-return-statement :arg elm))))))
+                            :body (let ((*current-handler-stack-reference* *in-thunk-handler-stack-reference*))
+                                    (in-local-scope
+                                      (transform 'runtime (function-expression-body elm))))))
 
 (defmethod transform ((xform (eql 'runtime)) (elm fn-call))
   (let ((new-call
@@ -229,9 +233,7 @@
                                      (make-array-literal :elements
                                                          (mapcar #'runtime-transform
                                                                  (cdr (fn-call-args elm))))))))))))
-    (if *in-local-scope*
-      new-call
-      (make-pogoed-toplevel-call new-call))))
+    new-call))
 
 (defmethod transform ((xform (eql 'runtime)) (elm new-expr))
   (let ((new-call
@@ -247,9 +249,7 @@
                                          (runtime-transform (car args))
                                          (make-array-literal :elements (mapcar #'runtime-transform
                                                                                (cdr args))))))))))
-    (if *in-local-scope*
-      new-call
-      (make-pogoed-toplevel-call new-call))))
+    new-call))
   
 (defmethod transform ((xform (eql 'runtime)) (elm special-value))
   (if (eq :arguments (special-value-symbol elm))
@@ -264,10 +264,18 @@
                   :args (mapcar (lambda (arg)
                                   (transform 'runtime arg))
                                 (fn-call-args elm)))))
+    new-call))
+
+;; If we encounter a return statement at the toplevel, then wrap it in a thunk and pass it into
+;; `$trampoline`.  (Due to the nature of the cps transformation, each toplevel control path will
+;; have at most one of these)
+(defmethod transform ((xform (eql 'runtime)) (elm return-statement))
+  (with-slots (arg) elm
     (if *in-local-scope*
-      new-call
-      (make-pogoed-toplevel-call
-       (make-boxed-thunk (make-return-statement :arg new-call)
-                         *replace-handler-stack-prop*
-                         (make-property-access :target (fn-call-fn new-call)
-                                               :field *handler-stack-k-prop*))))))
+      (make-return-statement :arg (transform 'runtime arg))
+      (make-fn-call :fn *pogo-function*
+                    :args (list (make-thunk-function
+                                 :parameters (list *handler-stack-var-name*)
+                                 :body (list (make-return-statement
+                                              :arg (in-local-scope
+                                                     (transform 'runtime arg))))))))))

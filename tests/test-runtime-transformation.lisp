@@ -20,8 +20,7 @@
         {
             if(!$k || !$k.$isK)
               return $callFromDirect(foo, this, arguments);
-            var $e = $k.$exHandlers;
-            return bar($makeK(function () { return baz($k); }, $e));
+            return bar($makeK(function () { return baz($k); }, $k.$exHandlers));
         }
         foo.$jw = true;"))
 
@@ -33,7 +32,6 @@
       var x = $lambda(function lambda$0($k) {
                         if(!$k || !$k.$isK)
                           return $callFromDirect(lambda$0, this, arguments);
-                        var $e = $k.$exHandlers;
                         return $k(21); });"))
 
 (deftest runtime/trampoline-return/1 :notes runtime
@@ -52,7 +50,6 @@
       {
         if(!$k || !$k.$isK)
           return $callFromDirect(fact, this, arguments);
-        var $e = $k.$exHandlers;
         if(x == 0)
           return {done:false, thunk: function($e) { return $k(1); }};
         else
@@ -75,7 +72,6 @@
         {
           if(!$k || !$k.$isK)
             return $callFromDirect(bar, this, arguments);
-          var $e = $k.$exHandlers;
           return $k(x);
         }
         bar.$jw = true;
@@ -84,10 +80,9 @@
         {
           if(!$k || !$k.$isK)
             return $callFromDirect(foo, this, arguments);
-          var $e = $k.$exHandlers;
           return bar($makeK(function() {
                               return $call0(baz, $k, null, 100);
-                              }, $e), 50);
+                              }, $k.$exHandlers), 50);
         }
         foo.$jw = true;"))
 
@@ -106,7 +101,6 @@
         {
           if(!$k || !$k.$isK)
             return $callFromDirect(bar, this, arguments);
-          var $e = $k.$exHandlers;
           return $k(x);
         }
         bar.$jw = true;
@@ -115,10 +109,9 @@
         {
           if(!$k || !$k.$isK)
             return $callFromDirect(foo, this, arguments);
-          var $e = $k.$exHandlers;
           return bar($makeK(function() {
                               return $call(Foo.Bar.Baz.quux, $k, Foo.Bar.Baz, [100, 101, 102, 103, 104, 105, 106, 107, 108, 109]); 
-                              }, $e), 50);
+                              }, $k.$exHandlers), 50);
         }
         foo.$jw = true;"))
 
@@ -135,7 +128,6 @@
         {
           if(!$k || !$k.$isK)
             return $callFromDirect(foo, this, arguments);
-          var $e = $k.$exHandlers;
           return $call0('Baz', $k, Foo.Bar, 10, 20);
         }
         foo.$jw = true;"))
@@ -143,42 +135,42 @@
 (deftest runtime/new-expr/1 :notes runtime
   (with-fresh-genvar
     (in-local-scope
-      (test-transform 'runtime
-                      (transform 'cps (parse "
+      (let ((jw::*current-handler-stack-reference* jw::*in-function-handler-stack-reference*))
+        (test-transform 'runtime
+                        (transform 'cps (parse "
         function bar(z) { return z; }
         var x = new Foo(50, 55);
-        return bar(x);")))))
+        return bar(x);"))))))
   #.(parse "
         function bar($k, z)
         {
           if(!$k || !$k.$isK)
             return $callFromDirect(bar, this, arguments);
-          var $e = $k.$exHandlers;
           return $k(z);
         }
         bar.$jw = true;
 
-        return $new0(Foo, $makeK(function(x) { return bar($k, x); }, $e), 50, 55);"))
+        return $new0(Foo, $makeK(function(x) { return bar($k, x); }, $k.$exHandlers), 50, 55);"))
 
 (deftest runtime/new-expr/2 :notes runtime
   (with-fresh-genvar
     (in-local-scope
-      (test-transform 'runtime
-                      (transform 'cps (parse "
+      (let ((jw::*current-handler-stack-reference* jw::*in-function-handler-stack-reference*))
+        (test-transform 'runtime
+                        (transform 'cps (parse "
         function bar(z) { return z; }
         var x = new Foo(1,2,3,4,5,6,7,8,9,10,11,12);
-        return bar(x);")))))
+        return bar(x);"))))))
   #.(parse "
         function bar($k, z)
         {
           if(!$k || !$k.$isK)
             return $callFromDirect(bar, this, arguments);
-          var $e = $k.$exHandlers;
           return $k(z);
         }
         bar.$jw = true;
 
-        return $new(Foo, $makeK(function(x) { return bar($k, x); }, $e), [1,2,3,4,5,6,7,8,9,10,11,12]);"))
+        return $new(Foo, $makeK(function(x) { return bar($k, x); }, $k.$exHandlers), [1,2,3,4,5,6,7,8,9,10,11,12]);"))
 
 (deftest runtime/arguments/1 :notes runtime
   (with-fresh-genvar
@@ -194,7 +186,6 @@
      {
         if(!$k || !$k.$isK)
           return $callFromDirect(foo, this, arguments);
-        var $e = $k.$exHandlers;
         var arguments$0 = $makeArguments(arguments);
         return $k(arguments$0);
      }
@@ -214,7 +205,6 @@
      {
         if(!$k || !$k.$isK)
           return $callFromDirect(foo, this, arguments);
-        var $e = $k.$exHandlers;
         var arguments = 99;
         return $k(arguments);
      }
@@ -245,13 +235,15 @@
       bar(20);"))))
   #.(parse "
       $trampoline(function($e) {
-        return $call0(foo, $makeK(function() {
-          return {done: false, thunk: function($e) {
-            return $call0(bar, $makeK(function() {
-              return {done: true};
-            }, $e), null, 20);
-          }};
-        }, $e), null, 10);
+        return {done: false, thunk: function($e) {
+          return $call0(foo, $makeK(function() {
+            return {done: false, thunk: function($e) {
+              return $call0(bar, $makeK(function() {
+                return {done: true};
+              }, $e), null, 20);
+            }};
+          }, $e), null, 10);
+        }};
       });"))
 
 (deftest runtime/toplevel/indirect-new/1 :notes runtime
@@ -262,11 +254,82 @@
       new bar(20);"))))
   #.(parse "
       $trampoline(function($e) {
-        return $new0(foo, $makeK(function() {
-          return {done: false, thunk: function($e) {
-            return $new0(bar, $makeK(function() {
-              return {done: true};
-            }, $e), 20);
-          }};
-        }, $e), 10);
+        return {done: false, thunk: function($e) {
+          return $new0(foo, $makeK(function() {
+            return {done: false, thunk: function($e) {
+              return $new0(bar, $makeK(function() {
+                return {done: true};
+              }, $e), 20);
+            }};
+          }, $e), 10);
+        }};
       });"))
+
+(deftest runtime/makeK-argument/toplevel/1 :notes runtime
+  (test-transform 'runtime
+                  (list
+                   (jw::make-continuation-function :body (parse "return {done: true};"))))
+  #.(parse "
+        $makeK(function() { return {done: true}; }, null);"))
+
+(deftest runtime/makeK-argument/in-function/1 :notes runtime
+  (test-transform 'runtime
+                  (transform 'trampoline
+                             (transform 'cps (parse "
+      function foo()
+      {
+        foo();
+        return 10;
+      }"))))
+  #.(parse "
+      function foo($k)
+      {
+        if(!$k || !$k.$isK)
+          return $callFromDirect(foo, this, arguments);
+        return {done: false, thunk: function($e) {
+          return foo($makeK(function() {
+            return {done: false, thunk: function($e) {
+              return $k(10);
+            }};
+          }, $e));
+        }};
+      }
+      foo.$jw = true;"))
+
+(deftest runtime/makeK-argument/in-function/2 :notes runtime
+  (with-fresh-genvar
+    (test-transform 'runtime
+                    (transform 'trampoline
+                               (transform 'cps (parse "
+      function foo()
+      {
+        if(x)
+          foo();
+        return 10;
+      }")))))
+  #.(parse "
+      function foo($k)
+      {
+        if(!$k || !$k.$isK)
+          return $callFromDirect(foo, this, arguments);
+
+        var ifK$0 = $makeK(function() {
+          return {done: false, thunk: function($e) {
+            return $k(10);
+          }};
+        }, $k.$exHandlers);
+
+        if(x)
+          return {done: false, thunk: function($e) {
+            return foo($makeK(function() {
+              return {replaceHandlers: ifK$0.$exHandlers, done: false, thunk: function($e) {
+                return ifK$0();
+              }};
+            }, $e));
+          }};
+        else
+          return {replaceHandlers: ifK$0.$exHandlers, done: false, thunk: function($e) {
+            return ifK$0();
+          }};
+      }
+      foo.$jw = true;"))

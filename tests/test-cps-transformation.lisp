@@ -805,7 +805,7 @@
         new Foo;
         bar(10);"))
   #.(parse "
-        new Foo(function() { return bar(function() { suspend; }, 10); });"))
+        return new Foo(function() { return bar(function() { suspend; }, 10); });"))
 
 (deftest cps/new-expr-with-tail/1 :notes cps
   (in-local-scope
@@ -822,7 +822,7 @@
         var x = new Foo(50);
         bar(x[10]);"))
   #.(parse "
-        new Foo(function(x) { return bar(function() { suspend; }, x[10]); }, 50);"))
+        return new Foo(function(x) { return bar(function() { suspend; }, x[10]); }, 50);"))
 
 (deftest cps/new-expr-tail-return/1 :notes cps
   (test-transform 'cps
@@ -865,7 +865,7 @@
         foo(10);
         bar(20);"))
   #.(parse "
-        foo(function() { return bar(function() { suspend; }, 20); }, 10);"))
+        return foo(function() { return bar(function() { suspend; }, 20); }, 10);"))
 
 (deftest cps/toplevel-function-call-with-tail/1 :notes cps
   (test-transform 'cps
@@ -873,7 +873,7 @@
         var x = foo(10);
         bar(x);"))
   #.(parse "
-        foo(function(x) { return bar(function() { suspend; }, x); }, 10);"))
+        return foo(function(x) { return bar(function() { suspend; }, x); }, 10);"))
 
 (deftest cps/strip-var-decls/function-decl/1 :notes cps
   (with-fresh-genvar
@@ -1080,7 +1080,7 @@
       };
 
       if(narf)
-        narf_charAt(function(JW2) { intermediate = JW2; resume ifK$0; }, 0);
+        return narf_charAt(function(JW2) { intermediate = JW2; resume ifK$0; }, 0);
       else
         resume ifK$0;"))
 

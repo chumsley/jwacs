@@ -102,14 +102,19 @@
       return {replaceHandlers: foo[bar].$exHandlers, done: false, thunk: function($e) {
         return foo[bar](baz); }};"))
 
+;; Note that the toplevel version of trampoline's tranformation of resume statements
+;; isn't any different from the in-local-scope version anymore.  I'm keeping these
+;; tests around in case I change my mind about where to resolve toplevel issues.
 (deftest trampoline/resume/toplevel/1 :notes trampoline
   (test-transform 'trampoline (parse "
       resume foo;"))
   #.(parse "
-      foo();"))
+      return {replaceHandlers: foo.$exHandlers, done: false, thunk: function($e) {
+        return foo(); }};"))
 
 (deftest trampoline/resume/toplevel/2 :notes trampoline
   (test-transform 'trampoline (parse "
       resume foo <- bar;"))
   #.(parse "
-      foo(bar);"))
+      return {replaceHandlers: foo.$exHandlers, done: false, thunk: function($e) {
+        return foo(bar); }};"))

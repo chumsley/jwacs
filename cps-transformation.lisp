@@ -278,9 +278,7 @@
                           (mapcar (lambda (item)
                                     (tx-cps item nil))
                                   (fn-call-args elm)))))))
-    (if *in-local-scope*
-      (values (make-return-statement :arg new-fn-call) t)
-      (values new-fn-call t))))
+    (values (make-return-statement :arg new-fn-call) t)))
 
 (defmethod tx-cps ((elm new-expr) statement-tail)
   (let ((tx-expr
@@ -301,9 +299,7 @@
                         (mapcar (lambda (item)
                                   (tx-cps item nil))
                                 (new-expr-args elm)))))))
-    (if *in-local-scope*
-      (values (make-return-statement :arg tx-expr) t)
-      (values tx-expr t))))
+    (values (make-return-statement :arg tx-expr) t)))
 
 ;; TODO if we really cared, we could make a predicate to tell us whether every control
 ;; path _that contains an effective function call_ is terminated.  The current scheme can
@@ -376,9 +372,7 @@
                                                                           :body (in-local-scope
                                                                                   (tx-cps augmented-statement-tail nil)))
                                               (fn-call-args initializer)))))
-           (if *in-local-scope*
-             (values (make-return-statement :arg new-call) t)
-             (values new-call t))))
+           (values (make-return-statement :arg new-call) t)))
 
         ;; eg: var x = new Foo;
         ((new-expr-p initializer)
@@ -388,9 +382,7 @@
                                                                                    :body (in-local-scope
                                                                                            (tx-cps augmented-statement-tail nil)))
                                                        (new-expr-args initializer)))))
-           (if *in-local-scope*
-             (values (make-return-statement :arg new-construction) t)
-             (values new-construction t))))
+           (values (make-return-statement :arg new-construction) t)))
 
         ;; eg: var x = 20;
         (initializer
