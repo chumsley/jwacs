@@ -41,5 +41,5 @@ function fetchData(method, url)
 
 function handlePageLoad()
 {
-  document.getElementById('contentDiv').innerHTML = fetchData('GET', 'dataRows.txt');
+  document.getElementById('contentDiv').innerHTML = '<pre>' + fetchData('GET', 'dataRows.txt') + '</pre>';
 }

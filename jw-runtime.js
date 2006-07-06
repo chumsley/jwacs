@@ -77,21 +77,42 @@ function $makeArguments(origArgs)
   return newArgs;
 }
 
-// Call function `f` in either CPS or direct style, depending upon
-// the value of `f`'s  $jw property.  The continuation `k`
-// will be called with the results regardless of the style that
-// `f` is called in.  `thisObj` specifies the current `this`
+// If `thisObj` is provided, then returns true if its `f` method is a transformed
+// function.  If `thisObj` is not provided, then returns true if `f` is a
+// transformed function.  We need this function because the very act of attempting
+// to access a non-existent field on a native object can cause IE to throw (this
+// can also happen when attempting to access a field on a native object that
+// contains only a method of the same name), so we want to have a place where we
+// can put a try-catch statement for catching that error.
+function $isTransformed(f, thisObj)
+{
+  try
+  {
+    if(thisObj)
+      return thisObj[f].$jw;
+    return f.$jw;
+  }
+  catch(e)
+  {
+    return false;
+  }
+}
+
+// Call a function in either CPS or direct style, depending upon
+// whether the function is CPS-transformed.  The continuation `k`
+// will be called with the results regardless of the style that the
+// function is called in. `thisObj` specifies the current `this`
 // context, and `args` is an Array of arguments to pass to `f`.
 function $call(f, k, thisObj, args)
 {
-  if(f.$jw)
+  if($isTransformed(f))
     return f.apply(thisObj, [k].concat(args));
   else
     return k(f.apply(thisObj, args));
 }
 
 // Call a function in either CPS or direct style, depending upon
-// the value of the function's $jw property.  The continuation `k`
+// whether the function is CPS-transformed.  The continuation `k`
 // will be called with the results regardless of the style that the
 // function is called in.
 //
@@ -108,7 +129,7 @@ function $call0(f, k, thisObj, a1, a2, a3, a4, a5, a6, a7, a8)
 {
   if(thisObj)
   {
-    if(thisObj[f].$jw)
+    if($isTransformed(f, thisObj))
     {
       switch(arguments.length)
       {
@@ -163,7 +184,7 @@ function $call0(f, k, thisObj, a1, a2, a3, a4, a5, a6, a7, a8)
   }
   else
   {
-    if(f.$jw)
+    if($isTransformed(f))
     {
       switch(arguments.length)
       {
@@ -235,12 +256,11 @@ function $makeBlank(ctor)
 // The continuation `k` will be called with the result.
 //
 // The constructor will be called in either direct style or cps style, depending
-// upon the presence or absence of a non-false $jw property on `ctor`.  The
-// continuation `k` is called with the result of the construction regardless of
-// the calling style.
+// upon whether or not `ctor` is a cps-transformed function.  The continuation `k`
+// is called with the result of the construction regardless of the calling style.
 function $new(ctor, k, args)
 {
-  if(ctor.$jw)
+  if($isTransformed(ctor))
   {
     if(!ctor.$blank)
       ctor.$blank = $makeBlank(ctor);
@@ -275,15 +295,14 @@ function $new(ctor, k, args)
 // with the result.
 //
 // The constructor will be called in either direct style or cps style, depending
-// upon the presence or absence of a non-false $jw property on `ctor`.  The
-// continuation `k` is called with the result of the construction regardless of
-// the calling style.
+// upon whether or not `ctor` is a cps-transformed function.  The continuation `k`
+// is called with the result of the construction regardless of the calling style.
 //
 // This function can only be called on constructors that have 8 arguments or fewer.
 // For constructors with 9 arguments or more, `$new` must be used.
 function $new0(ctor, k, a1, a2, a3, a4, a5, a6, a7, a8)
 {
-  if(ctor.$jw)
+  if($isTransformed(ctor))
   {
     if(!ctor.$blank)
       ctor.$blank = $makeBlank(ctor);
