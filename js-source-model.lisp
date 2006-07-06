@@ -211,8 +211,7 @@
                     string-literal
                     array-literal
                     object-literal
-                    re-literal
-                    function-expression)))
+                    re-literal)))
   0)
 
 (defmethod elm-precedence ((elm new-expr))
@@ -223,6 +222,9 @@
 
 (defmethod elm-precedence ((elm property-access))
   1)
+
+(defmethod elm-precedence ((elm function-expression))
+  2)
 
 (defmethod elm-precedence ((elm unary-operator))
   (ecase (unary-operator-op-symbol elm)

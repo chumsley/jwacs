@@ -163,7 +163,7 @@
        (format s ")")))))
 
 (defmethod pretty-print ((elm fn-call) s)
-  (pretty-print (fn-call-fn elm) s)
+  (pretty-print-arg (fn-call-fn elm) elm s)
   (format s "(")
   (pretty-print-separated-list (fn-call-args elm) s)
   (format s ")"))

@@ -519,4 +519,13 @@ suspend;")
   return null;
 });
 suspend;")
-                       
+
+(deftest pretty-print/function-expression-literal-call/1 :notes pretty-print
+  (pretty-string (make-fn-call
+                  :fn (make-function-expression
+                       :body (list (make-return-statement :arg (make-special-value :symbol :null))))))
+  "(function()
+{
+  return null;
+})()")
+                               
