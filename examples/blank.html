@@ -1,0 +1,10 @@
+<html>
+<head>
+<script>
+function notifyParent()
+{
+  window.parent.JwacsLib.iframeLoaded(document.location.search);
+}
+</script>
+<body onLoad='notifyParent();'>Loading...</body>
+</html>

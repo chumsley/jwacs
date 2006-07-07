@@ -1,0 +1,17 @@
+<html>
+<head>
+  <title>Counter example</title>
+  <% jwacs_imports %>
+  <style type='text/css'>
+    #counter
+    {
+      font-family: Garamond, Times, Serif;
+      font-size: 72pt;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+<div id='contentDiv'><i>Loading...</i></div>
+</body>
+ </html>

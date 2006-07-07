@@ -1,0 +1,27 @@
+import "prototype.js";
+import "jwacs-lib.jw";
+
+JwacsLib.emitHistoryIframe();
+
+var counter;
+function main()
+{
+  counter = 0;
+  $('contentDiv').innerHTML =
+    "<div id=counter>" + counter + "</div>" +
+    "<a href='javascript:click(-1);'>DN</a> " +
+    "<a href='javascript:click(1);'>UP</a> ";
+}
+
+function click(delta)
+{
+  var newVal = counter + delta;
+  JwacsLib.newPage('Counter ' + newVal);
+  counter = newVal;
+  draw();
+}
+
+function draw()
+{
+  $('counter').innerHTML = counter;
+}

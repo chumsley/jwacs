@@ -1,0 +1,49 @@
+//// jwacs-lib.jw
+///
+/// Defines some "framework"-style functionality for use by jwacs applications
+
+// Namespace
+var JwacsLib =
+{
+  nextToken: 0,
+  pageThunks: new Object,
+
+  emitHistoryIframe: function()
+  {
+    document.write("<iframe style='position:absolute;top:-10000;left:-10000;width:1px;height:1px;'" +
+                   "id='BackButtonDetection' src='blank.html?0'></iframe>");
+  },
+
+  stripChar: function(str, ch)
+  {
+    if(str && str.charAt(0) == ch)
+      return str.substr(1);
+    return str;
+  },
+  
+  iframeLoaded: function(search)
+  {
+    var currentToken = new Number(JwacsLib.stripChar(search, '?'));
+    
+    // First handle the reload case to ensure that we never get conflicting hashes
+    if(currentToken >= JwacsLib.nextToken)
+      JwacsLib.nextToken = currentToken + 1;
+
+    // Ensure that there is a thunk for the current page no matter what
+    if(!JwacsLib.pageThunks[currentToken])
+      JwacsLib.pageThunks[currentToken] = function() { main(); };
+
+    // Execute the thunk associated with this spot in the history
+    JwacsLib.pageThunks[currentToken]();
+  },
+
+  newPage: function(title)
+  {
+    var token = JwacsLib.nextToken++;
+    var k = function_continuation;
+    JwacsLib.pageThunks[token] = function() { document.title = title; resume k; };
+    var iframe = document.getElementById('BackButtonDetection');
+    iframe.src = 'blank.html?' + token;
+  }
+};
+
