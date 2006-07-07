@@ -250,7 +250,7 @@
 
 ;;;; ======= Exported API ==========================================================================
 
-(defun build-app (main-module-path &key template-path output-path prefix-lookup runtime-uri)
+(defun build-app (main-module-path &key template-path-arg output-path-arg prefix-lookup runtime-uri)
   "Build a wrapper html file for a jwacs application"
   (flet ((get-path (param-path path-name path-type)
            "If PARAM-PATH is non-NIL, return it.
@@ -259,8 +259,8 @@
              (merge-pathnames (make-pathname :name path-name :type path-type)
                               main-module-path)
              param-path)))
-    (let ((template-path (get-path template-path nil "template"))
-          (output-path (get-path output-path nil "html"))
+    (let ((template-path (get-path template-path-arg nil "template"))
+          (output-path (get-path output-path-arg nil "html"))
           (bootstrap-path (get-path nil "bootstrap" "html"))
           (runtime-module (if (null runtime-uri)
                             (make-module :type 'js
@@ -272,12 +272,12 @@
 
       ;; If no template file exists, generate one
       (when (null (probe-file template-path))
-        (unless (probe-file bootstrap-path)
-          (with-open-file (out template-path :direction :output)
+        (with-open-file (out template-path :direction :output)
             (format out "~A" *default-template*))
+        (unless (probe-file bootstrap-path)
           (with-open-file (out bootstrap-path :direction :output)
-            (format out "~A" *default-bootframe*))))
-
+          (format out "~A" *default-bootframe*))))
+      
       ;; If no runtime file exists, generate one
 ;TEST      (when (null (probe-file (module-path runtime-module)))
       (when t
