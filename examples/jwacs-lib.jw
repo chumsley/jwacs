@@ -8,6 +8,7 @@ var JwacsLib =
   nextToken: 0,
   pageThunks: new Object,
 
+  //// IFRAME-based back-button handling
   emitHistoryIframe: function()
   {
     document.write("<iframe style='position:absolute;top:-10000;left:-10000;width:1px;height:1px;'" +
@@ -44,6 +45,41 @@ var JwacsLib =
     JwacsLib.pageThunks[token] = function() { document.title = title; resume k; };
     var iframe = document.getElementById('BackButtonDetection');
     iframe.src = 'blank.html?' + token;
+  },
+
+  //// Faux-synchronous server-data fetching
+  getHttpObj: function()
+  {
+    try
+    {
+      var http = new XMLHttpRequest;
+      if(http != null)
+        return http;
+    }
+    catch(e)
+    { }
+
+    return new ActiveXObject("Msxml2.XMLHTTP");
+  },
+
+  fetchData: function(method, url)
+  {
+    var http = JwacsLib.getHttpObj();
+    var k = function_continuation;
+
+    http.onreadystatechange = function()
+    {
+      if(http.readyState == 4)
+      {
+        resume k <- http.responseText;
+      }
+    };
+
+    //TODO throw an exception into the continuation on error, timeout
+    
+    http.open(method, url);
+    http.send(null);
+    suspend;
   }
 };
 

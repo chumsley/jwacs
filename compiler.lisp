@@ -245,8 +245,8 @@
 (defparameter *default-template* (read-asdf-component-text '(:jwacs "default-template"))
   "The text of the default application template")
 
-(defparameter *default-bootframe* (read-asdf-component-text '(:jwacs "default-bootframe"))
-  "The text of the 'boot frame' file for the default application template")
+(defparameter *default-iframe* (read-asdf-component-text '(:jwacs "default-iframe"))
+  "The text of the hidden iframe for bookmark handling")
 
 ;;;; ======= Exported API ==========================================================================
 
@@ -261,7 +261,7 @@
              param-path)))
     (let ((template-path (get-path template-path-arg nil "template"))
           (output-path (get-path output-path-arg nil "html"))
-          (bootstrap-path (get-path nil "bootstrap" "html"))
+          (iframe-path (get-path nil "blank" "html"))
           (runtime-module (if (null runtime-uri)
                             (make-module :type 'js
                                          :path (get-path nil "jw-rt" "js")
@@ -271,12 +271,13 @@
                                          :uri runtime-uri))))
 
       ;; If no template file exists, generate one
-      (when (null (probe-file template-path))
+      (unless (probe-file template-path)
         (with-open-file (out template-path :direction :output)
-            (format out "~A" *default-template*))
-        (unless (probe-file bootstrap-path)
-          (with-open-file (out bootstrap-path :direction :output)
-          (format out "~A" *default-bootframe*))))
+            (format out "~A" *default-template*)))
+
+      (unless (probe-file iframe-path)
+        (with-open-file (out iframe-path :direction :output)
+          (format out "~A" *default-iframe*)))
       
       ;; If no runtime file exists, generate one
 ;TEST      (when (null (probe-file (module-path runtime-module)))

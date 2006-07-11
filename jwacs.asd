@@ -58,7 +58,7 @@
                ;;TODO Should these three non-Lisp files go into a separate module?
                (:js-file "jw-runtime")
                (:html-file "default-template")
-               (:html-file "default-bootframe")
+               (:html-file "default-iframe")
                (:file "package")
                (:file "general-utilities")
                (:file "lexer-macros")
