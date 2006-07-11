@@ -1,0 +1,340 @@
+//// CalendarMark2.jw
+///
+/// A client-based implemenetation of a simple web-calendar in jwacs.
+import "prototype.js";
+import "jwacs-lib.jw";
+
+JwacsLib.emitHistoryIframe();
+
+//======= Global data and main program =============================================================
+var currentDate;
+var firstDay;
+var finalDay;
+
+//TODO DOM-based drawing?
+function main()
+{
+  var date = new Date;
+
+//TODO after we switch to RSH-like history management
+//   if(!isNaN(args.month))
+//     date.setMonth(args.month - 1);
+//   if(!isNaN(args.year))
+//     date.setYear(args.year);
+
+  var year = date.getFullYear();
+  var month = date.getMonth();
+  
+  showCalendarScreen(year, month);
+}
+
+function showCalendarScreen(year, month)
+{
+  var output = "";
+  output += "<h2 id='monthTitle'>" + monthNames[month] + " " + year + "</div>";
+  output += calcNavigationLinks(year, month);
+  output += calcMonthHtml(year, month);
+  output += calcNavigationLinks(year, month);
+  output += calcBottomControls(year, month);
+  
+  $('contentDiv').innerHTML = output;
+
+  var events = readEvents(year, month);
+  for(var i = 0; i < events.length; i++)
+    showEvent(events[i]);
+}
+
+/// Converts text containing rows of CSV data into an Array of Objects
+function unpackRows(text)
+{
+	var result = new Array;
+	if(text != null && text != undefined)
+	{
+		lines = text.split(/\r?\n/);
+		if(lines && lines.length > 1)
+		{
+			// First line holds the field names
+			var headings = lines[0].split(",");
+			
+			// Each subsequent row is an object
+			var i;
+			for(i = 1; i < lines.length; i++)
+			{
+				var line = lines[i];
+				var fields = line.split(",");
+				if(fields && fields.length > 0)
+				{
+					var obj = new Object;
+					for(var j = 0; j < fields.length; j++)
+					{
+						obj[unescape(headings[j])] = unescape(fields[j]);
+					}
+					result[result.length] = obj;
+				}
+			}
+		}
+	}
+
+	return result;
+}
+
+function pad(num, width)
+{
+	var ret = new String(num);
+	
+	while(ret.length < width)
+		ret = "0" + ret;
+	
+	return ret;
+}
+
+//// ======= Date handling =========================================================================
+
+var dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+var monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+function strToDate(str)
+{
+	var components = str.split("-");
+	var yyyy = new Number(components[0]);
+	var mm = new Number(components[1]);
+	var dd = new Number(components[2]);
+	
+	return new Date(yyyy, mm - 1, dd);
+}
+
+function dateToStr(date)
+{
+	return date.getFullYear() + "-" + pad(date.getMonth() + 1, 2) + "-" + pad(date.getDate(), 2);
+}
+
+function equalDates(date1, date2)
+{
+	return date1.getFullYear() == date2.getFullYear() &&
+				 date1.getMonth() == date2.getMonth() &&
+				 date1.getDate() == date2.getDate();
+}
+
+/// Returns the last day of month `month` in year `year`
+function lastDay(year, month)
+{
+	var now = new Date;
+	var yyyy = new Number(year);
+	var mm = new Number(month);
+	
+	if(isNaN(yyyy) || yyyy < 1901)
+		yyyy = now.getFullYear();
+		
+	if(isNaN(mm) || mm < 1 || mm > 12)
+		mm = now.getMonth() + 1;
+		
+	var dd = 28;
+	var testDate = new Date(yyyy, mm - 1, dd);
+	while(testDate.getMonth() == mm - 1)
+	{
+		dd++;
+		testDate = new Date(yyyy, mm - 1, dd);
+	}
+	
+	return dd - 1;
+}
+
+// Number of rows required to display month
+function rowsRequired(year, month)
+{
+	var first = new Date(year, month, 1);
+  
+	// February
+	if(first.getMonth() == 1)
+	{
+		return 5;
+	}
+	
+	var last = new Date(first.getTime());
+	last.setDate(31);
+	
+	// 31-day months
+	if(last.getDate() == 31)
+	{
+		if(first.getDay() == 5 || first.getDay() == 6)
+			return 6;
+		else
+			return 5;
+	}
+	else
+	{
+		if(first.getDay() == 6)
+			return 6;
+		else
+			return 5;
+	}
+}
+
+//// ======= Drawing ===============================================================================
+
+function calcNavigationLinks(year, month)
+{
+  var output = "";
+
+  var prev = new Date(year, month - 1, 1);
+  var next = new Date(year, month + 1, 1);
+
+  output += "<table width='90%' align='center' border='0px'><tr>";
+  output +=
+    "<td><a class='navLink'>&lt;--- " +
+    monthNames[prev.getMonth()] + " " + prev.getFullYear() +
+    "</a></td>";
+  output +=
+    "<td align='right'><a class='navLink'>" +
+    monthNames[next.getMonth()] + " " + next.getFullYear() +
+    " ---&gt;"+
+    "</a></td>";
+  output += "</tr></table>";
+
+  return output;
+}
+
+function calcBottomControls(year, month)
+{
+  var output = "";
+
+  output = "<table width='90%' align='center' border='0px'><tr>";
+  output += "<td><a class='navLink'>Add new event</a></td>";
+  output += "<td align='right'><form id='jumpForm'>";
+
+  output += "<select id='jumpMonth'>";
+  for(var m = 0; m < 12; m++)
+  {
+    output += "<option value = '" + m + "'";
+    if(m == month)
+      output += " selected";
+    output += ">" + monthNames[m] + "</option>";
+  }
+  output += "</select>";
+
+  output += "<input id='jumpYear' size='4' value='" + year + "'>";
+  output += "</form></td></tr></table>";
+
+  return output;
+}
+      
+function calcMonthHtml(year, month)
+{
+  var output = "";
+
+  output += "<table align='center' id='monthTable'>";
+
+	var row=0;
+	var col=0;
+
+	//// Headers
+	output += "<tr>";
+	for(col=0; col < 7; col++)
+	{
+		output += "<th>" + dayNames[col] + "</th>";
+	}
+	output += "</tr>";
+  
+	//// Cells
+
+  // Back up from the first day of the month to a Sunday
+  var d = new Date(year, month, 1);
+  while(d.getDay() != 0)
+  {
+    d.setDate(d.getDate() - 1);
+  }
+
+  var rowCount = rowsRequired(year, month);
+  for(row=0; row < rowCount; row++)
+	{
+		output += "<tr class='dataRow'>";
+		for(col = 0; col < 7; col++)
+		{
+			var idx = row * 7 + col;
+			output += calcDayHtml(d, month);
+      d.setDate(d.getDate() + 1);
+		}
+		output += "</tr>";
+	}
+	output += "</table>";
+
+  return output;
+}
+
+// Calculate a fragment of HTML that represents a day cell in the month table
+function calcDayHtml(date, currentMonth)
+{
+  var output = "<td id='" + dateToStr(date) + "' ";
+
+  if(currentMonth == date.getMonth())
+    output += "class='sameMonthDay'";
+  else
+    output += "class='otherMonthDay'";
+
+  output += ">";
+  
+  output += "<div class='dayHeader'>";
+  if(equalDates(date, new Date))
+  {
+    output += "<span class='todayDay'>";
+    output += date.getDate();
+    output += "</span>";
+  }
+  else
+  {
+    output += date.getDate();
+  }
+
+  output += "</div>";
+  output += "</td>";
+  
+  return output;
+}
+  
+function showEvent(event)
+{
+  var eventID = 'event' + event.id;
+  var cellID = event.date;
+
+  // If the date that this event occurs on is not visible, just bail
+  var target = $(event.date);
+  if(!target)
+    return;
+  
+  var eventBox = document.createElement("DIV");
+  eventBox.className = "eventBox";
+  eventBox.id = eventID;
+  eventBox.innerHTML = event.desc.escapeHTML();
+
+  var existing = $('event' + event.id);
+  if(existing)
+  {
+    // If we're changing but staying in the same day, then just replace the old node
+    if(existing.parentNode.id == cellID)
+      existing.parentNode.replaceChild(eventBox, existing);
+
+    // Otherwise we're changing days, so remove the old node and create a new one under the new day
+    else
+    {
+      existing.parentNode.removeChild(existing);
+      target.appendChild(eventBox);
+    }
+  }
+  else
+    target.appendChild(eventBox);
+}
+
+// ======= Server calls ============================================================================
+function readEvents(year, month)
+{
+  //TODO Do this properly (ie, read an entire rectangular month, not just the calendar month)
+  var q = "events.txt" +
+    "?s=" + year + "-" + pad(month + 1, 2) + "-01" +
+    "?e=" + year + "-" + pad(month + 1, 2) + "-30";
+
+  alert(q);
+  var text = JwacsLib.fetchData("GET", q);
+
+  return unpackRows(text);
+}
+    

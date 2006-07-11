@@ -1,0 +1,86 @@
+h2#monthTitle
+{
+  margin-top: 0pt;
+  margin-bottom: 6pt;
+  margin-left: 5%;
+  text-align: left;
+  font-family: Garamond, Times New Roman, serif;
+  font-weight: bold;
+  font-size: 30pt;
+}      
+
+a.navLink
+{
+  color: blue;
+  cursor: pointer; 
+}
+
+table#monthTable
+{
+  width: 90%;
+  align: center;
+  border-collapse: collapse;
+  border: 1px solid #C0C0C0;
+  min-height: 600px;
+}
+
+table#monthTable td
+{
+  width: 14%;
+  padding: 2px 2px 2px 2px;
+  border: 1px solid #C0C0C0;
+  vertical-align: top;
+}
+
+table#monthTable th
+{
+  padding: 2px 2px 2px 2px;
+  border: 1px solid #C0C0C0;
+}
+
+tr.dataRow
+{
+  height: 5em;
+}
+
+div.dayHeader
+{
+  width: 100%;
+  text-align: right;
+}
+
+td.sameMonthDay div.dayHeader
+{
+  font-weight: bold;
+}
+
+td.otherMonthDay div.dayHeader
+{
+  color: gray;
+}
+
+span.todayDay
+{
+  border: 1px solid red; 
+  padding:2px 2px 2px 2px;
+}
+
+div.eventBox
+{
+  margin-bottom: 4px;
+  cursor: pointer;
+}
+
+td.sameMonthDay div.eventBox
+{
+  border: solid 1px #ACAC62;
+  background-color: #EAEAD7;
+  color: blue;
+}
+
+td.otherMonthDay div.eventBox
+{
+  border: solid 1px #E0E0E0;
+  background-color: #F0F0F0;
+  color: #888888;
+}

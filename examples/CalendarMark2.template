@@ -1,0 +1,10 @@
+<html>
+<head>
+  <title>Calendar</title>
+  <% jwacs_imports %>
+  <link href='CalendarMark2.css' type='text/css' rel='stylesheet'>
+</head>
+<body>
+<div id='contentDiv'><i>Loading...</i></div>
+</body>
+</html>
