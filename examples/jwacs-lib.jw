@@ -5,15 +5,10 @@
 // Namespace
 var JwacsLib =
 {
+  //// RSH-like history management
   nextToken: 0,
-  pageThunks: new Object,
-
-  //// IFRAME-based back-button handling
-  emitHistoryIframe: function()
-  {
-    document.write("<iframe style='position:absolute;top:-10000;left:-10000;width:1px;height:1px;'" +
-                   "id='BackButtonDetection' src='blank.html?0'></iframe>");
-  },
+  pageThunks: new Object, // Lookup from hash to thunk
+  currentHash: new Object, // So that it won't be equal to any other value on inital load
 
   stripChar: function(str, ch)
   {
@@ -22,29 +17,144 @@ var JwacsLib =
     return str;
   },
   
-  iframeLoaded: function(search)
+  stripHash: function(str)
   {
-    var currentToken = new Number(JwacsLib.stripChar(search, '?'));
-    
-    // First handle the reload case to ensure that we never get conflicting hashes
-    if(currentToken >= JwacsLib.nextToken)
-      JwacsLib.nextToken = currentToken + 1;
-
-    // Ensure that there is a thunk for the current page no matter what
-    if(!JwacsLib.pageThunks[currentToken])
-      JwacsLib.pageThunks[currentToken] = function() { main(); };
-
-    // Execute the thunk associated with this spot in the history
-    JwacsLib.pageThunks[currentToken]();
+    return JwacsLib.stripChar(str, '#');
   },
 
-  newPage: function(title)
+  stripToken: function(str)
   {
-    var token = JwacsLib.nextToken++;
+    if(!str || typeof str != "string")
+      return str;
+    return str.replace(/\|\d+$/, "");
+  },
+
+  getToken: function(str)
+  {
+    if(!str || typeof str != "string")
+      return 0;
+    
+    var aMatch = str.match(/\|(\d+)$/);
+    if(aMatch)
+      return new Number(aMatch[1]);
+    else
+      return 0;
+  },
+
+  parsePageArgs: function()
+  {
+    var hash = JwacsLib.stripChar(window.location.hash, '#');
+    if(hash)
+    {
+      hash = JwacsLib.stripToken(hash);
+      hash = hash.split('&');
+    }
+    else
+      hash = [];
+  
+    var query = JwacsLib.stripChar(window.location.search, '?');
+    if(query)
+    {
+      query = JwacsLib.stripToken(query);  // ??? Necessary?
+      query = query.split('&');
+    }
+    else
+      query = [];
+
+    var result = {};
+    var i;
+    for(i = 0; i < query.length; i++)
+    {
+      var factor = query[i].split('=');
+      result[unescape(factor[0])] = unescape(factor[1]);
+    }
+
+    for(i = 0; i < hash.length; i++)
+    {
+      var factor = hash[i].split('=');
+      result[unescape(factor[0])] = unescape(factor[1]);
+    }
+
+    return result;
+  },
+
+  checkLocation: function()
+  {
+    var hash = JwacsLib.stripHash(document.location.hash);
+    if(hash == JwacsLib.currentHash)
+      return;
+
+    var token = JwacsLib.getToken(JwacsLib.currentHash);
+    if(token > JwacsLib.nextToken)
+      JwacsLib.nextToken = token + 1;
+
+    JwacsLib.currentHash = hash;
+
+    if(!JwacsLib.pageThunks[hash])
+      JwacsLib.pageThunks[hash] = function() { main(JwacsLib.parsePageArgs(hash)); };
+
+    JwacsLib.pageThunks[hash]();
+  },
+
+  initHistory: function()
+  {
+    if(JwacsLib.isInternetExplorer())
+    {
+      document.write("<iframe style='position:absolute;top:-10000;left:-10000;width:1px;height:1px;'" +
+                     "id='HistoryIFrame' src='blank.html?0'></iframe>");
+    }
+    setInterval(JwacsLib.checkLocation, 200);
+  },
+
+  isInternetExplorer: function()
+  {
+    var userAgent = navigator.userAgent.toLowerCase();
+    return (document.all && userAgent.indexOf('msie') != -1);
+  },
+  
+  newPage: function(title, hint)
+  {
+    function propertiesToString(obj)
+    {
+      var nextChar = "";
+      var result = "";
+      for(field in obj)
+      {
+        if(typeof obj[field] == "function")
+          continue; // skip all the methods added to the Object prototype by prototype
+        result += nextChar + escape(field) + "=" + escape(obj[field]);
+        nextChar = "&";
+      }
+      
+      return result;
+    }
+    
     var k = function_continuation;
-    JwacsLib.pageThunks[token] = function() { document.title = title; resume k; };
-    var iframe = document.getElementById('BackButtonDetection');
-    iframe.src = 'blank.html?' + token;
+    var hash = propertiesToString(hint) + '|' + (JwacsLib.nextToken++);
+    JwacsLib.pageThunks[hash] = function() { document.title = title; resume k; };
+    
+    // Setting the hash of the window does not add a history entry in Internet Explorer,
+    // so we call through a helper IFrame, which adds the history entry and then calls
+    // back to this frame to change the location bar.
+    if(JwacsLib.isInternetExplorer())
+    {
+      var iframe = document.getElementById('HistoryIFrame');
+      iframe.src = "blank.html?" + escape(hash); // !!! Note that we are double-escaping here
+    }
+    else
+      window.location.hash = '#' + hash;
+    
+    suspend;
+  },
+  
+  iframeLoaded: function(search)
+  {
+    var hash = JwacsLib.stripChar(search, '?');
+
+    // We double-escape the iframe hash because it contains a bar,
+    // so unescape the extra layer here to get the bar back, and the field values
+    // will be further unescaped by checkLocation.
+    window.location.hash = unescape(hash);
   },
 
   //// Faux-synchronous server-data fetching

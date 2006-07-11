@@ -1,22 +1,27 @@
 import "prototype.js";
 import "jwacs-lib.jw";
 
-JwacsLib.emitHistoryIframe();
+JwacsLib.initHistory();
 
 var counter;
-function main()
+function main(hint)
 {
-  counter = 0;
+  if(isNaN(hint.newVal))
+    counter = 0;
+  else
+    counter = new Number(hint.newVal);
+  
   $('contentDiv').innerHTML =
     "<div id=counter>" + counter + "</div>" +
     "<a href='javascript:click(-1);'>DN</a> " +
-    "<a href='javascript:click(1);'>UP</a> ";
+    "<a href='javascript:click(1);'>UP</a> " +
+    "<a href='#newVal=44'>44</a> <a href='#newVal=-21'>-21</a>";
 }
 
 function click(delta)
 {
   var newVal = counter + delta;
-  JwacsLib.newPage('Counter ' + newVal);
+  JwacsLib.newPage("Hash Counter " + newVal, {newVal: newVal});
   counter = newVal;
   draw();
 }
