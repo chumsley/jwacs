@@ -5,6 +5,21 @@
 // Namespace
 var JwacsLib =
 {
+  //// Handy utilities
+
+  // Sleep for `msec` milliseconds, and then continue executing on the GUI thread
+  sleep: function(msec)
+  {
+    var k = function_continuation;
+    setTimeout(function() { resume k; }, msec);
+  },
+
+  // Yield the thread to the browser process.  Execution will resume on the GUI thread.
+  yieldThread: function()
+  {
+    JwacsLib.sleep(0);
+  },
+
   //// RSH-like history management
   nextToken: 0,
   pageThunks: new Object, // Lookup from hash to thunk
