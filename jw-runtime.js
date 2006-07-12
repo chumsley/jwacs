@@ -244,19 +244,25 @@ function $call0(f, k, thisObj, a1, a2, a3, a4, a5, a6, a7, a8)
   {
     // As errors fly past we want to insert some extra information to make them less mysterious
     if(thisObj)
-    {
-      if(e.description)
-        throw new Error("Error during $call0 of " + thisObj + "." + f + ": " + e.description);
-      else
-        throw "Error during $call0 of " + thisObj + "." + f + ": " + e;
-    }
+      throw new Error("Error during $call0 of " + thisObj + "." + f + ": " + getExceptionDesc(e));
     else
-    {
-      if(e.description)
-        throw new Error("Error during $call0 of " + f + ": " + e.description);
-      else
-        throw "Error during $call0 of " + f + ": " + e;
-    }
+      throw new Error("Error during $call0 of " + f + ": " + getExceptionDesc(e));
+  }
+}
+
+// Convert an exception to a printable value
+function getExceptionDesc(e)
+{
+  try
+  {
+    if(e.description)
+      return e.description;
+    else
+      return e;
+  }
+  catch(x)
+  {
+    return e;
   }
 }
 
