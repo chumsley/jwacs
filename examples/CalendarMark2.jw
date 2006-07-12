@@ -4,7 +4,7 @@
 import "prototype.js";
 import "jwacs-lib.jw";
 
-JwacsLib.emitHistoryIframe();
+JwacsLib.initHistory();
 
 //======= Global data and main program =============================================================
 var currentDate;
@@ -12,15 +12,14 @@ var firstDay;
 var finalDay;
 
 //TODO DOM-based drawing?
-function main()
+function main(args)
 {
   var date = new Date;
 
-//TODO after we switch to RSH-like history management
-//   if(!isNaN(args.month))
-//     date.setMonth(args.month - 1);
-//   if(!isNaN(args.year))
-//     date.setYear(args.year);
+  if(!isNaN(args.month))
+    date.setMonth(args.month - 1);
+  if(!isNaN(args.year))
+    date.setYear(args.year);
 
   var year = date.getFullYear();
   var month = date.getMonth();
@@ -30,6 +29,8 @@ function main()
 
 function showCalendarScreen(year, month)
 {
+  document.title = monthNames[month] + " " + year;
+
   var output = "";
   output += "<h2 id='monthTitle'>" + monthNames[month] + " " + year + "</div>";
   output += calcNavigationLinks(year, month);
@@ -39,7 +40,15 @@ function showCalendarScreen(year, month)
   
   $('contentDiv').innerHTML = output;
 
-  var events = readEvents(year, month);
+  // Figure out the start and end days of this month's rectangle
+  var s = new Date(year, month, 1);
+  while(s.getDay() != 0)
+    s.setDate(s.getDate() - 1);
+  var e = new Date(year, month, lastDay(year, month));
+  while(e.getDay() != 6)
+    e.setDate(e.getDate() + 1);
+    
+  var events = readEvents(s, e);
   for(var i = 0; i < events.length; i++)
     showEvent(events[i]);
 }
@@ -95,12 +104,19 @@ var monthNames = ["January", "February", "March", "April", "May", "June", "July"
 
 function strToDate(str)
 {
-	var components = str.split("-");
-	var yyyy = new Number(components[0]);
-	var mm = new Number(components[1]);
-	var dd = new Number(components[2]);
+  try
+  {
+    var components = str.split("-");
+    var yyyy = new Number(components[0]);
+    var mm = new Number(components[1]);
+    var dd = new Number(components[2]);
 	
-	return new Date(yyyy, mm - 1, dd);
+    return new Date(yyyy, mm - 1, dd);
+  }
+  catch(e)
+  {
+    throw "error in strToDate(" + str + "):\n" + e;
+  }
 }
 
 function dateToStr(date)
@@ -181,11 +197,14 @@ function calcNavigationLinks(year, month)
 
   output += "<table width='90%' align='center' border='0px'><tr>";
   output +=
-    "<td><a class='navLink'>&lt;--- " +
+    "<td><a class='navLink' " +
+    "onClick='jump(" + prev.getFullYear() + "," + prev.getMonth() + ");'>" +
+    "&lt;--- " +
     monthNames[prev.getMonth()] + " " + prev.getFullYear() +
     "</a></td>";
   output +=
-    "<td align='right'><a class='navLink'>" +
+    "<td align='right'><a class='navLink' " +
+    "onClick='jump(" + next.getFullYear() + "," + next.getMonth() + ");'>" +
     monthNames[next.getMonth()] + " " + next.getFullYear() +
     " ---&gt;"+
     "</a></td>";
@@ -199,10 +218,10 @@ function calcBottomControls(year, month)
   var output = "";
 
   output = "<table width='90%' align='center' border='0px'><tr>";
-  output += "<td><a class='navLink'>Add new event</a></td>";
-  output += "<td align='right'><form id='jumpForm'>";
+  output += "<td><a onclick='eventEdit(this);' class='navLink'>Add new event</a></td>";
+  output += "<td align='right'><form id='jumpForm' action='javascript: jumpFormSubmitted();'>";
 
-  output += "<select id='jumpMonth'>";
+  output += "<select id='jumpMonth' onChange='jumpFormSubmitted(); return true;'>";
   for(var m = 0; m < 12; m++)
   {
     output += "<option value = '" + m + "'";
@@ -264,7 +283,7 @@ function calcMonthHtml(year, month)
 // Calculate a fragment of HTML that represents a day cell in the month table
 function calcDayHtml(date, currentMonth)
 {
-  var output = "<td id='" + dateToStr(date) + "' ";
+  var output = "<td ondblclick='eventEdit(this);' id='" + dateToStr(date) + "' ";
 
   if(currentMonth == date.getMonth())
     output += "class='sameMonthDay'";
@@ -297,7 +316,7 @@ function showEvent(event)
   var cellID = event.date;
 
   // If the date that this event occurs on is not visible, just bail
-  var target = $(event.date);
+  var target = $(cellID);
   if(!target)
     return;
   
@@ -305,7 +324,8 @@ function showEvent(event)
   eventBox.className = "eventBox";
   eventBox.id = eventID;
   eventBox.innerHTML = event.desc.escapeHTML();
-
+  eventBox.onclick = function() { eventEdit(this); };
+    
   var existing = $('event' + event.id);
   if(existing)
   {
@@ -324,17 +344,286 @@ function showEvent(event)
     target.appendChild(eventBox);
 }
 
-// ======= Server calls ============================================================================
-function readEvents(year, month)
+function addStatus(str)
 {
-  //TODO Do this properly (ie, read an entire rectangular month, not just the calendar month)
-  var q = "events.txt" +
-    "?s=" + year + "-" + pad(month + 1, 2) + "-01" +
-    "?e=" + year + "-" + pad(month + 1, 2) + "-30";
-
-  alert(q);
-  var text = JwacsLib.fetchData("GET", q);
-
-  return unpackRows(text);
+  var statusDiv = $('StatusDisplay');
+  if(!statusDiv)
+    return;
+  
+  statusDiv.innerHTML = str.escapeHTML();
+  statusDiv.style.display = '';
 }
-    
+
+function removeStatus(str)
+{
+  var statusDiv = $('StatusDisplay');
+  if(!statusDiv)
+    return;
+  
+  statusDiv.style.display = 'none';
+}
+
+function calcEventEditHtml(event)
+{
+  var output = "";
+  var pageLoaded = 'window.focus(); document.getElementById("eventDesc").focus();';
+  output += "<body style='width:90%' onload='" + pageLoaded + "'>";
+
+  // Draw the title
+  output += "<span style='text-align:left;font-family:Verdana,Arial;font-size:16pt;'>";
+  if(event.desc)
+  {
+    output += "Edit event</span> ";
+    output += "<small>[<a style='color:blue; cursor: pointer;' " +
+      "onclick='window.opener.maybeDelete(window, document);'>" +
+      "delete</a>]</small>";
+  }
+  else
+    output += "Add new event</span>";
+
+	output += "<form id='eventEditForm' action='javascript:window.opener.eventEditFormSubmitted(window, document);'>";
+
+  // Save the id, if any
+  output += "<input id='eventID' type='hidden' value='";
+  if(event.id)
+    output += event.id;
+  output += "'>";
+  
+	// draw the description
+	output += "<input id='eventDesc' type='text' size='50'";
+	if(event.desc)
+		output += 'value="' + event.desc.escapeHTML() + '"';
+	output += ">";
+
+	// draw the dates
+	output += "<br>";
+  var eventDate = strToDate(event.date);
+  output += "<input id='eventYear' type='text' size='4' value='" + eventDate.getFullYear() + "'>";
+  output += "-";
+  output += "<input id='eventMonth' type='text' size='2' value='" + (eventDate.getMonth() + 1) + "'>";
+  output += "-";
+  output += "<input id='eventDay' type='text' size='2' value='" + eventDate.getDate() + "'>";
+  output += "<small><i>yyyy-mm-dd</i></small>";
+
+	// draw the notes area
+	output += "<p>";
+	output += "<b>Notes</b><br>";
+	output += "<textarea id='eventNotes' cols='40' rows='10'>";
+	if(event.notes)
+		output += event.notes.escapeHTML();
+	output +=  "</textarea>";
+
+	output += "<input type='submit' value='save'>";
+	output += "</form>";
+  output += "</body>";
+  
+	return output;
+}
+
+// ======= Server calls ============================================================================
+
+//TODO These functions are all extremely similar.  Surely they can be factored into one or two
+// calls.
+
+function readEvents(s, e)
+{
+  var q = "/calendar/event-query" +
+      "?s=" + dateToStr(s) +
+      "&e=" + dateToStr(e);
+  var status = "Fetching events";
+  
+  try
+  {
+    addStatus(status);
+    var text = JwacsLib.fetchData("GET", q);
+    removeStatus(status);
+    return unpackRows(text);
+  }
+  catch(e)
+  {
+    removeStatus(status);
+    alert("sorry, the attempt to read event data failed");
+  }
+}
+
+function fetchEvent(eventID)
+{
+  var q = "/calendar/event-query" +
+    "?id=" + escape(eventID);
+  var status = "Fetching event #" + eventID;
+  
+  try
+  {
+    addStatus(status);
+    var text = JwacsLib.fetchData("GET", q);
+    removeStatus(status);
+    return unpackRows(text)[0];
+  }
+  catch(e)
+  {
+    removeStatus(status);
+    alert("sorry, the attempt to read event data failed");
+  }
+}
+
+function addEvent(event)
+{
+  var q = "/calendar/event-add" +
+    "?date=" + escape(event.date) +
+    "&desc=" + escape(event.desc) +
+    "&notes=" + escape(event.notes);
+  var status = "Saving new event";
+
+  try
+  {
+    addStatus(status);
+    var text = JwacsLib.fetchData("POST", q);
+    removeStatus(status);
+    return unpackRows(text)[0];
+  }
+  catch(e)
+  {
+    removeStatus(status);
+    alert("sorry, the attempt to save event data failed");
+  }
+}
+
+function updateEvent(event)
+{
+  var q = "/calendar/event-update" +
+    "?id=" + escape(event.id) +
+    "&date=" + escape(event.date) +
+    "&desc=" + escape(event.desc) +
+    "&notes=" + escape(event.notes);
+  var status = "Updating event #" + event.id;
+
+  try
+  {
+    addStatus(status);
+    var text = JwacsLib.fetchData("POST", q);
+    removeStatus(status);
+    return unpackRows(text)[0];
+  }
+  catch(e)
+  {
+    removeStatus(status);
+    alert("sorry, the attempt to update event data failed");
+  }
+}
+
+function deleteEvent(eventID)
+{
+  var q = "/calendar/event-del?id=" + eventID;
+  var status = "Deleting event #" + eventID;
+
+  try
+  {
+    addStatus(status);
+    var text = JwacsLib.fetchData("POST", q);
+    removeStatus(status);
+    return text == "OK";
+  }
+  catch(e)
+  {
+    removeStatus(status);
+    alert("sorry, the attempt to delete the event failed");
+  }
+}
+
+// ======= Event handlers =========================================================================
+function jump(year, month)
+{
+  var m = new Number(month);
+  JwacsLib.newPage(monthNames[m] + " " + year, {year: year, month: m + 1});
+  showCalendarScreen(year, m);
+}
+
+function jumpFormSubmitted()
+{
+  var year = $F('jumpYear');
+  var month = $F('jumpMonth');
+  jump(year, month);
+}
+
+function eventEdit(elm)
+{
+  //TODO Don't clobber the existing event if it's unsaved
+  var event = {date: dateToStr(new Date)};
+  if(elm.id)
+  {
+    var aMatch = elm.id.match(/^event(\d+)/);
+    if(aMatch)
+    {
+      // Edit event
+      event = fetchEvent(aMatch[1]);
+    }
+    else
+    {
+      // Add new event
+      event = {date: elm.id};
+    }
+  }
+
+	var child = window.open("about:blank", "addEvent", "width=400,height=500,toolbar=no,top=100,left=100");
+	var doc = child.document.open();
+  doc.write(calcEventEditHtml(event));
+  doc.close();
+  if(event.desc)
+    doc.title = "Edit event";
+  else
+    doc.title = "Add new event";
+}
+
+function eventEditFormSubmitted(child, doc)
+{
+  var eventID = doc.getElementById('eventID').value;
+  var eventDesc = doc.getElementById('eventDesc').value;
+  var eventDate = 
+    doc.getElementById('eventYear').value + "-" +
+    doc.getElementById('eventMonth').value + "-" +
+    doc.getElementById('eventDay').value;
+
+  var eventNotes = doc.getElementById('eventNotes').value;
+  //TODO: Validate
+
+  var updatedEvent;
+  if(eventID)
+    updatedEvent = updateEvent({id: eventID, date: eventDate, desc: eventDesc, notes: eventNotes});
+  else
+    updatedEvent = addEvent({date: eventDate, desc: eventDesc, notes: eventNotes});
+
+  showEvent(updatedEvent);
+  
+  // Firefox 1.0 doesn't seem to like it (and expresses this dislike by
+  // crashing) if you try to close the child window from an XHR response thread
+  // (which is where this code here executes, since addEvent and updateEvent are
+  // both faux-blocking calls that resume their continuations in the
+  // onReadyStateChange handler of an XHR object), so we add the yieldThread
+  // call to force ourselves back onto the GUI thread.
+  JwacsLib.yieldThread();
+  child.close();
+}
+
+function maybeDelete(child, doc)
+{
+  var desc = doc.getElementById('eventDesc').value;
+  var eventID = doc.getElementById('eventID').value;
+  
+  var shouldDelete = confirm("Really delete '" + desc + "'?");
+	if(shouldDelete)
+	{
+		deleteEvent(eventID);
+
+    var eventElm = $('event' + eventID);
+    if(eventElm)
+      eventElm.parentNode.removeChild(eventElm);
+    JwacsLib.yieldThread();
+    child.close();
+	}
+	else
+	{
+    child.focus();
+		doc.getElementById('eventNotes').focus();
+	}
+}
+

@@ -5,6 +5,7 @@
   <link href='CalendarMark2.css' type='text/css' rel='stylesheet'>
 </head>
 <body>
-<div id='contentDiv'><i>Loading...</i></div>
+  <div id='contentDiv'><i>Loading...</i></div>
+  <div id='StatusDisplay' style='display:none'></div>
 </body>
 </html>
