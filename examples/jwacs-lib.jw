@@ -21,10 +21,93 @@ var JwacsLib =
   },
 
   //// RSH-like history management
+  pageThunks: new Object,       // Lookup from hash to thunk
+  maxHistoryEntries: 50,        // Maximum number of historical thunks to keep in pageThunks
+                                //   (we only prune in newPage calls, so it is
+                                //   actually possible for the user to
+                                //   temporarily drive the size of pageThunks
+                                //   arbitrarily beyond this threshold)
+  generatedHashes: new Object,  // Lookup from hash to token of newPage-generated hashes
   nextToken: 0,
-  pageThunks: new Object, // Lookup from hash to thunk
-  currentHash: new Object, // So that it won't be equal to any other value on inital load
+  currentHash: new Object,      // Won't be equal to any other value on inital load
+  
+  initHistory: function(maxHistoryEntries)
+  {
+    if(!isNaN(maxHistoryEntries))
+      JwacsLib.maxHistoryEntries = maxHistoryEntries;
+    
+    if(JwacsLib.isInternetExplorer())
+    {
+      document.write("<iframe style='position:absolute;top:-10000;left:-10000;width:1px;height:1px;'" +
+                     "id='HistoryIFrame' src='blank.html?0'></iframe>");
+    }
 
+    var startTimerThunk = function()
+    {
+      setInterval(JwacsLib.checkLocation, 200);
+    };
+
+    if(window.onload)
+    {
+      var oldHandler = window.onload;
+      window.onload = function(event)
+      {
+        oldHandler(event);
+        startTimerThunk();
+      };
+    }
+    else
+      window.onload = startTimerThunk;
+
+//TODO This doesn't work because of some sort of issue with using `$call0` on `window`.
+// The identical code in (untransformed) prototype.js works fine, but I'm not yet sure that
+// I want jwacs-lib to depend on prototype.  The above code is almost as good.
+//     if (window.addEventListener)
+//       window.addEventListener("load", startTimerThunk);
+//     else if (window.attachEvent)
+//       window.attachEvent("onload", startTimerThunk);
+  },
+
+  newPage: function(title, hint)
+  {
+    function propertiesToString(obj)
+    {
+      var nextChar = "";
+      var result = "";
+      for(field in obj)
+      {
+        if(typeof obj[field] == "function")
+          continue; // skip all the methods added to the Object prototype by prototype
+        result += nextChar + escape(field) + "=" + escape(obj[field]);
+        nextChar = "&";
+      }
+      
+      return result;
+    }
+
+    // Prune the pageThunk list before proceeding
+    JwacsLib.prunePageThunks();
+    
+    var token = JwacsLib.nextToken++;
+    var k = function_continuation;
+    var hash = propertiesToString(hint) + '|' + token;
+    JwacsLib.generatedHashes[hash] = token;
+    JwacsLib.pageThunks[hash] = function() { document.title = title; resume k; };
+    
+    // Setting the hash of the window does not add a history entry in Internet Explorer,
+    // so we call through a helper IFrame, which adds the history entry and then calls
+    // back to this frame to change the location bar.
+    if(JwacsLib.isInternetExplorer())
+    {
+      var iframe = document.getElementById('HistoryIFrame');
+      iframe.src = "blank.html?" + escape(hash); // !!! Note that we are double-escaping here
+    }
+    else
+      window.location.hash = '#' + hash;
+    
+    suspend;
+  },
+  
   stripChar: function(str, ch)
   {
     if(str && str.charAt(0) == ch)
@@ -111,79 +194,67 @@ var JwacsLib =
     JwacsLib.pageThunks[hash]();
   },
 
-  initHistory: function()
-  {
-    if(JwacsLib.isInternetExplorer())
-    {
-      document.write("<iframe style='position:absolute;top:-10000;left:-10000;width:1px;height:1px;'" +
-                     "id='HistoryIFrame' src='blank.html?0'></iframe>");
-    }
-
-    var startTimerThunk = function()
-    {
-      setInterval(JwacsLib.checkLocation, 200);
-    };
-
-    if(window.onload)
-    {
-      var oldHandler = window.onload;
-      window.onload = function(event)
-      {
-        oldHandler(event);
-        startTimerThunk();
-      };
-    }
-    else
-      window.onload = startTimerThunk;
-
-//TODO This doesn't work because of some sort of issue with using `$call0` on `window`.
-// The identical code in (untransformed) prototype.js works fine, but I'm not yet sure that
-// I want jwacs-lib to depend on prototype.  The above code is almost as good.
-//     if (window.addEventListener)
-//       window.addEventListener("load", startTimerThunk);
-//     else if (window.attachEvent)
-//       window.attachEvent("onload", startTimerThunk);
-  },
-
   isInternetExplorer: function()
   {
     var userAgent = navigator.userAgent.toLowerCase();
     return (document.all && userAgent.indexOf('msie') != -1);
   },
   
-  newPage: function(title, hint)
+  prunePageThunks: function()
   {
-    function propertiesToString(obj)
+    // If we are generating a new page from somewhere in the back-button
+    // history, then everything in the forward-button history is no longer
+    // accessible.  Before we add to pageThunks, we want to flush all such
+    // thunks.  For now, due to issues with distinguishing between back/forward
+    // and user-entering of user-entered (ie, non-newPage-generated) URIs, we'll
+    // only flush newPage-generated thunks.
+    var currentToken = JwacsLib.getToken(JwacsLib.currentHash);
+    var dummyObj = new Object;  // For skipping prototype.js-added properties
+    var remainingHashes = new Array;
+    for(var h in JwacsLib.pageThunks)
     {
-      var nextChar = "";
-      var result = "";
-      for(field in obj)
+      if(dummyObj[h])
+        continue;
+
+      if(!isNaN(currentToken) &&
+         JwacsLib.generatedHashes[h] &&
+         JwacsLib.generatedHashes[h] > currentToken)
       {
-        if(typeof obj[field] == "function")
-          continue; // skip all the methods added to the Object prototype by prototype
-        result += nextChar + escape(field) + "=" + escape(obj[field]);
-        nextChar = "&";
+        delete JwacsLib.generatedHashes[h];
+        delete JwacsLib.pageThunks[h];
       }
-      
-      return result;
+      else
+        remainingHashes[remainingHashes.length] = h;
     }
-    
-    var k = function_continuation;
-    var hash = propertiesToString(hint) + '|' + (JwacsLib.nextToken++);
-    JwacsLib.pageThunks[hash] = function() { document.title = title; resume k; };
-    
-    // Setting the hash of the window does not add a history entry in Internet Explorer,
-    // so we call through a helper IFrame, which adds the history entry and then calls
-    // back to this frame to change the location bar.
-    if(JwacsLib.isInternetExplorer())
+  
+    // Even if we never use the back button, we want to keep the pageThunks map
+    // from growing without bound, so when it gets to a certain threshold prune
+    // out the oldest entry until we are under the threshold again.
+    if(remainingHashes.length > JwacsLib.maxHistoryEntries)
     {
-      var iframe = document.getElementById('HistoryIFrame');
-      iframe.src = "blank.html?" + escape(hash); // !!! Note that we are double-escaping here
+      remainingHashes.sort(function(l, r)
+                           {
+                             var lToken = JwacsLib.getToken(l);
+                             var rToken = JwacsLib.getToken(r);
+                             if(isNaN(lToken))
+                               lToken = -1;
+                             if(isNaN(rToken))
+                               rToken = -1;
+
+                             if(lToken < rToken)
+                               return -1;
+                             else if(rToken < lToken)
+                               return 1;
+                             else
+                               return 0;
+                           });
+      var numberToPrune = remainingHashes.length - JwacsLib.maxHistoryEntries;
+      for(var i = 0; i < numberToPrune; i++)
+      {
+        delete JwacsLib.pageThunks[remainingHashes[i]];
+        delete JwacsLib.generatedHashes[remainingHashes[i]];
+      }
     }
-    else
-      window.location.hash = '#' + hash;
-    
-    suspend;
   },
   
   iframeLoaded: function(search)

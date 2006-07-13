@@ -1,7 +1,7 @@
 import "prototype.js";
 import "jwacs-lib.jw";
 
-JwacsLib.initHistory();
+JwacsLib.initHistory(10);
 
 var counter;
 function main(hint)
@@ -15,7 +15,24 @@ function main(hint)
     "<div id=counter>" + counter + "</div>" +
     "<a href='javascript:click(-1);'>DN</a> " +
     "<a href='javascript:click(1);'>UP</a> " +
-    "<a href='#newVal=44'>44</a> <a href='#newVal=-21'>-21</a>";
+    "<a href='#newVal=44'>44</a> <a href='#newVal=-21'>-21</a>" +
+    "<p><tt>keyCount(pageThunks) = <span id='thunkSize'>" + keyCount(JwacsLib.pageThunks) +"</span></tt>" +
+    "<p id='provenancePara'><span style='color:orange;'>From user</span></p>";
+}
+
+function keyCount(obj)
+{
+  var count = 0;
+
+  var dummyObj = new Object;
+
+  for(var i in obj)
+  {
+    if(dummyObj[i])
+      continue;
+    count++;
+  }
+  return count;
 }
 
 function click(delta)
@@ -29,4 +46,6 @@ function click(delta)
 function draw()
 {
   $('counter').innerHTML = counter;
+  $('thunkSize').innerHTML = keyCount(JwacsLib.pageThunks);
+  $('provenancePara').innerHTML = "<span style='color:darkcyan;'>From newPage</span>";
 }
