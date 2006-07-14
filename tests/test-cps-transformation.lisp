@@ -905,6 +905,45 @@
           resume ifK$0;
       }"))
 
+(deftest cps/strip-var-decls/function-decl/2 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+      if(monthOK)
+      {
+        var JW74 = day < 1;
+        if(!JW74)
+          var JW73 = lastDay();
+      }
+      if(monthOK && (JW74 || day > JW73))
+        resume foo;")))
+  #.(parse "
+      var JW74;
+      var JW73;
+      var ifK$0 = function()
+      {
+        if(monthOK && (JW74 || day > JW73))
+          resume foo;
+        suspend;
+      };
+      if(monthOK)
+      {
+        JW74 = day < 1;
+        var ifK$2 = function()
+        {
+          resume ifK$0;
+        };
+        if(!JW74)
+          return lastDay(function(JW3)
+          {
+            JW73 = JW3;
+            resume ifK$2;
+          });
+        else
+          resume ifK$2;
+      }
+      else
+        resume ifK$0;"))   
+
 (deftest cps/strip-var-decls/function-expression/1 :notes cps
   (with-fresh-genvar
     (test-transform 'cps (parse "
@@ -1485,4 +1524,3 @@
         });
       }"))
         
-                    

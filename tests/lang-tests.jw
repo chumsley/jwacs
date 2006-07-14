@@ -51,6 +51,7 @@ function runTests()
     runTest("try-catch/5", testNativeThrows(), true);
     runTest("try-catch/6", globalContainsCaughtHello, "hello");
     runTest("try-catch/7", testCatchOfTailCall(54), 54);
+    runTest("strip-var-decls/1", regressionTestStripSimpleInitialization(), true);
   }
   catch(ex)
   {
@@ -494,3 +495,18 @@ var suspendBeforeSettingToTrue  = false;
 suspend;
 suspendBeforeSettingToTrue = true;
 alert("you should never see this");
+
+function regressionTestStripSimpleInitialization()
+{
+  var monthOK = true;
+  var day = 100;
+  function lastDay()
+  {
+    return 30;
+  }
+  
+  if(monthOK && (day < 1 || day > lastDay()))
+    return true;
+  return false;
+}
+

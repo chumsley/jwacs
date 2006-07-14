@@ -387,7 +387,10 @@
         ;; eg: var x = 20;
         (initializer
          (if escaping-reference
-           (tx-cps assignment-stmt statement-tail)
+           (tx-cps (make-binary-operator :op-symbol :assign
+                                         :left-arg (make-identifier :name name)
+                                         :right-arg initializer)
+                   statement-tail) 
            (multiple-value-bind (new-decl consumed)
                (tx-cps (car var-decls) statement-tail)
              (values (make-var-decl-statement :var-decls (list new-decl))
