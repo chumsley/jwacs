@@ -335,7 +335,7 @@
 (defmethod pretty-print ((elm break-statement) s)
   (format s "break")
   (when (break-statement-target-label elm)
-    (format s " ") ;opt-space?
+    (format s " ")
     (pretty-print (break-statement-target-label elm) s))
   (format s ";"))
 
@@ -349,6 +349,9 @@
 (defmethod pretty-print ((elm throw-statement) s)
   (format s "throw ")
   (pretty-print (throw-statement-value elm) s)
+  (when (throw-statement-target elm)
+    (format s "~A->~A" *opt-space* *opt-space*)
+    (pretty-print (throw-statement-target elm) s))
   (format s ";"))
 
 (defmethod pretty-print ((elm switch) s)

@@ -51,6 +51,7 @@ function runTests()
     runTest("try-catch/5", testNativeThrows(), true);
     runTest("try-catch/6", globalContainsCaughtHello, "hello");
     runTest("try-catch/7", testCatchOfTailCall(54), 54);
+    runTest("try-catch/8", throwIntoContinuation(), true);
     runTest("strip-var-decls/1", regressionTestStripSimpleInitialization(), true);
   }
   catch(ex)
@@ -510,3 +511,25 @@ function regressionTestStripSimpleInitialization()
   return false;
 }
 
+function throwIntoContinuation()
+{
+  var k;
+  function throwsIntoK()
+  {
+    k = function_continuation;
+    setTimeout(function() {
+                 throw 42 -> k;
+               }, 25);
+    suspend;
+  }
+
+  try
+  {
+    throwsIntoK();
+    return false;
+  }
+  catch(e)
+  {
+    return e == 42;
+  }
+}

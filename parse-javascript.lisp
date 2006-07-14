@@ -521,7 +521,8 @@
      elm))
 
   ((throw-statement :throw expression :semicolon) (make-throw-statement :value $2))
-
+  ((throw-statement :throw expression :right-arrow expression :semicolon) (make-throw-statement :value $2 :target $4))
+  
   ((try-statement :try block catch) (make-try :body (statement-block-statements $2) :catch-clause $3))
   ((try-statement :try block finally) (make-try :body (statement-block-statements $2) :finally-clause $3))
   ((try-statement :try block catch finally) (make-try :body (statement-block-statements $2) :catch-clause $3 :finally-clause $4))

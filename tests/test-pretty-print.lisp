@@ -528,4 +528,12 @@ suspend;")
 {
   return null;
 })()")
-                               
+
+(deftest pretty-print/throw/1 :notes pretty-print
+  (pretty-string (make-throw-statement :value foo-id))
+  "throw foo;")
+
+(deftest pretty-print/throw/2 :notes pretty-print
+  (pretty-string (make-throw-statement :value foo-id
+                                       :target bar-id))
+  "throw foo -> bar;")

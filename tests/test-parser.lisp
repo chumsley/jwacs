@@ -301,7 +301,12 @@
 (deftest parser/throw-statement/1 :notes parser
   (parse-only "throw -1;")
   (#S(throw-statement :value #S(unary-operator :op-symbol :unary-minus
-                                             :arg #S(numeric-literal :value 1)))))
+                                               :arg #S(numeric-literal :value 1)))))
+
+(deftest parser/throw-statement/2 :notes parser
+  (parse-only "throw 1 -> k;")
+  (#S(throw-statement :value #S(numeric-literal :value 1)
+                      :target #S(identifier :name "k"))))
 
 (deftest parser/try/1 :notes parser
   (parse-only "try { throw x++; } catch(y) {return y;}")

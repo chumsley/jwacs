@@ -139,7 +139,8 @@
   (body nil :type (or (cons source-element) null)))
 
 (defelement (throw-statement (:include source-element))
-  (value nil :type (or expression null)))
+  (value nil :type (or expression null))
+  (target nil :type (or expression null)))
 
 (defelement (try (:include source-element))
   (body nil :type (or (cons source-element) null))
@@ -187,8 +188,8 @@
 (defelement (suspend-statement (:include source-element)))
 
 (defelement (resume-statement (:include source-element))
-  (target nil :type source-element)
-  (arg nil :type (or source-element null)))
+  (target nil :type expression)
+  (arg nil :type (or expression null)))
 
 (defelement (import-decl (:include source-element))
   (type-symbol nil :type symbol)

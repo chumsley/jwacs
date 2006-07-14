@@ -113,5 +113,18 @@
        :arg (make-boxed-thunk
              (make-return-statement :arg new-call)
              *replace-handler-stack-prop*
-             (make-property-access :target target
+             (make-property-access :target (transform 'trampoline target)
                                    :field *handler-stack-k-prop*))))))
+
+;;;; ------- throwing into a continuation ----------------------------------------------------------
+
+(defmethod transform ((xform (eql 'trampoline)) (elm throw-statement))
+  (with-slots (value target) elm
+    (if target
+      (make-return-statement
+       :arg (make-boxed-thunk
+             (make-throw-statement :value (transform 'trampoline value))
+             *replace-handler-stack-prop*
+             (make-property-access :target (transform 'trampoline target)
+                                   :field *handler-stack-k-prop*)))
+      (make-throw-statement :value (transform 'trampoline value)))))

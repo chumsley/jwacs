@@ -118,3 +118,17 @@
   #.(parse "
       return {replaceHandlers: foo.$exHandlers, done: false, thunk: function($e) {
         return foo(bar); }};"))
+
+(deftest trampoline/throw/1 :notes trampoline
+  (transform 'trampoline (parse "
+      throw 100;"))
+  #.(parse "
+      throw 100;"))
+
+(deftest trampoline/throw/2 :notes trampoline
+  (test-transform 'trampoline (parse "
+      throw 100 -> k;"))
+  #.(parse "
+      return {replaceHandlers: k.$exHandlers, done: false, thunk: function($e) {
+        throw 100;
+      }};"))
