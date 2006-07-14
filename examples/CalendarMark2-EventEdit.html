@@ -1,0 +1,31 @@
+<html>
+<body style='width:90%' onload='window.focus();'>
+  <span id='eventWindowTitle' style='text-align:left;font-family:Verdana,Arial;font-size:16pt;'></span> 
+  <small id='eventDeleteLink' style='display: none;'>[
+    <a style='color:blue; cursor: pointer;' 
+       onclick='window.opener.maybeDelete(window, document);'>
+      delete
+    </a>
+  ]</small>
+  
+  <form id='eventEditForm' action='javascript:window.opener.eventEditFormSubmitted(window, document);'>
+    <input id='eventID' type='hidden'>
+    <div id='eventDesc-error' style='display: none; color: red; font-family: Arial; font-size: small;'></div>
+    <input id='eventDesc' type='text' size='50'>
+    <div id='eventYear-error' style='display: none; color: red; font-family: Arial; font-size: small;'></div>
+    <div id='eventMonth-error' style='display: none; color: red; font-family: Arial; font-size: small;'></div>
+    <div id='eventDay-error' style='display: none; color: red; font-family: Arial; font-size: small;'></div>
+    <input id='eventYear' type='text' size='4'> -
+    <input id='eventMonth' type='text' size='2'> -
+    <input id='eventDay' type='text' size='2'> <small><i>yyyy-mm-dd</i></small>
+    
+	  <p>
+	  <b>Notes</b><br>
+	  <textarea id='eventNotes' cols='40' rows='10'>
+	  </textarea>
+
+	  <input type='submit' value='save'>
+	</form>
+</body>
+</html>
+

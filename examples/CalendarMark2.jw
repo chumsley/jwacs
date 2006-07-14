@@ -131,7 +131,8 @@ function equalDates(date1, date2)
 				 date1.getDate() == date2.getDate();
 }
 
-/// Returns the last day of month `month` in year `year`
+/// Returns the last day of month `month` in year `year`.
+/// `month` should be 0-based.
 function lastDay(year, month)
 {
 	var now = new Date;
@@ -142,14 +143,14 @@ function lastDay(year, month)
 		yyyy = now.getFullYear();
 		
 	if(isNaN(mm) || mm < 1 || mm > 12)
-		mm = now.getMonth() + 1;
+		mm = now.getMonth() ;
 		
 	var dd = 28;
-	var testDate = new Date(yyyy, mm - 1, dd);
-	while(testDate.getMonth() == mm - 1)
+	var testDate = new Date(yyyy, mm, dd);
+	while(testDate.getMonth() == mm)
 	{
 		dd++;
-		testDate = new Date(yyyy, mm - 1, dd);
+		testDate = new Date(yyyy, mm, dd);
 	}
 	
 	return dd - 1;
@@ -315,18 +316,30 @@ function showEvent(event)
   var eventID = 'event' + event.id;
   var cellID = event.date;
 
-  // If the date that this event occurs on is not visible, just bail
+  var existing = $('event' + event.id);
   var target = $(cellID);
+
+  // If the event is currently visible, but its new date is not visible,
+  // then delete its element and bail.
+  if(existing && !target)
+  {
+    existing.parentNode.removeChild(existing);
+    return;
+  }
+
+  // If neither the new nor the old dates are visible, then just bail.
   if(!target)
     return;
   
+  // If we got this far, the target is definitely visible, and maybe there's an
+  // existing element kicking around somewhere.
   var eventBox = document.createElement("DIV");
   eventBox.className = "eventBox";
   eventBox.id = eventID;
-  eventBox.innerHTML = event.desc.escapeHTML();
+  if(event.desc)
+    eventBox.innerHTML = event.desc.escapeHTML();
   eventBox.onclick = function() { eventEdit(this); };
     
-  var existing = $('event' + event.id);
   if(existing)
   {
     // If we're changing but staying in the same day, then just replace the old node
@@ -365,59 +378,7 @@ function removeStatus(str)
 
 function calcEventEditHtml(event)
 {
-  var output = "";
-  var pageLoaded = 'window.focus(); document.getElementById("eventDesc").focus();';
-  output += "<body style='width:90%' onload='" + pageLoaded + "'>";
-
-  // Draw the title
-  output += "<span style='text-align:left;font-family:Verdana,Arial;font-size:16pt;'>";
-  if(event.desc)
-  {
-    output += "Edit event</span> ";
-    output += "<small>[<a style='color:blue; cursor: pointer;' " +
-      "onclick='window.opener.maybeDelete(window, document);'>" +
-      "delete</a>]</small>";
-  }
-  else
-    output += "Add new event</span>";
-
-	output += "<form id='eventEditForm' action='javascript:window.opener.eventEditFormSubmitted(window, document);'>";
-
-  // Save the id, if any
-  output += "<input id='eventID' type='hidden' value='";
-  if(event.id)
-    output += event.id;
-  output += "'>";
-  
-	// draw the description
-	output += "<input id='eventDesc' type='text' size='50'";
-	if(event.desc)
-		output += 'value="' + event.desc.escapeHTML() + '"';
-	output += ">";
-
-	// draw the dates
-	output += "<br>";
-  var eventDate = strToDate(event.date);
-  output += "<input id='eventYear' type='text' size='4' value='" + eventDate.getFullYear() + "'>";
-  output += "-";
-  output += "<input id='eventMonth' type='text' size='2' value='" + (eventDate.getMonth() + 1) + "'>";
-  output += "-";
-  output += "<input id='eventDay' type='text' size='2' value='" + eventDate.getDate() + "'>";
-  output += "<small><i>yyyy-mm-dd</i></small>";
-
-	// draw the notes area
-	output += "<p>";
-	output += "<b>Notes</b><br>";
-	output += "<textarea id='eventNotes' cols='40' rows='10'>";
-	if(event.notes)
-		output += event.notes.escapeHTML();
-	output +=  "</textarea>";
-
-	output += "<input type='submit' value='save'>";
-	output += "</form>";
-  output += "</body>";
-  
-	return output;
+  return JwacsLib.fetchData("GET", "CalendarMark2-EventEdit.html");
 }
 
 // ======= Server calls ============================================================================
@@ -542,7 +503,11 @@ function jumpFormSubmitted()
 {
   var year = $F('jumpYear');
   var month = $F('jumpMonth');
-  jump(year, month);
+
+  if(year < 1901)
+    alert("Sorry, this calendar only supports years from 1901 onward");
+  else
+    jump(year, month);
 }
 
 function eventEdit(elm)
@@ -566,12 +531,39 @@ function eventEdit(elm)
 
 	var child = window.open("about:blank", "addEvent", "width=400,height=500,toolbar=no,top=100,left=100");
 	var doc = child.document.open();
-  doc.write(calcEventEditHtml(event));
+  doc.write(calcEventEditHtml());
   doc.close();
-  if(event.desc)
+
+  // Fill in the data
+  if(event.id)
+  {
     doc.title = "Edit event";
+    doc.getElementById("eventWindowTitle").innerHTML = "Edit event";
+    doc.getElementById("eventDeleteLink").style.display="";
+    doc.getElementById("eventID").value = event.id;
+  }
   else
+  {
     doc.title = "Add new event";
+    doc.getElementById("eventWindowTitle").innerHTML = "Add new event";
+    doc.getElementById("eventDeleteLink").style.display="none";
+  }
+  
+  if(event.desc)
+    doc.getElementById("eventDesc").value = event.desc;
+
+  if(event.date)
+  {
+    var d = strToDate(event.date);
+    doc.getElementById("eventYear").value = d.getFullYear();
+    doc.getElementById("eventMonth").value = (d.getMonth() + 1);
+    doc.getElementById("eventDay").value = d.getDate();
+  }
+
+  if(event.notes)
+    doc.getElementById("eventNotes").value = event.notes;
+
+  doc.getElementById("eventDesc").focus();  
 }
 
 function eventEditFormSubmitted(child, doc)
@@ -584,8 +576,9 @@ function eventEditFormSubmitted(child, doc)
     doc.getElementById('eventDay').value;
 
   var eventNotes = doc.getElementById('eventNotes').value;
-  //TODO: Validate
-
+  if(!validateEventEditForm(doc))
+    return;
+  
   var updatedEvent;
   if(eventID)
     updatedEvent = updateEvent({id: eventID, date: eventDate, desc: eventDesc, notes: eventNotes});
@@ -602,6 +595,76 @@ function eventEditFormSubmitted(child, doc)
   // call to force ourselves back onto the GUI thread.
   JwacsLib.yieldThread();
   child.close();
+}
+
+// Check the event edit form for errors, return true if everything is ok.
+// Adds error messages to the appropriate fields
+function validateEventEditForm(doc)
+{
+  var year = doc.getElementById('eventYear').value;
+  var month = doc.getElementById('eventMonth').value;
+  var day = doc.getElementById('eventDay').value;
+  var desc = doc.getElementById('eventDesc').value;
+  
+  function showError(elmName, errmsg)
+  {
+    var elm = doc.getElementById(elmName + '-error');
+    elm.style.display = "";
+    elm.innerHTML = errmsg.escapeHTML();
+    doc.getElementById(elmName).focus();
+  }
+
+  function hideError(elmName)
+  {
+    var elm = doc.getElementById(elmName + '-error');
+    elm.style.display = "none";
+    elm.innerHTML = "";
+  }
+  
+  var yearOK = false;
+  var monthOK = false;
+  var dayOK = false;
+  var descOK = false;
+  
+  if(isNaN(year))
+    showError("eventYear", "Please enter a numeric year value");
+  else if(year < 1901)
+    showError("eventYear", "Sorry, this calendar only supports dates from 1901 onwards");
+  else
+  {
+    hideError("eventYear");
+    yearOK = true;
+  }
+  
+  if(isNaN(month))
+    showError("eventMonth", "Please enter a numeric month value");
+  else if(month < 1 || month > 12)
+    showError("eventMonth", "Please enter a month value between 1 and 12");
+  else
+  {
+    hideError("eventMonth");
+    monthOK = true;
+  }
+  
+  if(isNaN(day))
+    showError("eventDay", "Please enter a numeric day value");
+  else if(yearOK && monthOK && (day < 1 || day > lastDay(year, month - 1)))
+    showError("eventDay", "Please enter a day value between 1 and " + lastDay(year, month - 1));
+  else
+  {
+    hideError("eventDay");
+    dayOK = true;
+  }
+
+  if(!desc || desc.match(/^\s*$/))
+    showError("eventDesc", "Please enter an event description");
+  else
+  {
+    hideError("eventDesc");
+    descOK = true;
+  }
+  
+  return descOK && yearOK && monthOK && dayOK;
 }
 
 function maybeDelete(child, doc)
