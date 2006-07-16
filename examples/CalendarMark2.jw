@@ -2,6 +2,7 @@
 ///
 /// A client-based implemenetation of a simple web-calendar in jwacs.
 import "prototype.js";
+import "scriptaculous.js";
 import "jwacs-lib.jw";
 
 JwacsLib.initHistory();
@@ -51,6 +52,11 @@ function showCalendarScreen(year, month)
   var events = readEvents(s, e);
   for(var i = 0; i < events.length; i++)
     showEvent(events[i]);
+
+  // Make all the day cells droppable
+  var handlerSpec = { onDrop: eventDropped };
+  for(var d = new Date(s.getTime()); d.getTime() <= e.getTime(); d.setDate(d.getDate() + 1))
+    Droppables.add(dateToStr(d), handlerSpec);
 }
 
 /// Converts text containing rows of CSV data into an Array of Objects
@@ -310,13 +316,36 @@ function calcDayHtml(date, currentMonth)
   
   return output;
 }
-  
+
+// Return true if `element` is displaced from its calculated position
+function isDisplaced(element)
+{
+  var left = 0;
+  var top = 0;
+
+  if(element.style.top)
+  {
+    var aMatch = element.style.top.match(/^-?(\d*)/);
+    if(aMatch)
+      top = aMatch[1];
+  }
+
+  if(element.style.left)
+  {
+    var aMatch = element.style.left.match(/^-?(\d*)/);
+    if(aMatch)
+      left = aMatch[1];
+  }
+
+  return (left != 0 || top != 0);
+}
+
 function showEvent(event)
 {
   var eventID = 'event' + event.id;
   var cellID = event.date;
 
-  var existing = $('event' + event.id);
+  var existing = $(eventID);
   var target = $(cellID);
 
   // If the event is currently visible, but its new date is not visible,
@@ -338,7 +367,11 @@ function showEvent(event)
   eventBox.id = eventID;
   if(event.desc)
     eventBox.innerHTML = event.desc.escapeHTML();
-  eventBox.onclick = function() { eventEdit(this); };
+  eventBox.onclick = function(evt) {
+    // If there's a left or top style, then it's because a drag is pending
+    if(!isDisplaced(this))
+      eventEdit(this);
+  };
     
   if(existing)
   {
@@ -355,6 +388,8 @@ function showEvent(event)
   }
   else
     target.appendChild(eventBox);
+
+  new Draggable(eventID, {revert: true});
 }
 
 function addStatus(str)
@@ -564,6 +599,34 @@ function eventEdit(elm)
     doc.getElementById("eventNotes").value = event.notes;
 
   doc.getElementById("eventDesc").focus();  
+}
+
+function eventDropped(eventElm, dayElm)
+{
+  // No change here
+  if(eventElm.parentNode == dayElm)
+    return;
+
+  // Fetch full data from server
+  var eventID = eventElm.id.match(/^event(\d+)/)[1];
+  var event = fetchEvent(eventID);
+  if(!event)
+    return;
+  
+  // Update full data to server with new date
+  event.date = dayElm.id;
+  updateEvent(event);
+
+  // Update display
+  if(eventElm._revert)
+  {
+    eventElm._revert.cancel();
+    eventElm._revert = null;
+    eventElm.style.left = "";
+    eventElm.style.top = "";
+  }
+  eventElm.parentNode.removeChild(eventElm);
+  dayElm.appendChild(eventElm);
 }
 
 function eventEditFormSubmitted(child, doc)
