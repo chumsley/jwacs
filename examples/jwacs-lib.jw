@@ -47,25 +47,10 @@ var JwacsLib =
       setInterval(JwacsLib.checkLocation, 200);
     };
 
-    if(window.onload)
-    {
-      var oldHandler = window.onload;
-      window.onload = function(event)
-      {
-        oldHandler(event);
-        startTimerThunk();
-      };
-    }
-    else
-      window.onload = startTimerThunk;
-
-//TODO This doesn't work because of some sort of issue with using `$call0` on `window`.
-// The identical code in (untransformed) prototype.js works fine, but I'm not yet sure that
-// I want jwacs-lib to depend on prototype.  The above code is almost as good.
-//     if (window.addEventListener)
-//       window.addEventListener("load", startTimerThunk);
-//     else if (window.attachEvent)
-//       window.attachEvent("onload", startTimerThunk);
+    if (window.addEventListener)
+      window.addEventListener("load", startTimerThunk, false);
+    else if (window.attachEvent)
+      window.attachEvent("onload", startTimerThunk, false);
   },
 
   newPage: function(title, hint)
