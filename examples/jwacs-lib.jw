@@ -12,6 +12,7 @@ var JwacsLib =
   {
     var k = function_continuation;
     setTimeout(function() { resume k; }, msec);
+    suspend;
   },
 
   // Yield the thread to the browser process.  Execution will resume on the GUI thread.
