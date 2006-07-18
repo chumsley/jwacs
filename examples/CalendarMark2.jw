@@ -408,16 +408,16 @@ function showEvent(event, quiet)
       existing.parentNode.removeChild(existing);
       target.appendChild(eventBox);
 
-      var eventQueue = Effect.Queues.get(eventBox.id);
+      Effect.Queues.get(eventBox.id);
       
       // Move is annoying after drag-n-drop
       if(!quiet)
       {
         eventBox.style.left = (existingOffset[0] - targetOffset[0]) + "px";
         eventBox.style.top = (existingOffset[1] - targetOffset[1])  + "px";
-        eventRevertEffect(eventBox, eventQueue);
+        eventRevertEffect(eventBox, eventBox.id);
       }
-      new Effect.Highlight(eventBox, {queue: {scope: eventQueue, position: 'end'}});
+      new Effect.Highlight(eventBox, {queue: {scope: eventBox.id, position: 'end'}});
     }
   }
   else
@@ -435,7 +435,8 @@ function showEvent(event, quiet)
   }
 
   new Draggable(eventID,
-                {revert: revertPredicate, reverteffect: eventRevertEffect, endeffect:eventEndEffect});
+                {revert: revertPredicate, reverteffect: eventRevertEffect,
+                 starteffect: eventStartEffect, endeffect:eventEndEffect});
 //TODO   new Ajax.InPlaceEditor(eventID, "/calendar/event-update", {highlightendcolor: '#EAEAD7'});
 }
 
@@ -660,13 +661,45 @@ function revertPredicate(elm)
 
 function eventRevertEffect(eventElm, queue)
 {
+  // HACK
+  // We're kind of cheating by having `queue` be the second arg instead of the fourth;
+  // Scriptaculous will pass in 2 numbers that we ignore on revert.  For now, just ignore
+  // anything that isn't a string.
+  if(typeof queue != 'string')
+    queue = null;
+
   var curX = parseInt(eventElm.style.left || '0');
   var curY = parseInt(eventElm.style.top || '0');
   var dur = Math.sqrt(Math.abs(curY^2)+Math.abs(curX^2)) * 0.02;
   if(queue)
-    eventElm._revert = new Effect.Move(eventElm, {x: -curX, y: - curY, duration: dur, queue: { scope: queue, position: 'end'}});
+    eventElm._revert = new Effect.Move(eventElm, {x: -curX, y: - curY, duration: dur,
+                                                  queue: { scope: queue, position: 'end'}});
   else
     eventElm._revert = new Effect.Move(eventElm, {x: -curX, y: - curY, duration: dur});
+}
+
+function eventStartEffect(element)
+{
+  element._opacity = Element.getOpacity(element); 
+  element._cursor = Element.getStyle(element, 'cursor');
+  element.style.cursor = 'move';
+  new Effect.Opacity(element, {duration:0.2, from:element._opacity, to:0.7});
+}
+
+function eventEndEffect(element)
+{
+  element.style.cursor = element._cursor;
+
+  if(element._successfulDrop)
+    startPulsing(element);
+  else
+  {
+    var toOpacity = typeof element._opacity == 'number' ? element._opacity : 1.0;
+    new Effect.Opacity(element, {duration: 0.2, from: 0.7, to: toOpacity});
+  }
+
+  // We depend here on the fact that endeffect is always fired after revertPredicate is called
+  element._successfulDrop = null;
 }
 
 function steadyTransition(transition, duration, period)
@@ -678,20 +711,6 @@ function steadyTransition(transition, duration, period)
     var seconds = pos * duration;
     return transition((seconds % period) / period);
   };
-}
-
-function eventEndEffect(eventElm)
-{
-  if(eventElm._successfulDrop)
-    startPulsing(eventElm);
-  else
-  {
-    var toOpacity = typeof eventElm._opacity == 'number' ? eventElm._opacity : 1.0;
-    new Effect.Opacity(eventElm, {duration: 0.2, from: 0.7, to: toOpacity});
-  }
-
-  // We depend here on the fact that endeffect is always fired after revertPredicate is called
-  eventElm._successfulDrop = null;
 }
 
 function startPulsing(element)

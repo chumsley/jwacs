@@ -23,6 +23,7 @@ a.navLink
 {
   color: blue;
   cursor: pointer; 
+  text-decoration: none;
 }
 
 table#monthTable
