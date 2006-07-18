@@ -51,7 +51,7 @@ function showCalendarScreen(year, month)
     
   var events = readEvents(s, e);
   for(var i = 0; i < events.length; i++)
-    showEvent(events[i]);
+    showEvent(events[i], true);
 
   // Make all the day cells droppable
   var handlerSpec = { onDrop: eventDropped };
@@ -340,7 +340,7 @@ function isDisplaced(element)
   return (left != 0 || top != 0);
 }
 
-function showEvent(event)
+function showEvent(event, quiet)
 {
   var eventID = 'event' + event.id;
   var cellID = event.date;
@@ -352,7 +352,9 @@ function showEvent(event)
   // then delete its element and bail.
   if(existing && !target)
   {
-    existing.parentNode.removeChild(existing);
+    new Effect.Fade(existing);
+    JwacsLib.sleep(3000); //HACK We should wait on the queue
+    $(eventID).parentNode.removeChild($(eventID));
     return;
   }
 
@@ -367,6 +369,7 @@ function showEvent(event)
   eventBox.id = eventID;
   if(event.desc)
     eventBox.innerHTML = event.desc.escapeHTML();
+//TODO (in-place edit)   eventBox.ondblclick = function(evt) {
   eventBox.onclick = function(evt) {
     // If there's a left or top style, then it's because a drag is pending
     if(!isDisplaced(this))
@@ -375,21 +378,51 @@ function showEvent(event)
     
   if(existing)
   {
-    // If we're changing but staying in the same day, then just replace the old node
+    // Changing the event but staying in the same day
     if(existing.parentNode.id == cellID)
+    {
       existing.parentNode.replaceChild(eventBox, existing);
+      new Effect.Highlight(eventBox);
+    }
 
-    // Otherwise we're changing days, so remove the old node and create a new one under the new day
+    // Moving to a new day
     else
     {
+      var existingOffset = Position.cumulativeOffset(existing);
+      var targetOffset = Position.cumulativeOffset(target);
+      
       existing.parentNode.removeChild(existing);
       target.appendChild(eventBox);
+
+      var eventQueue = Effect.Queues.get(eventBox.id);
+      
+      // Move is annoying after drag-n-drop
+      if(!quiet)
+      {
+        eventBox.style.left = (existingOffset[0] - targetOffset[0]) + "px";
+        eventBox.style.top = (existingOffset[1] - targetOffset[1])  + "px";
+        eventRevertEffect(eventBox, eventQueue);
+      }
+      new Effect.Highlight(eventBox, {queue: {scope: eventQueue, position: 'end'}});
     }
   }
   else
+  {
+    // Showing a previously unshown event
+    Element.hide(eventBox);
     target.appendChild(eventBox);
+    if(quiet)
+      new Effect.Appear(eventBox);
+    else
+    {
+      Element.show(eventBox);
+      new Effect.Highlight(eventBox);
+    }
+  }
 
-  new Draggable(eventID, {revert: true});
+  new Draggable(eventID,
+                {revert: revertPredicate, reverteffect: eventRevertEffect, endeffect:eventEndEffect});
+//TODO   new Ajax.InPlaceEditor(eventID, "/calendar/event-update", {highlightendcolor: '#EAEAD7'});
 }
 
 function addStatus(str)
@@ -487,10 +520,15 @@ function addEvent(event)
 function updateEvent(event)
 {
   var q = "/calendar/event-update" +
-    "?id=" + escape(event.id) +
-    "&date=" + escape(event.date) +
-    "&desc=" + escape(event.desc) +
-    "&notes=" + escape(event.notes);
+    "?id=" + escape(event.id);
+
+  if(event.date)
+    q += "&date=" + escape(event.date);
+  if(event.desc)
+    q += "&desc=" + escape(event.desc);
+  if(event.notes)
+    q += "&notes=" + escape(event.notes);
+  
   var status = "Updating event #" + event.id;
 
   try
@@ -601,32 +639,100 @@ function eventEdit(elm)
   doc.getElementById("eventDesc").focus();  
 }
 
+function revertPredicate(elm)
+{
+  return !elm._successfulDrop;
+}
+
+function eventRevertEffect(eventElm, queue)
+{
+  var curX = parseInt(eventElm.style.left || '0');
+  var curY = parseInt(eventElm.style.top || '0');
+  var dur = Math.sqrt(Math.abs(curY^2)+Math.abs(curX^2)) * 0.02;
+  if(queue)
+    eventElm._revert = new Effect.Move(eventElm, {x: -curX, y: - curY, duration: dur, queue: { scope: queue, position: 'end'}});
+  else
+    eventElm._revert = new Effect.Move(eventElm, {x: -curX, y: - curY, duration: dur});
+}
+
+function steadyTransition(transition, duration, period)
+{
+  duration = duration || 3.0;
+  period = period || 3.0;
+  return function(pos)
+  {
+    var seconds = pos * duration;
+    return transition((seconds % period) / period);
+  };
+}
+
+function eventEndEffect(eventElm)
+{
+  if(eventElm._successfulDrop)
+    startPulsing(eventElm);
+  else
+  {
+    var toOpacity = typeof eventElm._opacity == 'number' ? eventElm._opacity : 1.0;
+    new Effect.Opacity(eventElm, {duration: 0.2, from: 0.7, to: toOpacity});
+  }
+
+  // We depend here on the fact that endeffect is always fired after revertPredicate is called
+  eventElm._successfulDrop = null;
+}
+
+function startPulsing(element)
+{
+  stopPulsing(element);
+  element._pulsate = new Effect.Pulsate(element,
+                                       {from: 0.3,
+                                        duration: 360.0,
+                                        transition: steadyTransition(Effect.Transitions.pulse, 360,45)});
+  
+}
+
+function stopPulsing(element)
+{
+  if(element._pulsate)
+  {
+    element._pulsate.cancel();
+    element._pulsate = null;
+  }
+}
+
 function eventDropped(eventElm, dayElm)
 {
   // No change here
   if(eventElm.parentNode == dayElm)
     return;
 
-  // Fetch full data from server
-  var eventID = eventElm.id.match(/^event(\d+)/)[1];
-  var event = fetchEvent(eventID);
-  if(!event)
+  // No revert necessary (we think)
+  // Note that the call to updateEvent below causes a "suspend-return" of this handler,
+  // since we're being called from untransformed code (viz. scriptaculous).  So it is
+  // important that we set the "no revert please" flag on eventElm _before_ we call
+  // updateEvent.
+  eventElm._successfulDrop = true;
+
+  try
+  {
+    // Construct an event object from our cached data 
+    var eventID = eventElm.id.match(/^event(\d+)/)[1];
+
+    // Update event data to server with new date
+    var updatedEvent = updateEvent({id: eventID, date: dayElm.id});
+    if(!updatedEvent)
+      throw "sorry, the attempt to update event data failed";
+  }
+  catch(e)
+  {
+    // I guess we need a revert effect after all
+    stopPulsing(eventElm);
+    eventRevertEffect(eventElm);
     return;
-  
-  // Update full data to server with new date
-  event.date = dayElm.id;
-  updateEvent(event);
+  }
 
   // Update display
-  if(eventElm._revert)
-  {
-    eventElm._revert.cancel();
-    eventElm._revert = null;
-    eventElm.style.left = "";
-    eventElm.style.top = "";
-  }
-  eventElm.parentNode.removeChild(eventElm);
-  dayElm.appendChild(eventElm);
+  stopPulsing(eventElm);
+  showEvent(updatedEvent, true);
 }
 
 function eventEditFormSubmitted(child, doc)
@@ -642,14 +748,16 @@ function eventEditFormSubmitted(child, doc)
   if(!validateEventEditForm(doc))
     return;
   
+  var existingEventElm = $("event" + eventID);
+  if(existingEventElm)
+    startPulsing(existingEventElm);
+  
   var updatedEvent;
   if(eventID)
     updatedEvent = updateEvent({id: eventID, date: eventDate, desc: eventDesc, notes: eventNotes});
   else
     updatedEvent = addEvent({date: eventDate, desc: eventDesc, notes: eventNotes});
 
-  showEvent(updatedEvent);
-  
   // Firefox 1.0 doesn't seem to like it (and expresses this dislike by
   // crashing) if you try to close the child window from an XHR response thread
   // (which is where this code here executes, since addEvent and updateEvent are
@@ -658,6 +766,10 @@ function eventEditFormSubmitted(child, doc)
   // call to force ourselves back onto the GUI thread.
   JwacsLib.yieldThread();
   child.close();
+  
+  if(existingEventElm)
+    stopPulsing(existingEventElm);
+  showEvent(updatedEvent);
 }
 
 // Check the event edit form for errors, return true if everything is ok.
@@ -740,11 +852,16 @@ function maybeDelete(child, doc)
 	{
 		deleteEvent(eventID);
 
-    var eventElm = $('event' + eventID);
-    if(eventElm)
-      eventElm.parentNode.removeChild(eventElm);
     JwacsLib.yieldThread();
     child.close();
+
+    var eventElm = $('event' + eventID);
+    if(eventElm)
+    {
+      new Effect.Fade(eventElm);
+      JwacsLib.sleep(3000); //HACK should wait on the queue
+      eventElm.parentNode.removeChild(eventElm);
+    }
 	}
 	else
 	{
