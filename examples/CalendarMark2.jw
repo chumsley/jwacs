@@ -369,6 +369,8 @@ function showEvent(event, quiet)
   eventBox.id = eventID;
   if(event.desc)
     eventBox.innerHTML = event.desc.escapeHTML();
+  if(event.notes && event.notes.match(/\S/))
+    eventBox.title = event.notes;
   eventBox.ondblclick = function(evt) {
     if(window.event)
       evt = window.event;       // IE compatibility
@@ -435,7 +437,7 @@ function showEvent(event, quiet)
   }
 
   new Draggable(eventID,
-                {revert: revertPredicate, reverteffect: eventRevertEffect,
+                {scroll: window, revert: revertPredicate, reverteffect: eventRevertEffect,
                  starteffect: eventStartEffect, endeffect:eventEndEffect});
   return eventBox;
 }
@@ -541,7 +543,7 @@ function updateEvent(event)
     q += "&date=" + escape(event.date);
   if(event.desc)
     q += "&desc=" + escape(event.desc);
-  if(event.notes)
+  if(event.notes != undefined)
     q += "&notes=" + escape(event.notes);
   
   var status = "Updating event #" + event.id;
@@ -656,7 +658,12 @@ function eventEdit(elm)
 
 function revertPredicate(elm)
 {
-  return !elm._successfulDrop;
+  if(elm._successfulDrop)
+  {
+    elm._successfulDrop = null;
+    return false;
+  }
+  return true;
 }
 
 function eventRevertEffect(eventElm, queue)
@@ -689,47 +696,8 @@ function eventStartEffect(element)
 function eventEndEffect(element)
 {
   element.style.cursor = element._cursor;
-
-  if(element._successfulDrop)
-    startPulsing(element);
-  else
-  {
-    var toOpacity = typeof element._opacity == 'number' ? element._opacity : 1.0;
-    new Effect.Opacity(element, {duration: 0.2, from: 0.7, to: toOpacity});
-  }
-
-  // We depend here on the fact that endeffect is always fired after revertPredicate is called
-  element._successfulDrop = null;
-}
-
-function steadyTransition(transition, duration, period)
-{
-  duration = duration || 3.0;
-  period = period || 3.0;
-  return function(pos)
-  {
-    var seconds = pos * duration;
-    return transition((seconds % period) / period);
-  };
-}
-
-function startPulsing(element)
-{
-  stopPulsing(element);
-  element._pulsate = new Effect.Pulsate(element,
-                                       {from: 0.3,
-                                        duration: 360.0,
-                                        transition: steadyTransition(Effect.Transitions.pulse, 360,45)});
-  
-}
-
-function stopPulsing(element)
-{
-  if(element._pulsate)
-  {
-    element._pulsate.cancel();
-    element._pulsate = null;
-  }
+  var toOpacity = typeof element._opacity == 'number' ? element._opacity : 1.0;
+  new Effect.Opacity(element, {duration: 0.2, from: 0.7, to: toOpacity});
 }
 
 function eventDropped(eventElm, dayElm)
@@ -758,13 +726,11 @@ function eventDropped(eventElm, dayElm)
   catch(e)
   {
     // I guess we need a revert effect after all
-    stopPulsing(eventElm);
     eventRevertEffect(eventElm);
     return;
   }
 
   // Update display
-  stopPulsing(eventElm);
   showEvent(updatedEvent, true);
 }
 
@@ -781,10 +747,6 @@ function eventEditFormSubmitted(child, doc)
   if(!validateEventEditForm(doc))
     return;
   
-  var existingEventElm = $("event" + eventID);
-  if(existingEventElm)
-    startPulsing(existingEventElm);
-  
   var updatedEvent;
   if(eventID)
     updatedEvent = updateEvent({id: eventID, date: eventDate, desc: eventDesc, notes: eventNotes});
@@ -800,8 +762,6 @@ function eventEditFormSubmitted(child, doc)
   JwacsLib.yieldThread();
   child.close();
   
-  if(existingEventElm)
-    stopPulsing(existingEventElm);
   showEvent(updatedEvent);
 }
 
@@ -945,10 +905,8 @@ function inPlaceEditEvent(eventElm)
       editForm.parentNode.removeChild(editForm);
       Element.show(eventElm);
 
-      startPulsing(eventElm);
       var eventID = eventElm.id.match(/^event(\d+)$/)[1];
       var updatedEvent = updateEvent({id: eventID, desc: textarea.value});
-      stopPulsing(eventElm);
       if(updatedEvent)
         showEvent(updatedEvent);
     }
@@ -990,12 +948,10 @@ function inPlaceAddEvent(dayElm)
 
       dayElm.removeChild(editForm);
       var eventID = "new"+(new Date).getTime();
-      var event = {id: eventID, desc: textarea.value, date: dayElm.id};
+      var event = {id: eventID, desc: textarea.value, date: dayElm.id, notes: ""};
       var eventElm = showEvent(event);
-      startPulsing(eventElm);
 
       var addedEvent = addEvent(event);
-      stopPulsing(eventElm);
       dayElm.removeChild(eventElm);
       if(addedEvent)
         showEvent(addedEvent);
