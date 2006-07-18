@@ -85,6 +85,7 @@ div.eventBox
 
 td.sameMonthDay div.eventBox, td.sameMonthDay textarea.inplaceEditor
 {
+  width: 100%;
   border: solid 1px #ACAC62;
   background-color: #EAEAD7;
   color: blue;
@@ -92,6 +93,7 @@ td.sameMonthDay div.eventBox, td.sameMonthDay textarea.inplaceEditor
 
 td.otherMonthDay div.eventBox, td.otherMonthDay textarea.inplaceEditor
 {
+  width: 100%;
   border: solid 1px #E0E0E0;
   background-color: #F0F0F0;
   color: #888888;

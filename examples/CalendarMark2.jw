@@ -290,7 +290,7 @@ function calcMonthHtml(year, month)
 // Calculate a fragment of HTML that represents a day cell in the month table
 function calcDayHtml(date, currentMonth)
 {
-  var output = "<td ondblclick='eventEdit(this);' id='" + dateToStr(date) + "' ";
+  var output = "<td ondblclick='inPlaceAddEvent(this);' id='" + dateToStr(date) + "' ";
 
   if(currentMonth == date.getMonth())
     output += "class='sameMonthDay'";
@@ -437,7 +437,7 @@ function showEvent(event, quiet)
   new Draggable(eventID,
                 {revert: revertPredicate, reverteffect: eventRevertEffect,
                  starteffect: eventStartEffect, endeffect:eventEndEffect});
-//TODO   new Ajax.InPlaceEditor(eventID, "/calendar/event-update", {highlightendcolor: '#EAEAD7'});
+  return eventBox;
 }
 
 function addStatus(str)
@@ -906,13 +906,12 @@ function maybeDelete(child, doc)
 // ======= In-place editing ========================================================================
 
 // TODO maybe we want to package this up into a more generic object-style effect (as in scriptaculous)
-
-function inPlaceEditEvent(eventElm, url, validate)
+// TODO at the least we should factor inPlaceEdit and inPlaceAdd
+function inPlaceEditEvent(eventElm)
 {
   var editForm = document.createElement("FORM");
   var textarea = document.createElement("TEXTAREA");
   textarea.className = "inplaceEditor";
-  textarea.style.width = eventElm.offsetWidth + "px";
   textarea.value = eventElm.innerHTML.unescapeHTML();
   editForm.appendChild(textarea);
 
@@ -935,6 +934,14 @@ function inPlaceEditEvent(eventElm, url, validate)
     {
       // Shift-return inserts a newline; plain return submits the form
       Event.stop(evt);
+
+      // Validate
+      if(!textarea.value || textarea.value.match(/^\s*$/))
+      {
+        alert("Event descriptions must not be empty");
+        return;
+      }
+
       editForm.parentNode.removeChild(editForm);
       Element.show(eventElm);
 
@@ -944,6 +951,54 @@ function inPlaceEditEvent(eventElm, url, validate)
       stopPulsing(eventElm);
       if(updatedEvent)
         showEvent(updatedEvent);
+    }
+  };
+}
+
+function inPlaceAddEvent(dayElm)
+{
+  var editForm = document.createElement("FORM");
+  var textarea = document.createElement("TEXTAREA");
+  textarea.className = "inplaceEditor";
+  editForm.appendChild(textarea);
+
+  dayElm.appendChild(editForm);
+  textarea.focus();
+
+  textarea.onkeypress = function(evt) {
+
+    if(window.event)
+      evt = window.event;
+    
+    if(evt.keyCode == Event.KEY_ESC)
+    {
+      // Escape abandons changes
+      dayElm.removeChild(editForm);
+      return;
+    }
+    else if(evt.keyCode == Event.KEY_RETURN && !evt.shiftKey)
+    {
+      // Shift-return inserts a newline; plain return submits the form
+      Event.stop(evt);
+
+      // Validate
+      if(!textarea.value || textarea.value.match(/^\s*$/))
+      {
+        alert("Event descriptions must not be empty");
+        return;
+      }
+
+      dayElm.removeChild(editForm);
+      var eventID = "new"+(new Date).getTime();
+      var event = {id: eventID, desc: textarea.value, date: dayElm.id};
+      var eventElm = showEvent(event);
+      startPulsing(eventElm);
+
+      var addedEvent = addEvent(event);
+      stopPulsing(eventElm);
+      dayElm.removeChild(eventElm);
+      if(addedEvent)
+        showEvent(addedEvent);
     }
   };
 }
