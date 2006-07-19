@@ -29,23 +29,23 @@
 
 (deftest parser/object-literal/2 :notes parser
  (parse-only "foo = {a: 10, b: \"Ten\"};")
- (#S(BINARY-OPERATOR
-    :OP-SYMBOL :ASSIGN
-    :LEFT-ARG #S(IDENTIFIER :NAME "foo")
-    :RIGHT-ARG #S(OBJECT-LITERAL
-                  :PROPERTIES ((#S(STRING-LITERAL :VALUE "a") . #S(NUMERIC-LITERAL :VALUE 10))
-                               (#S(STRING-LITERAL :VALUE "b") . #S(STRING-LITERAL :VALUE "Ten")))))))
+ (#s(binary-operator
+    :op-symbol :assign
+    :left-arg #s(identifier :name "foo")
+    :right-arg #s(object-literal
+                  :properties ((#s(string-literal :value "a") . #s(numeric-literal :value 10))
+                               (#s(string-literal :value "b") . #s(string-literal :value "Ten")))))))
 
 (deftest parser/object-literal/3 :notes parser
   (parse-only "foo = {a: 10, b: {c: 10, d: 10}};")
-  (#S(BINARY-OPERATOR
-    :OP-SYMBOL :ASSIGN
-    :LEFT-ARG #S(IDENTIFIER :NAME "foo")
-    :RIGHT-ARG #S(OBJECT-LITERAL
-                  :PROPERTIES ((#S(STRING-LITERAL :VALUE "a") . #S(NUMERIC-LITERAL :VALUE 10))
-                               (#S(STRING-LITERAL :VALUE "b") . #S(OBJECT-LITERAL
-                                                                   :PROPERTIES ((#S(STRING-LITERAL :VALUE "c") . #S(NUMERIC-LITERAL :VALUE 10))
-                                                                                (#S(STRING-LITERAL :VALUE "d") . #S(NUMERIC-LITERAL :VALUE 10))))))))))
+  (#s(binary-operator
+    :op-symbol :assign
+    :left-arg #s(identifier :name "foo")
+    :right-arg #s(object-literal
+                  :properties ((#s(string-literal :value "a") . #s(numeric-literal :value 10))
+                               (#s(string-literal :value "b") . #s(object-literal
+                                                                   :properties ((#s(string-literal :value "c") . #s(numeric-literal :value 10))
+                                                                                (#s(string-literal :value "d") . #s(numeric-literal :value 10))))))))))
 
 (deftest parser/re-literal/1 :notes parser
   (parse-only "/hello/;")
@@ -55,6 +55,33 @@
   (parse-only "/hello/ig;")
   (#S(re-literal :pattern "hello" :options "ig")))
 
+
+(deftest parser/re-literal/3 :notes parser
+  (parse-only "x = 10 / 20;
+               /hello/ig;")
+  (#S(binary-operator :op-symbol :assign
+                      :left-arg #S(identifier :name "x")
+                      :right-arg #S(binary-operator :op-symbol :divide
+                                                    :left-arg #S(numeric-literal :value 10)
+                                                    :right-arg #S(numeric-literal :value 20)))
+   #S(re-literal :pattern "hello" :options "ig")))
+              
+(deftest parser/re-literal/4 :notes parser
+  (parse-only "x = 10 / 20; /hello/ig;")
+  (#S(binary-operator :op-symbol :assign
+                      :left-arg #S(identifier :name "x")
+                      :right-arg #S(binary-operator :op-symbol :divide
+                                                    :left-arg #S(numeric-literal :value 10)
+                                                    :right-arg #S(numeric-literal :value 20)))
+   #S(re-literal :pattern "hello" :options "ig")))
+
+;; I acknowledge that the parser (actually the lexer) isn't treating this case properly, 
+;; but frankly I don't care.  To get it to work properly it is necessary to switch lexers
+;; depending upon the current location in the syntax, and it's just not worth the effort
+;; right now.  The problem is easily worked around by the programmer (just stick a newline
+;; between your statements).  I'll fix this around the same time as I add semicolon insertion.
+(flag-expected-failure 'parser/re-literal/4)
+ 
 (deftest parser/property-access/1 :notes parser
   (parse-only "var x = y[44];")
   (#S(var-decl-statement :var-decls

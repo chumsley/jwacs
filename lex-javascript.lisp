@@ -233,15 +233,27 @@
 
   "Regular expression for recognizing string literals")
 
+
+(define-parse-tree-synonym non-terminator
+    (:inverted-char-class #\Newline #\Return))
+
 (defparameter regexp-re (create-scanner
                          '(:sequence
                            :start-anchor
                            #\/
                            (:register
-                            (:greedy-repetition 0 nil
+                            (:sequence
+
+                             ;; First char
                              (:alternation
-                              (:sequence #\\ :everything)
-                              (:inverted-char-class #\/))))
+                              (:sequence #\\ non-terminator)
+                              (:inverted-char-class #\* #\\ #\/ #\Newline #\Return))
+
+                             ;; Subsequent chars
+                             (:greedy-repetition 0 nil
+                               (:alternation
+                                (:sequence #\\ non-terminator)
+                                (:inverted-char-class #\\ #\/ #\Newline #\Return)))))
                            #\/
                            (:register
                             (:greedy-repetition 0 nil
