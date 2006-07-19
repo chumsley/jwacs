@@ -32,14 +32,17 @@ function showCalendarScreen(year, month)
 {
   document.title = monthNames[month] + " " + year;
 
-  var output = "";
-  output += "<h2 id='monthTitle'>" + monthNames[month] + " " + year + "</div>";
-  output += calcNavigationLinks(year, month);
-  output += calcMonthHtml(year, month);
-  output += calcNavigationLinks(year, month);
-  output += calcBottomControls(year, month);
+  var contentDiv = document.createElement("DIV");
+  contentDiv.id = "contentDiv";
   
-  $('contentDiv').innerHTML = output;
+  contentDiv.innerHTML = "<h2 id='monthTitle'>" + monthNames[month] + " " + year + "</h2>";
+  contentDiv.appendChild(calcNavigationLinksElement(year, month));
+  contentDiv.appendChild(calcMonthElement(year, month));
+  contentDiv.appendChild(calcNavigationLinksElement(year, month));
+  contentDiv.appendChild(calcBottomControlsElement(year, month));
+  
+  var oldDiv = $('contentDiv');
+  oldDiv.parentNode.replaceChild(contentDiv, oldDiv);
 
   // Figure out the start and end days of this month's rectangle
   var s = new Date(year, month, 1);
@@ -195,72 +198,119 @@ function rowsRequired(year, month)
 
 //// ======= Drawing ===============================================================================
 
-function calcNavigationLinks(year, month)
+function calcMonthNavigationCell(date, isRight)
 {
-  var output = "";
+  var cell = document.createElement("TD");
+  if(isRight)
+    cell.align = "right";
+  var link = document.createElement("A");
+  cell.appendChild(link);
+  link.className = "navLink";
+  link.href = "#year=" + date.getFullYear() + "&month=" + (date.getMonth() + 1);
+  link.onclick = function(evt) {
+    if(window.event) evt = window.event;
+    Event.stop(evt);
+    jump(date.getFullYear(), date.getMonth());
+  };
 
-  var prev = new Date(year, month - 1, 1);
-  var next = new Date(year, month + 1, 1);
-
-  output += "<table width='90%' align='center' border='0px'><tr>";
-  output +=
-    "<td><a class='navLink' " +
-    "onClick='jump(" + prev.getFullYear() + "," + prev.getMonth() + ");'>" +
-    "&lt;--- " +
-    monthNames[prev.getMonth()] + " " + prev.getFullYear() +
-    "</a></td>";
-  output +=
-    "<td align='right'><a class='navLink' " +
-    "onClick='jump(" + next.getFullYear() + "," + next.getMonth() + ");'>" +
-    monthNames[next.getMonth()] + " " + next.getFullYear() +
-    " ---&gt;"+
-    "</a></td>";
-  output += "</tr></table>";
-
-  return output;
+  var text = monthNames[date.getMonth()] + " " + date.getFullYear();
+  if(isRight)
+    text += "---&gt;";
+  else
+    text = "&lt;--- " + text;
+  link.innerHTML = text;
+  
+  return cell;
 }
 
-function calcBottomControls(year, month)
+function calcNavigationLinksElement(year, month)
 {
-  var output = "";
+  var table = document.createElement("TABLE");
+  table.width = '90%';
+  table.align = 'center';
+  table.border = '0px';
 
-  output = "<table width='90%' align='center' border='0px'><tr>";
-  output += "<td><a onclick='eventEdit(this);' class='navLink'>Add new event</a></td>";
-  output += "<td align='right'><form id='jumpForm' action='javascript: jumpFormSubmitted();'>";
+  var row = document.createElement("TR");
+  table.appendChild(row);
+  row.appendChild(calcMonthNavigationCell(new Date(year, month - 1, 1)));
+  row.appendChild(calcMonthNavigationCell(new Date(year, month + 1, 1), true));
 
-  output += "<select id='jumpMonth' onChange='jumpFormSubmitted(); return true;'>";
+  return table;
+}
+
+function calcBottomControlsElement(year, month)
+{
+  var table = document.createElement("TABLE");
+  table.width = '90%';
+  table.align = 'center';
+  table.border = '0px';
+
+  var row = document.createElement("TR");
+  table.appendChild(row);
+  
+  var leftCell = document.createElement("TD");
+  row.appendChild(leftCell);
+  var link = document.createElement("A");
+  leftCell.appendChild(link);
+  link.className = "navLink";
+  link.onclick = function(evt) {
+    if(window.event) evt = window.event;
+    Event.stop(evt);
+    eventEdit(this);
+  };
+  link.href = "#op=addNewEvent&year=" + year + "&month=" + (month + 1) + "&day=1";
+  link.innerHTML = "Add new event";
+
+  var rightCell = document.createElement("TD");
+  row.appendChild(rightCell);
+  rightCell.align = "right";
+  var form = document.createElement("FORM");
+  rightCell.appendChild(form);
+  form.id = "jumpForm";
+  form.onsubmit = jumpFormSubmitted; //???
+  
+  var select = document.createElement("SELECT");
+  form.appendChild(select);
+  select.id = "jumpMonth";
+  select.onchange = jumpFormSubmitted;
   for(var m = 0; m < 12; m++)
   {
-    output += "<option value = '" + m + "'";
+    var option = document.createElement("OPTION");
+    select.appendChild(option);
+    option.value = m;
     if(m == month)
-      output += " selected";
-    output += ">" + monthNames[m] + "</option>";
+      option.selected = true;
+    option.innerHTML = monthNames[m];
   }
-  output += "</select>";
 
-  output += "<input id='jumpYear' size='4' value='" + year + "'>";
-  output += "</form></td></tr></table>";
+  var input = document.createElement("INPUT");
+  form.appendChild(input);
+  input.id = "jumpYear";
+  input.size = 4;
+  input.value = year;
 
-  return output;
+  return table;
 }
-      
-function calcMonthHtml(year, month)
+
+function calcMonthElement(year, month)
 {
-  var output = "";
-
-  output += "<table align='center' id='monthTable'>";
-
-	var row=0;
-	var col=0;
-
-	//// Headers
-	output += "<tr>";
-	for(col=0; col < 7; col++)
-	{
-		output += "<th>" + dayNames[col] + "</th>";
-	}
-	output += "</tr>";
+  var table = document.createElement("TABLE");
+  table.align = "center";
+  table.id = "monthTable";
   
+  var row = 0;
+  var col = 0;
+
+  //// Headers
+  var headerRow = document.createElement("TR");
+  table.appendChild(headerRow);
+  for(col = 0; col < 7; col++)
+  {
+    var dayCell = document.createElement("TH");
+    dayCell.innerHTML = dayNames[col];
+    headerRow.appendChild(dayCell);
+  }
+
 	//// Cells
 
   // Back up from the first day of the month to a Sunday
@@ -270,51 +320,67 @@ function calcMonthHtml(year, month)
     d.setDate(d.getDate() - 1);
   }
 
+  // Generate the actual cells
   var rowCount = rowsRequired(year, month);
   for(row=0; row < rowCount; row++)
 	{
-		output += "<tr class='dataRow'>";
+    var rowElm = document.createElement("TR");
+    rowElm.className = "dataRow";
+    table.appendChild(rowElm);
 		for(col = 0; col < 7; col++)
-		{
-			var idx = row * 7 + col;
-			output += calcDayHtml(d, month);
+    {
+      rowElm.appendChild(calcDayElement(d, month));
       d.setDate(d.getDate() + 1);
-		}
-		output += "</tr>";
-	}
-	output += "</table>";
+    }
+  }
 
-  return output;
+  return table;
+}  
+
+function isMonthDay(elm)
+{
+  return (elm.className == "sameMonthDay" ||
+          elm.className == "otherMonthDay" ||
+          elm.className == "dayHeader");
 }
 
-// Calculate a fragment of HTML that represents a day cell in the month table
-function calcDayHtml(date, currentMonth)
+function dayCellDoubleClicked(evt)
 {
-  var output = "<td ondblclick='inPlaceAddEvent(this);' id='" + dateToStr(date) + "' ";
-
-  if(currentMonth == date.getMonth())
-    output += "class='sameMonthDay'";
-  else
-    output += "class='otherMonthDay'";
-
-  output += ">";
+  if(window.event)
+    evt = window.event;
   
-  output += "<div class='dayHeader'>";
+  // Only create a new event if the target element was actually a day cell,
+  // not just some other random element within the day cell.
+  if(isMonthDay(Event.element(evt)))
+    inPlaceAddEvent(this);
+}
+
+// Calculate a TD element that represents a day cell in the month table
+function calcDayElement(date, currentMonth)
+{
+  var cell = document.createElement("TD");
+  cell.id = dateToStr(date);
+  if(currentMonth == date.getMonth())
+    cell.className = "sameMonthDay";
+  else
+    cell.className = "otherMonthDay";
+
+  cell.ondblclick = dayCellDoubleClicked;
+
+  var dayHeader = document.createElement("DIV");
+  cell.appendChild(dayHeader);
+  dayHeader.className = "dayHeader";
   if(equalDates(date, new Date))
   {
-    output += "<span class='todayDay'>";
-    output += date.getDate();
-    output += "</span>";
+    var box = document.createElement("SPAN");
+    dayHeader.appendChild(box);
+    box.className = "todayDay";
+    box.innerHTML = date.getDate();
   }
   else
-  {
-    output += date.getDate();
-  }
+    dayHeader.innerHTML = date.getDate();
 
-  output += "</div>";
-  output += "</td>";
-  
-  return output;
+  return cell;
 }
 
 // Return true if `element` is displaced from its calculated position
@@ -589,8 +655,9 @@ function jump(year, month)
   showCalendarScreen(year, m);
 }
 
-function jumpFormSubmitted()
+function jumpFormSubmitted(evt)
 {
+  Event.stop(window.event ? window.event : evt);
   var year = $F('jumpYear');
   var month = $F('jumpMonth');
 
