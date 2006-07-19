@@ -12,7 +12,6 @@ var currentDate;
 var firstDay;
 var finalDay;
 
-//TODO DOM-based drawing?
 function main(args)
 {
   var date = new Date;
@@ -62,38 +61,48 @@ function showCalendarScreen(year, month)
     Droppables.add(dateToStr(d), handlerSpec);
 }
 
-/// Converts text containing rows of CSV data into an Array of Objects
-function unpackRows(text)
+// Unpacks a server response.  If the server has returned an error, it will be
+// thrown as an exception.  Otherwise the CSV response rows will be converted
+// into an Array of Objects.
+function unpackResponse(text)
 {
-	var result = new Array;
-	if(text != null && text != undefined)
-	{
-		lines = text.split(/\r?\n/);
-		if(lines && lines.length > 1)
-		{
-			// First line holds the field names
-			var headings = lines[0].split(",");
-			
-			// Each subsequent row is an object
-			var i;
-			for(i = 1; i < lines.length; i++)
-			{
-				var line = lines[i];
-				var fields = line.split(",");
-				if(fields && fields.length > 0)
-				{
-					var obj = new Object;
-					for(var j = 0; j < fields.length; j++)
-					{
-						obj[unescape(headings[j])] = unescape(fields[j]);
-					}
-					result[result.length] = obj;
-				}
-			}
-		}
-	}
+  if(text == null || text == undefined || text.length == 0 || text.match(/^[\s\r\n]*$/))
+    throw "Empty response from server";
 
-	return result;
+  var lines = text.split(/\r?\n/);
+
+  // First line is the status line
+  if(!lines || lines.length == 0)
+    throw text;
+  
+  if(!lines[0].match(/\s*OK\s*/))
+    throw lines[0];
+  
+	var result = new Array;
+  if(lines.length > 2)
+  {
+    // First post-status line holds the field names
+    var headings = lines[1].split(",");
+			
+    // Each subsequent row is an object
+    var i;
+    for(i = 2; i < lines.length; i++)
+    {
+      var line = lines[i];
+      var fields = line.split(",");
+      if(fields && fields.length > 0)
+      {
+        var obj = new Object;
+        for(var j = 0; j < fields.length; j++)
+        {
+          obj[unescape(headings[j])] = unescape(fields[j]);
+        }
+        result[result.length] = obj;
+      }
+    }
+  }
+  
+  return result;
 }
 
 function pad(num, width)
@@ -534,117 +543,78 @@ function calcEventEditHtml(event)
 
 // ======= Server calls ============================================================================
 
-//TODO These functions are all extremely similar.  Surely they can be factored into one or two
-// calls.
-
-function readEvents(s, e)
+function serverCall(method, url, params, status)
 {
-  var q = "/calendar/event-query" +
-      "?s=" + dateToStr(s) +
-      "&e=" + dateToStr(e);
-  var status = "Fetching events";
-  
+  var currentStatus = status;
+  var q = url;
+  var connector = '?';
+  for(var field in params)
+  {
+    if(params[field] == undefined || typeof params[field] == 'function')
+      continue;
+    q += connector + field + "=" + escape(params[field]);
+    connector = '&';
+  }
+
   try
   {
     addStatus(status);
-    var text = JwacsLib.fetchData("GET", q);
+    var text = JwacsLib.fetchData(method, q);
+    currentStatus = null;
     removeStatus(status);
-    return unpackRows(text);
+    return unpackResponse(text);
   }
   catch(e)
   {
-    removeStatus(status);
-    alert("sorry, the attempt to read event data failed");
+    // Just passing through
+    if(currentStatus)
+      removeStatus(currentStatus);
+    alert("Sorry, an error occurred while " + status + ".");
+    throw e;
   }
+}
+
+function readEvents(s, e)
+{
+  return serverCall("GET",
+                    "/calendar/event-query",
+                    {s: dateToStr(s), e: dateToStr(e)},
+                    "fetching events");
 }
 
 function fetchEvent(eventID)
 {
-  var q = "/calendar/event-query" +
-    "?id=" + escape(eventID);
-  var status = "Fetching event #" + eventID;
-  
-  try
-  {
-    addStatus(status);
-    var text = JwacsLib.fetchData("GET", q);
-    removeStatus(status);
-    return unpackRows(text)[0];
-  }
-  catch(e)
-  {
-    removeStatus(status);
-    alert("sorry, the attempt to read event data failed");
-  }
+  var rows = serverCall("GET",
+                        "/calendar/event-query",
+                        {id: eventID},
+                        "fetching event #" + eventID);
+  return rows[0];
 }
 
 function addEvent(event)
 {
-  var q = "/calendar/event-add" +
-    "?date=" + escape(event.date) +
-    "&desc=" + escape(event.desc) +
-    "&notes=" + escape(event.notes);
-  var status = "Saving new event";
-
-  try
-  {
-    addStatus(status);
-    var text = JwacsLib.fetchData("POST", q);
-    removeStatus(status);
-    return unpackRows(text)[0];
-  }
-  catch(e)
-  {
-    removeStatus(status);
-    alert("sorry, the attempt to save event data failed");
-  }
+  var rows = serverCall("POST",
+                        "/calendar/event-add",
+                        event,
+                        "saving new event '" + event.desc + "'");
+  return rows[0];
 }
 
 function updateEvent(event)
 {
-  var q = "/calendar/event-update" +
-    "?id=" + escape(event.id);
-
-  if(event.date)
-    q += "&date=" + escape(event.date);
-  if(event.desc)
-    q += "&desc=" + escape(event.desc);
-  if(event.notes != undefined)
-    q += "&notes=" + escape(event.notes);
-  
-  var status = "Updating event #" + event.id;
-
-  try
-  {
-    addStatus(status);
-    var text = JwacsLib.fetchData("POST", q);
-    removeStatus(status);
-    return unpackRows(text)[0];
-  }
-  catch(e)
-  {
-    removeStatus(status);
-    alert("sorry, the attempt to update event data failed");
-  }
+  var rows = serverCall("POST",
+                        "/calendar/event-update",
+                        event,
+                        "updating event #" + event.id);
+  return rows[0];
 }
 
 function deleteEvent(eventID)
 {
-  var q = "/calendar/event-del?id=" + eventID;
-  var status = "Deleting event #" + eventID;
-
-  try
-  {
-    addStatus(status);
-    var text = JwacsLib.fetchData("POST", q);
-    removeStatus(status);
-    return text == "OK";
-  }
-  catch(e)
-  {
-    removeStatus(status);
-    alert("sorry, the attempt to delete the event failed");
-  }
+  serverCall("POST",
+             "/calendar/event-del",
+             {id: eventID},
+             "deleting event #" + eventID);
 }
 
 // ======= Event handlers =========================================================================
@@ -678,6 +648,13 @@ function eventEdit(elm)
     {
       // Edit event
       event = fetchEvent(aMatch[1]);
+      if(!event)
+      {
+        alert("Sorry, event #" + aMatch[1] + " ('" + elm.innerHTML.unescapeHTML() + "') no longer exists.");
+        new Effect.Fade(elm);
+        Jwacs.sleep(3000); //HACK should wait on the queue
+        elm.parentNode.removeChild(elm);
+      }
     }
     else
     {

@@ -256,16 +256,32 @@ var JwacsLib =
   //// Faux-synchronous server-data fetching
   getHttpObj: function()
   {
+    var http = null;
     try
     {
-      var http = new XMLHttpRequest;
-      if(http != null)
-        return http;
+      http = new XMLHttpRequest;
+      if(http) return http;
     }
     catch(e)
     { }
 
-    return new ActiveXObject("Msxml2.XMLHTTP");
+    try
+    {
+      http = new ActiveXObject("Msxml2.XMLHTTP");
+      if(http) return http;
+    }
+    catch(e)
+    { }
+
+    try
+    {
+      http = new ActiveXObject('Microsoft.XMLHTTP');
+      if(http) return http;
+    }
+    catch(e)
+    { }
+
+    throw "Cannot create a suitable http request object";
   },
 
   fetchData: function(method, url)
@@ -275,14 +291,33 @@ var JwacsLib =
 
     http.onreadystatechange = function()
     {
-      if(http.readyState == 4)
+      try
       {
-        resume k <- http.responseText;
+        // Report results to the continuation on completion
+        if(http.readyState == 4)
+        {
+          // Check for errors
+          if(!(http.status == undefined ||
+               http.status == 0 ||
+               (http.status >= 200 && http.status < 300)))
+          {
+            var err = new Error("Server returned " + http.status);
+            throw err;
+          }
+
+          // No errors, so resume the continuation with the raw results
+          http.onreadystatechange = null;
+          resume k <- http.responseText;
+        }
+      }
+      catch(e)
+      {
+        // Errors are thrown as exceptions into the continuation
+        http.onreadystatechange = null;
+        throw e -> k;
       }
     };
 
-    //TODO throw an exception into the continuation on error, timeout
-    
     http.open(method, url);
     http.send(null);
     suspend;
