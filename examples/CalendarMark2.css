@@ -83,18 +83,32 @@ div.eventBox
   cursor: pointer;
 }
 
-td.sameMonthDay div.eventBox, td.sameMonthDay textarea.inplaceEditor
+td.sameMonthDay div.eventBox
 {
-  width: 100%;
-  border: solid 1px #ACAC62;
+  border: 1px solid #ACAC62;
   background-color: #EAEAD7;
   color: blue;
 }
 
-td.otherMonthDay div.eventBox, td.otherMonthDay textarea.inplaceEditor
+td.sameMonthDay textarea.inplaceEditor
 {
   width: 100%;
-  border: solid 1px #E0E0E0;
+  border: 1px inset #ACAC62;
+  background-color: #EAEAD7;
+  color: blue;
+}
+
+td.otherMonthDay div.eventBox
+{
+  border: 1px solid #E0E0E0;
+  background-color: #F0F0F0;
+  color: #888888;
+}
+
+td.otherMonthDay textarea.inplaceEditor
+{
+  width: 100%;
+  border: 1px inset #E0E0E0;
   background-color: #F0F0F0;
   color: #888888;
 }
