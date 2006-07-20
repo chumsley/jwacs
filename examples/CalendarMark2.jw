@@ -428,7 +428,7 @@ function showEvent(event, quiet)
   if(existing && !target)
   {
     new Effect.Fade(existing);
-    JwacsLib.sleep(3000); //HACK We should wait on the queue
+    waitForEffectQueue();
     $(eventID).parentNode.removeChild($(eventID));
     return;
   }
@@ -652,7 +652,7 @@ function eventEdit(elm)
       {
         alert("Sorry, event #" + aMatch[1] + " ('" + elm.innerHTML.unescapeHTML() + "') no longer exists.");
         new Effect.Fade(elm);
-        Jwacs.sleep(3000); //HACK should wait on the queue
+        waitForEffectQueue();
         elm.parentNode.removeChild(elm);
       }
     }
@@ -896,7 +896,7 @@ function maybeDelete(child, doc)
     if(eventElm)
     {
       new Effect.Fade(eventElm);
-      JwacsLib.sleep(3000); //HACK should wait on the queue
+      waitForEffectQueue();
       eventElm.parentNode.removeChild(eventElm);
     }
 	}
@@ -1001,4 +1001,32 @@ function inPlaceAddEvent(dayElm)
         showEvent(addedEvent);
     }
   };
+}
+
+//======= script.aculo.us enhancements =============================================================
+
+// Resume a continuation on update
+Effect.QueuedAction = Class.create();
+Object.extend(Object.extend(Effect.QueuedAction.prototype, Effect.Base.prototype), {
+  initialize: function(continuation, scopeName)
+  {
+    var options = Object.extend({
+      queue: {position: 'end', scope: scopeName || 'global'}
+    }, arguments[2] || {});
+    this.continuation = continuation;
+    this.start(options);
+  },
+
+  update: function()
+  {
+    JwacsLib.yieldThread();
+    resume this.continuation;
+  }
+});
+
+// Faux-blocks until all the events currently in the specified effect queue have completed
+function waitForEffectQueue(scopeName)
+{
+  new Effect.QueuedAction(function_continuation, scopeName || 'global');
+  suspend;
 }
