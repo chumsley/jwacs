@@ -421,3 +421,52 @@
       var JW0 = bar(20);
       var foo = JW0.baz;"))
 
+(deftest explicitize/throw-statement/1 :notes explicitize
+  (with-fresh-genvar
+    (transform 'explicitize (parse "
+      throw foo(10);")))
+  #.(parse "
+      var JW0 = foo(10);
+      throw JW0;"))
+
+(deftest explicitize/throw-statement/2 :notes explicitize
+  (with-fresh-genvar
+    (transform 'explicitize (parse "
+      throw new Error -> k;")))
+  #.(parse "
+      var JW0 = new Error;
+      throw JW0 -> k;"))
+
+(deftest explicitize/throw-statement/3 :notes explicitize
+  (with-fresh-genvar
+    (transform 'explicitize (parse "
+      throw foo() -> bar.fetchK();")))
+  #.(parse "
+      var JW0 = foo();
+      var JW1 = bar.fetchK();
+      throw JW0 -> JW1;"))
+
+(deftest explicitize/resume-statement/1 :notes explicitize
+  (with-fresh-genvar
+    (transform 'explicitize (parse "
+      resume fetchK(20);")))
+  #.(parse "
+      var JW0 = fetchK(20);
+      resume JW0;"))
+
+(deftest explicitize/resume-statement/2 :notes explicitize
+  (with-fresh-genvar
+    (transform 'explicitize (parse "
+      resume k <- new Date;")))
+  #.(parse "
+      var JW0 = new Date;
+      resume k <- JW0;"))
+
+(deftest explicitize/resume-statement/3 :notes explicitize
+  (with-fresh-genvar
+    (transform 'explicitize (parse "
+      resume bar.fetchK() <- foo();")))
+  #.(parse "
+      var JW0 = bar.fetchK();
+      var JW1 = foo();
+      resume JW0 <- JW1;"))

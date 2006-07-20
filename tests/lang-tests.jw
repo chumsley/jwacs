@@ -53,6 +53,7 @@ function runTests()
     runTest("try-catch/7", testCatchOfTailCall(54), 54);
     runTest("try-catch/8", throwIntoContinuation(), true);
     runTest("strip-var-decls/1", regressionTestStripSimpleInitialization(), true);
+    runTest("throw/1", throwReenteredThroughContinuation(), true);
   }
   catch(ex)
   {
@@ -533,3 +534,33 @@ function throwIntoContinuation()
     return e == 42;
   }
 }
+
+function throwReenteredThroughContinuation()
+{
+  var k;
+  var total = 0;
+  
+  function someFun()
+  {
+    k = function_continuation;
+    return 1;
+  }
+  
+  try
+  {
+    throw someFun();
+  }
+  catch(e)
+  {
+    total += e;
+    if(k)
+    {
+      var localK = k;
+      k = null;
+      resume localK <- 2;
+    }
+  }
+
+  return total == 3;
+}
+
