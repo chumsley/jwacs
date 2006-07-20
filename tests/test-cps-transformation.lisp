@@ -944,6 +944,79 @@
       else
         resume ifK$0;"))   
 
+(deftest cps/strip-var-decls/new-expr/1 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+      function foo()
+      {
+        try
+        {
+          var http = new XMLHttpRequest;
+          if(http) return http;
+        }
+        catch(e) { }
+
+        try
+        {
+          var handExplicitize = new ActiveXObject('Microsoft.XML');
+          http = handExplicitize;
+          if(http) return http;
+        }
+        catch(e) { }
+      }")))
+  #.(parse "
+      function foo($k)
+      {
+        var http;
+        var tryK$1 = function()
+        {
+          var tryK$3 = function()
+          {
+            return $k();
+          };
+          var catchK$2 = function(e)
+          {
+            resume tryK$3;
+          };
+          $addHandler(catchK$2, function() {
+            return new ActiveXObject(function(handExplicitize)
+            {
+              http = handExplicitize;
+              if(http)
+                $removeHandler(catchK$2, function()
+                {
+                  return $k(http);
+                });
+              $removeHandler(catchK$2, function()
+              {
+                resume tryK$3;
+              });
+            }, 'Microsoft.XML');
+          });
+        };
+        var catchK$0 = function(e)
+        {
+          resume tryK$1;
+        };
+        $addHandler(catchK$0, function() {
+          return new XMLHttpRequest(function(JW4)
+          {
+            http = JW4;
+            if(http)
+              $removeHandler(catchK$0, function()
+              {
+                return $k(http);
+              });
+            $removeHandler(catchK$0, function()
+            {
+              resume tryK$1;
+            });
+          });
+        });
+      }"))
+
+
+
 (deftest cps/strip-var-decls/function-expression/1 :notes cps
   (with-fresh-genvar
     (test-transform 'cps (parse "

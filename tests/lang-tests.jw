@@ -53,6 +53,7 @@ function runTests()
     runTest("try-catch/7", testCatchOfTailCall(54), 54);
     runTest("try-catch/8", throwIntoContinuation(), true);
     runTest("strip-var-decls/1", regressionTestStripSimpleInitialization(), true);
+    runTest("strip-var-decls/2", stripVarsInSerialTry(), true);
     runTest("throw/1", throwReenteredThroughContinuation(), true);
   }
   catch(ex)
@@ -564,3 +565,37 @@ function throwReenteredThroughContinuation()
   return total == 3;
 }
 
+function stripVarsInSerialTry()
+{
+  try
+  {
+    var http = new XMLHttpRequest;
+    if(http)
+      return true;
+  }
+  catch(e)
+  { }
+
+  try
+  {
+    http = new ActiveXObject("Msxml2.XMLHTTP");
+    if(http)
+      return true;
+  }
+  catch(e)
+  { }
+
+  try
+  {
+    http = new ActiveXObject('Microsoft.XMLHTTP');
+    if(http)
+      return true;
+  }
+  catch(e)
+  { }
+
+  throw "Cannot create a suitable http request object";
+}
+
+
+  

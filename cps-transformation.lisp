@@ -378,7 +378,7 @@
         ((new-expr-p initializer)
          (let ((new-construction (make-new-expr :constructor (tx-cps (new-expr-constructor initializer) nil)
                                                 :args (cons
-                                                       (make-continuation-function :parameters (list name)
+                                                       (make-continuation-function :parameters (list k-param-name)
                                                                                    :body (in-local-scope
                                                                                            (tx-cps augmented-statement-tail nil)))
                                                        (new-expr-args initializer)))))
