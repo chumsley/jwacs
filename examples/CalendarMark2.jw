@@ -2,15 +2,13 @@
 ///
 /// A client-based implemenetation of a simple web-calendar in jwacs.
 import "prototype.js";
-import "scriptaculous.js";
+import "effects.js";
+import "dragdrop.js";
 import "jwacs-lib.jw";
 
 JwacsLib.initHistory();
 
-//======= Global data and main program =============================================================
-var currentDate;
-var firstDay;
-var finalDay;
+//======= main program =============================================================================
 
 function main(args)
 {
@@ -235,12 +233,16 @@ function calcMonthNavigationCell(date, isRight)
 function calcNavigationLinksElement(year, month)
 {
   var table = document.createElement("TABLE");
+  //TODO Come on, shouldn't this be part of the CSS?
   table.width = '90%';
   table.align = 'center';
   table.border = '0px';
 
+  var tbody = document.createElement("TBODY");
+  table.appendChild(tbody);
   var row = document.createElement("TR");
-  table.appendChild(row);
+  tbody.appendChild(row);
+
   row.appendChild(calcMonthNavigationCell(new Date(year, month - 1, 1)));
   row.appendChild(calcMonthNavigationCell(new Date(year, month + 1, 1), true));
 
@@ -254,8 +256,10 @@ function calcBottomControlsElement(year, month)
   table.align = 'center';
   table.border = '0px';
 
+  var tbody = document.createElement("TBODY");
+  table.appendChild(tbody);
   var row = document.createElement("TR");
-  table.appendChild(row);
+  tbody.appendChild(row);
   
   var leftCell = document.createElement("TD");
   row.appendChild(leftCell);
@@ -306,13 +310,16 @@ function calcMonthElement(year, month)
   var table = document.createElement("TABLE");
   table.align = "center";
   table.id = "monthTable";
+
+  var tbody = document.createElement("TBODY");
+  table.appendChild(tbody);
   
   var row = 0;
   var col = 0;
 
   //// Headers
   var headerRow = document.createElement("TR");
-  table.appendChild(headerRow);
+  tbody.appendChild(headerRow);
   for(col = 0; col < 7; col++)
   {
     var dayCell = document.createElement("TH");
@@ -335,7 +342,7 @@ function calcMonthElement(year, month)
 	{
     var rowElm = document.createElement("TR");
     rowElm.className = "dataRow";
-    table.appendChild(rowElm);
+    tbody.appendChild(rowElm);
 		for(col = 0; col < 7; col++)
     {
       rowElm.appendChild(calcDayElement(d, month));

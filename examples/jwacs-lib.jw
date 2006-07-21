@@ -284,6 +284,8 @@ var JwacsLib =
     throw "Cannot create a suitable http request object";
   },
 
+  emptyFunction: function() { },
+    
   fetchData: function(method, url)
   {
     var http = JwacsLib.getHttpObj();
@@ -306,7 +308,7 @@ var JwacsLib =
           }
 
           // No errors, so resume the continuation with the raw results
-          http.onreadystatechange = null;
+          http.onreadystatechange = JwacsLib.emptyFunction;
           resume k <- http.responseText;
         }
       }
