@@ -49,8 +49,8 @@
 ;;;; ======= System definition =====================================================================
 (asdf:defsystem jwacs 
   :version "0.1"
-  :author "James Wright <chumsley@gmail.com>, Greg Smolyn <greg@smolyn.org>"
-  :licence "BSD License <http://www.opensource.org/licenses/bsd-license.php>"
+  :author "James Wright <james@chumsley.org> et al"
+  :licence "MIT License <http://www.opensource.org/licenses/mit-license.php>"
   :serial t
   :components ((:module "external"
                         :components
@@ -78,7 +78,8 @@
                (:file "loop-transformation")
                (:file "trampoline-transformation")
                (:file "runtime-transformation")
-               (:file "compiler"))
+               (:file "compiler")
+               (:file "main"))
   :depends-on (cl-ppcre))
 
 ;;;; ======= Test operation ========================================================================
