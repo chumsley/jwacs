@@ -53,6 +53,8 @@ function runTests()
     runTest("try-catch/7", testCatchOfTailCall(54), 54);
     runTest("try-catch/8", throwIntoContinuation(), true);
     runTest("strip-var-decls/1", regressionTestStripSimpleInitialization(), true);
+    runTest("strip-var-decls/2", stripVarsInSerialTry(), true);
+    runTest("throw/1", throwReenteredThroughContinuation(), true);
   }
   catch(ex)
   {
