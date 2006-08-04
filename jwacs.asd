@@ -6,8 +6,21 @@
 
 (defpackage :jwacs-system
   (:use :cl :asdf)
-  (:nicknames :jw-system))
+  (:nicknames :jw-system)
+  (:export
+   #:*version*
+   #:*executable-name*))
 (in-package :jwacs-system)
+
+;;;; ======= Build parameters ======================================================================
+
+(defparameter *version* "pre-alpha"
+  "The current version")
+
+(defparameter *executable-name*
+  #+win32 "jwacs.exe"
+  #-win32 "jwacs"
+  "The name of the executable to create when dumping a binary")
 
 ;;;; ======= Compilation configuration =============================================================
 (defparameter *use-yacc*
@@ -79,7 +92,7 @@
                (:file "trampoline-transformation")
                (:file "runtime-transformation")
                (:file "compiler")
-               (:file "main"))
+               #+(or sbcl lispworks) (:file "main"))
   :depends-on (cl-ppcre))
 
 ;;;; ======= Test operation ========================================================================

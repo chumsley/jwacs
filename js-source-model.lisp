@@ -193,7 +193,7 @@
 
 (defelement (import-decl (:include source-element))
   (type-symbol nil :type symbol)
-  (uri nil :type string))
+  (uripath nil :type string))
 
 ;;;; ======= Static source element properties ======================================================
 

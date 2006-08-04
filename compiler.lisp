@@ -5,23 +5,23 @@
 
 ;;;; ======= Dependency checks =====================================================================
 
-(defun determine-imported-modules (base-pathname prefix-lookup &optional already-imported)
-  "Determines the modules imported by the file specified by BASE-PATHNAME.  Modules that
+(defun determine-imported-modules (main-pathname prefix-lookup &optional already-imported)
+  "Determines the modules imported by the file specified by MAIN-PATHNAME.  Modules that
    are elements of ALREADY-IMPORTED will not be included."
   (labels ((import-decl-to-module (elm)
-             (with-slots (uri) elm
+             (with-slots (uripath) elm
                (if (null (import-decl-type-symbol elm))
-                 (make-module :type (lookup-module-type (pathname-type (pathname uri)))
-                              :path (resolve-import-uri base-pathname uri prefix-lookup)
-                              :uri uri)
+                 (make-module :type (lookup-module-type (pathname-type (pathname uripath)))
+                              :path (resolve-import-uripath main-pathname uripath prefix-lookup)
+                              :uripath uripath)
                  (make-module :type (lookup-module-type (import-decl-type-symbol elm))
-                              :path (resolve-import-uri base-pathname uri prefix-lookup)
-                              :uri uri))))
+                              :path (resolve-import-uripath main-pathname uripath prefix-lookup)
+                              :uripath uripath))))
            (elms-to-modules (elm-list)
              (loop for elm in elm-list
                    when (import-decl-p elm)
                    collect (import-decl-to-module elm))))
-    (let* ((queue (elms-to-modules (parse-file base-pathname)))
+    (let* ((queue (elms-to-modules (parse-file main-pathname)))
            (own-already-imported (union (mapcar 'module-path queue)
                                         already-imported
                                         :test 'pathnames-equal)))
@@ -34,39 +34,37 @@
                                module)
                      (list module))))))
 
-(defun determine-modules (base-pathname prefix-lookup)
-  "Using the file pointed to by BASE-PATHNAME as the main module, determine a list of modules
+(defun determine-modules (main-pathname prefix-lookup)
+  "Using the file pointed to by MAIN-PATHNAME as the main module, determine a list of modules
    that need to be processed to generate an app."
-  (let* ((uri (if (null (pathname-type base-pathname))
-                (pathname-name base-pathname)
-                (format nil "~A.~A" (pathname-name base-pathname) (pathname-type base-pathname)))))
-    (postpend (determine-imported-modules base-pathname
+  (let* ((uripath (if (null (pathname-type main-pathname))
+                    (pathname-name main-pathname)
+                    (format nil "~A.~A" (pathname-name main-pathname) (pathname-type main-pathname)))))
+    (postpend (determine-imported-modules main-pathname
                                           prefix-lookup
-                                          (list base-pathname))
+                                          (list main-pathname))
               (make-module :type 'jw
-                           :path base-pathname
-                           :uri uri))))
+                           :path main-pathname
+                           :uripath uripath))))
 
-;;;; ======= URI handling ==========================================================================
-;;TODO Checking for valid URIs in import statements
-;;TODO Some less horrible URI handling generally
+;;;; ======= URIPATH handling ==========================================================================
 
-(defun absolute-uri-p (uri)
-  "Predicate for checking if a URI is specified from the root rather than
+(defun absolute-uripath-p (uripath)
+  "Predicate for checking if a URIPATH is specified from the root rather than
    relative to the current tree position."
-  (char= #\/ (aref uri 0)))
+  (char= #\/ (aref uripath 0)))
 
-(defun resolve-absolute-uri (uri prefix-lookup)
-  "Finds the base-pathname in PREFIX-LOOKUP that most closely matches URI.
-  URI should be a string representing a URI (minus the host and protocol).
+(defun resolve-absolute-uripath (uripath prefix-lookup)
+  "Finds the base-pathname in PREFIX-LOOKUP that most closely matches URIPATH.
+  URIPATH should be a string representing the path component of a URI.
   PREFIX-LOOKUP should be an assoc list of cells whose CAR is a prefix
   that begins and ends with a slash, and whose CDR is a pathname representing
   a directory in the filesystem."
   (flet ((match-degree (prefix)
            (let ((prefix-len (length prefix))
-                 (uri-len (length uri)))
-             (if (and (<= prefix-len uri-len)
-                      (equal (subseq uri 0 prefix-len) prefix))
+                 (uripath-len (length uripath)))
+             (if (and (<= prefix-len uripath-len)
+                      (equal (subseq uripath 0 prefix-len) prefix))
                prefix-len
                0))))
     (let* ((prefix (reduce (lambda (left right) (if (> (match-degree left)
@@ -75,32 +73,34 @@
                                                   right))
                            (mapcar #'car prefix-lookup)))
            (prefix-base (cdr (assoc prefix prefix-lookup)))
-           (suffix (subseq uri (length prefix))))
-      (assert (absolute-uri-p uri))
+           (suffix (subseq uripath (length prefix))))
+      (assert (absolute-uripath-p uripath))
       (if (or (null prefix)
               (zerop (match-degree prefix)))
-        (error "~A has no prefixes in ~S" uri prefix-lookup)
+        (error "~A has no prefixes in ~S" uripath prefix-lookup)
         (merge-pathnames (pathname suffix) prefix-base)))))
       
-(defun resolve-import-uri (base-pathname uri prefix-lookup)
-  "Resolves the URI of an import that appears in the file located at BASE-PATHNAME.
-   Absolute URIs are resolved using PREFIX-LOOKUP to determine their base-pathname."
-  (if (absolute-uri-p uri)
-    (resolve-absolute-uri uri prefix-lookup)
-    (merge-pathnames (pathname uri) base-pathname)))
+(defun resolve-import-uripath (base-pathname uripath prefix-lookup)
+  "Resolves the URIPATH of an import that appears in the file located at BASE-PATHNAME.
+   Absolute URIPATHs are resolved using PREFIX-LOOKUP to determine their base-pathname."
+  (if (absolute-uripath-p uripath)
+    (resolve-absolute-uripath uripath prefix-lookup)
+    (merge-pathnames (pathname uripath) base-pathname)))
 
-(defun transform-uri (uri new-extension)
-  "Converts URI to a URI that points to a different type of file.
-   Eg, (TRANSFORM-URI \"/common/lib.jw\" \"js\") ==> \"/common/lib.js\" "
-  (let ((search-uri (copy-seq uri)))     ; REGEX-REPLACE may have side-effects
-    (regex-replace "\\.[^\\.]*$" search-uri (format nil ".~A" new-extension))))
+(defun change-uripath-extension (uripath new-extension)
+  "Converts URIPATH to a URIPATH that points to a different type of file.
+   Eg, (CHANGE-URIPATH-EXTENSION \"/common/lib.jw\" \"js\") ==> \"/common/lib.js\" "
+  (if (find #\. uripath)
+    (let ((search-uripath (copy-seq uripath))) ; REGEX-REPLACE may have side-effects
+      (regex-replace "\\.[^\\.]*$" search-uripath (format nil ".~A" new-extension)))
+    (format nil "~A.~A" uripath new-extension)))
 
 ;;;; ======= Module datatype =======================================================================
 (defstruct module
   "Represents a single module of a jwacs application"
   type
   path
-  uri)
+  uripath)
 
 (defun lookup-module-type (raw-type)
   "Converts a 'raw' module type into a canonical type symbol.
@@ -158,16 +158,24 @@
                (emit-elms xformed-elms out-stream :pretty-output t))
 
              ;; Return the output module
-             (make-module :uri (transform-uri (module-uri module) "js")
-                                :path out-path
-                                :type 'js))))
+             (make-module :uripath (change-uripath-extension (module-uripath module) "js")
+                          :path out-path
+                          :type 'js)))
+
+         (confirm-file (module)
+           "Confirm that the file specified by MODULE's uripath actually exists"
+           (unless (probe-file (module-path module))
+             (if (eq (module-type module) 'jw)
+               (error "Cannot read '~A' (specified by URI path '~A')" (module-path module) (module-uripath module))
+               (warn "Cannot read '~A' (specified by URI path '~A')" (module-path module) (module-uripath module))))))
     
     (loop for module in module-list
-        if (eq (module-type module) 'jw)
-        collect (transform-jwacs-module module)
-        else
-        ;; Non-jwacs modules are passed through unchanged
-        collect module)))
+          do (confirm-file module)
+          if (eq (module-type module) 'jw)
+          collect (transform-jwacs-module module)
+          else
+          ;; Non-jwacs modules are passed through unchanged
+          collect module)))
 
 (defun pipeline-compile (elm &optional (pipeline *compiler-pipeline*))
   "Applies the transformations specified in PIPELINE to ELM in order.
@@ -206,7 +214,7 @@
 (defun wrap-modules (module-list template-path out-path)
   "Creates a 'wrapper' html file that represents a jwacs application containing
    all of the files of MODULE-LIST.  We read in a template file from
-   TEMPLATE-PATH, modify its HEAD tag to contain appropriate pointers to each
+   TEMPLATE-PATH, modify it to contain appropriate <SCRIPT> tags referencing each
    of the modules, and write it to OUT-PATH."
 
   ;; Make sure we're not overwriting any input modules
@@ -233,7 +241,7 @@
   (error "Internal error: jwacs modules must be transformed before they are wrapped"))
 
 (defmethod wrap-module (module (module-type (eql 'js)) head-stream)
-  (format head-stream "~&<script type='text/javascript' src='~A'></script>" (module-uri module)))
+  (format head-stream "~&<script type='text/javascript' src='~A'></script>" (module-uripath module)))
 
 ;;;; ======= Cached defaults =======================================================================
 ;; These strings will be used to generate default versions of missing files.
@@ -250,25 +258,25 @@
 
 ;;;; ======= Exported API ==========================================================================
 
-(defun build-app (main-module-path &key template-path-arg output-path-arg prefix-lookup runtime-uri)
+(defun build-app (main-module-path &key template-uripath output-uripath prefix-lookup runtime-uripath)
   "Build a wrapper html file for a jwacs application"
-  (flet ((get-path (param-path path-name path-type)
+  (flet ((get-path (param-uripath path-name path-type)
            "If PARAM-PATH is non-NIL, return it.
             Otherwise, make a new path based on MAIN-MODULE-PATH."
-           (if (null param-path)
+           (if (null param-uripath)
              (merge-pathnames (make-pathname :name path-name :type path-type)
                               main-module-path)
-             param-path)))
-    (let ((template-path (get-path template-path-arg nil "template"))
-          (output-path (get-path output-path-arg nil "html"))
+             (resolve-import-uripath main-module-path param-uripath prefix-lookup))))
+    (let ((template-path (get-path template-uripath nil "template"))
+          (output-path (get-path output-uripath nil "html"))
           (iframe-path (get-path nil "blank" "html"))
-          (runtime-module (if (null runtime-uri)
+          (runtime-module (if (null runtime-uripath)
                             (make-module :type 'js
                                          :path (get-path nil "jw-rt" "js")
-                                         :uri "jw-rt.js")
+                                         :uripath "jw-rt.js")
                             (make-module :type 'js
-                                         :path (resolve-import-uri main-module-path runtime-uri prefix-lookup)
-                                         :uri runtime-uri))))
+                                         :path (resolve-import-uripath main-module-path runtime-uripath prefix-lookup)
+                                         :uripath runtime-uripath))))
 
       ;; If no template file exists, generate one
       (unless (probe-file template-path)
