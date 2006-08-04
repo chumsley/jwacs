@@ -1,7 +1,7 @@
 <html>
 <head>
   <title>Counter example</title>
-  <% jwacs_imports %>
+  <@ jwacs_imports @>
   <style type='text/css'>
     #counter
     {

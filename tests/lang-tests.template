@@ -1,7 +1,7 @@
 <html>
 <head>
 <title>jwacs language tests</title>
-<% jwacs_imports %>
+<@ jwacs_imports @>
 </head>
 <body onLoad='runTests();'>
 <h2>jwacs language tests</h2>
@@ -11,7 +11,12 @@ are actually written in jwacs.  The tests themselves are located in
 <a href='lang-tests.jw'>lang-tests.jw</a>.
 That file needs to be compiled into <a href='lang-tests.js'>lang-tests.js</a> 
 before changes will be reflected in the tests run by this file.  You can compile
-by typing <code>(jw-tests::compile-lang-tests)</code> from the REPL.
+by
+<ol type='i'>
+  <li>typing <code>(jw-tests::compile-lang-tests)</code> from the REPL, <b>or</b>
+  <li>typing <code>jwacs -r ..\jw-runtime.js lang-tests.html</code> from the command-line
+      (this assumes that you've built the binary)
+</ol>
 
 <p>
 Everything after the next heading is output from the automated tests.

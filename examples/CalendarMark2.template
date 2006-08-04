@@ -6,6 +6,6 @@
 <body>
   <div id='contentDiv'><i>Loading...</i></div>
   <div id='StatusDisplay' style='display:none'></div>
-  <% jwacs_imports %>
+  <@ jwacs_imports @>
 </body>
 </html>

@@ -215,7 +215,7 @@
     
   (let ((template-string (read-entire-file template-path)))
     (multiple-value-bind (s e)
-        (cl-ppcre:scan "<%\\s*jwacs_imports\\s*%>" template-string)
+        (cl-ppcre:scan "<@\\s*jwacs_imports\\s*@>" template-string)
       (with-open-file (out out-path :direction :output :if-exists :supersede)
         (format out "~A" (subseq template-string 0 s))
         (dolist (module module-list)
