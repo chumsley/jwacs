@@ -477,7 +477,7 @@
   (format s "import ")
   (when (import-decl-type-symbol elm)
     (format s "~A " (string-downcase (symbol-name (import-decl-type-symbol elm)))))
-  (format s "\"~A\";" (import-decl-uri elm)))
+  (format s "\"~A\";" (import-decl-uripath elm)))
 
 ;;;; ------- administrative elements ---------------------------------------------------------------
 (defmethod pretty-print ((elm add-handler) s)
