@@ -14,7 +14,7 @@
 
 ;;;; ======= Build parameters ======================================================================
 
-(defparameter *version* "pre-alpha"
+(defparameter *version* "alpha1"
   "The current version")
 
 (defparameter *executable-name*

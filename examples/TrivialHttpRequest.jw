@@ -1,45 +1,17 @@
 // TrivialHttpRequest.jw
 //
-// Demonstrates the motivating XMLHttpRequest usage pattern.
-// To use it:
+// Demonstrates the motivating XMLHttpRequest usage pattern.  Note that
+// JwascLib.fetchData appears synchronous (eg, returns a usable value), but is
+// actually using an asynchronous XMLHttpRequest request.
 //
-//   1. Process this file using JW::PROCESS.  It will produce TrivialHttpRequest.js.
-//   2. Load TrivialHttpRequest.html.  
-//   3. The page should show three rows of 'data' (loaded from dataRows.txt using XMLHttpRequest).
+// All this example does is synchronously fetch the data stored in "datarows.txt"
+// and output it to the browser window.
 
-function getHttpObj()
+import "../lib/jwacs-lib.jw";
+
+function main()
 {
-	try
-	{
-		var http = new XMLHttpRequest;
-		if(http != null)
-			return http;
-	}
-	catch(e)
-	{ }
-
-	return new ActiveXObject("Msxml2.XMLHTTP");
+  document.getElementById('contentDiv').innerHTML = '<pre>' + JwacsLib.fetchData('GET', 'dataRows.txt') + '</pre>';
 }
 
-function fetchData(method, url)
-{
-  var http = getHttpObj();
-  var k = function_continuation;
-
-  http.onreadystatechange = function()
-  {
-    if(http.readyState == 4)
-    {
-      resume k <- http.responseText;
-		}
-	};
-
-	http.open(method, url);
-	http.send(null);
-	suspend;
-}
-
-function handlePageLoad()
-{
-  document.getElementById('contentDiv').innerHTML = '<pre>' + fetchData('GET', 'dataRows.txt') + '</pre>';
-}
+main();

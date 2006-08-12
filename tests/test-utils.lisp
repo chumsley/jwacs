@@ -52,11 +52,27 @@
              (transform xform elm)))
 
 (defun compile-lang-tests ()
+  "Compile the language tests"
   (let* ((module (asdf:find-component (asdf:find-system :jwacs-tests) "tests"))
          (component (asdf:find-component module "lang-tests")))
     (jw::build-app (asdf:component-pathname component))))
     
+(defun compile-examples ()
+  "Compiles all the examples"
+  (let* ((sys-pathname (truename (asdf:system-definition-pathname (asdf:find-system :jwacs))))
+         (lib-pathname (merge-pathnames (make-pathname :directory '(:relative "lib")
+                                                       :name :unspecific :type :unspecific :version :unspecific)
+                                        sys-pathname))
+         (examples-pathname (merge-pathnames (make-pathname :directory '(:relative "examples")
+                                                            :name :unspecific :type :unspecific :version :unspecific)
+                                        sys-pathname)))
+    (flet ((build-ex (name)
+             (format t "~A /lib=~S~%" (merge-pathnames name examples-pathname) lib-pathname) ;TEST
+             (jw:build-app (merge-pathnames name examples-pathname) :prefix-lookup `(("/lib/" . ,lib-pathname)))))
 
+;;      (build-ex "CalendarMark2.jw")
+      (build-ex "Counter.jw")
+      (build-ex "TrivialHttpRequest.jw"))))
 
 ;;TODO Automated benchmarks?
 ;;TODO Randomized testing?  (a la Quickcheck)

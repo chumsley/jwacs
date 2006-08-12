@@ -1,0 +1,19 @@
+This directory contains common library files for the examples in the examples/
+directory.  Anything that is linked to with a URI path starting with "/lib/"
+lives here.
+
+jwacs-specific files:
+
+    jwacs-lib.jw     - This is an example of some of the library functions that can be
+                       built using jwacs.
+    README           - This file
+
+Third-party files:
+
+    prototype.js     - Sam Stephenson's popular Prototype library
+    scriptaculous.js - Thomas Fuch's Script.aculo.us library
+    builder.js       - "
+    controls.js      - "
+    dragdrop.js      - "
+    effects.js       - "
+    slider.js        - "

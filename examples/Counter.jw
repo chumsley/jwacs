@@ -1,7 +1,7 @@
-import "prototype.js";
-import "jwacs-lib.jw";
+import "../lib/prototype.js";
+import "../lib/jwacs-lib.jw";
 
-JwacsLib.initHistory(10);
+JwacsLib.initHistory(10); // Only keep 10 history items
 
 var counter;
 function main(hint)

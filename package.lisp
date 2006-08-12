@@ -8,4 +8,5 @@
   (:nicknames :jw)
   (:export
    #:parse
-   #:process))
+   #:process
+   #:build-app))

@@ -1,10 +1,10 @@
 //// CalendarMark2.jw
 ///
 /// A client-based implemenetation of a simple web-calendar in jwacs.
-import "prototype.js";
-import "effects.js";
-import "dragdrop.js";
-import "jwacs-lib.jw";
+import "/lib/prototype.js";
+import "/lib/effects.js";
+import "/lib/dragdrop.js";
+import "/lib/jwacs-lib.jw";
 
 JwacsLib.initHistory();
 

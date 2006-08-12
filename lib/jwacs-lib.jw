@@ -21,7 +21,9 @@ var JwacsLib =
     JwacsLib.sleep(0);
   },
 
-  //// RSH-like history management
+  //// History management (based loosely on Brad Neuberg's Really Simple History;
+  //// see http://codinginparadise.org/projects/dhtml_history/README.html)
+  
   pageThunks: new Object,       // Lookup from hash to thunk
   maxHistoryEntries: 50,        // Maximum number of historical thunks to keep in pageThunks
                                 //   (we only prune in newPage calls, so it is
@@ -253,7 +255,7 @@ var JwacsLib =
     window.location.hash = unescape(hash);
   },
 
-  //// Faux-synchronous server-data fetching
+  //// Faux-synchronous server-data fetching.
   getHttpObj: function()
   {
     var http = null;

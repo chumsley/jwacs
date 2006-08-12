@@ -35,7 +35,7 @@
                    :output-uripath output
                    :prefix-lookup prefix-lookup
                    :runtime-uripath runtime)
-        (format t "~&~%Done.")
+        (format t "~&~%Done.~%~%")
         0)
     (condition (c)
                (let ((*print-escape* nil))

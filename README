@@ -1,0 +1,11 @@
+jwacs - Javascript With Advanced Continuation Support
+
+Jwacs is a program for transforming code written in an extended version of 
+Javascript that contains continuation support into regular Javascript that can 
+be run in any standards-compliant browser.
+
+The extended language is also called jwacs, which is perhaps a little confusing. 
+Suggestions are welcome.
+
+See doc/index.html or http://jwacs.org for documentation, including a Quick 
+Start guide.

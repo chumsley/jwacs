@@ -1,1 +1,0 @@
-- Objects may have an unexpected field named $init during construction.

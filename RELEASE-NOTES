@@ -1,0 +1,8 @@
+KNOWN ISSUES:
+
+* Objects may have an unexpected field named $init during construction.
+* Function.apply cannot be used to call functions that have been transformed
+  (in other words, it should only be used on functions such as library functions
+  that have definitely not been transformed).
+* The with statement is not supported at all
+* The parser does not do semicolon insertion.
