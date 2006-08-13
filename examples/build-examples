@@ -1,0 +1,17 @@
+#!/bin/sh
+
+if [ -x ../bin/jwacs ] ; then
+
+# ../bin/jwacs --noinform -p /lib/=../lib CalendarMark2.jw
+  ../bin/jwacs --noinform Counter.jw
+  ../bin/jwacs --noinform TrivialHttpRequest.jw
+
+else
+
+  echo Cannot find jwacs binary!
+  echo You can build the examples by evaluating
+  echo "    (asdf:oos 'asdf:load-op :jwacs-tests)"
+  echo "    (jw-tests::compile-examples)"
+  echo from the REPL.
+
+fi
