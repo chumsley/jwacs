@@ -5,6 +5,7 @@ import "/lib/prototype.js";
 import "/lib/effects.js";
 import "/lib/dragdrop.js";
 import "/lib/jwacs-lib.jw";
+import "CalendarMark2Config.js";
 
 JwacsLib.initHistory();
 
@@ -549,7 +550,6 @@ function calcEventEditHtml(event)
 }
 
 // ======= Server calls ============================================================================
-
 function serverCall(method, url, params, status)
 {
   var currentStatus = status;
@@ -584,7 +584,7 @@ function serverCall(method, url, params, status)
 function readEvents(s, e)
 {
   return serverCall("GET",
-                    "/calendar/event-query",
+                    serviceRootPath + "/event-query",
                     {s: dateToStr(s), e: dateToStr(e)},
                     "fetching events");
 }
@@ -592,7 +592,7 @@ function readEvents(s, e)
 function fetchEvent(eventID)
 {
   var rows = serverCall("GET",
-                        "/calendar/event-query",
+                        serviceRootPath + "/event-query",
                         {id: eventID},
                         "fetching event #" + eventID);
   return rows[0];
@@ -601,7 +601,7 @@ function fetchEvent(eventID)
 function addEvent(event)
 {
   var rows = serverCall("POST",
-                        "/calendar/event-add",
+                        serviceRootPath + "/event-add",
                         event,
                         "saving new event '" + event.desc + "'");
   return rows[0];
@@ -610,7 +610,7 @@ function addEvent(event)
 function updateEvent(event)
 {
   var rows = serverCall("POST",
-                        "/calendar/event-update",
+                        serviceRootPath + "/event-update",
                         event,
                         "updating event #" + event.id);
   return rows[0];
@@ -619,7 +619,7 @@ function updateEvent(event)
 function deleteEvent(eventID)
 {
   serverCall("POST",
-             "/calendar/event-del",
+             serviceRootPath + "/event-del",
              {id: eventID},
              "deleting event #" + eventID);
 }
