@@ -5,6 +5,10 @@
 ;;; transformation-related utility functions.  The main source
 ;;; transformations will implement methods on TRANSFORM in their
 ;;; own source files.
+;;;
+;;; Copyright (c) 2005 James Wright
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jwacs)
 
 ;;;; Utilities 

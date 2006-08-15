@@ -1,6 +1,10 @@
 ;;;; test-shadow-values-transformation.lisp
 ;;;
 ;;; Tests for the shadow-values transformation
+;;;
+;;; Copyright (c) 2006 James Wright
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jw-tests)
 
 (deftest shadow-values/fn-decl/arguments-referenced/1 :notes shadow-values

@@ -2,7 +2,7 @@
 
 if [ -x ../bin/jwacs ] ; then
 
-# ../bin/jwacs --noinform -p /lib/=../lib CalendarMark2.jw
+  ../bin/jwacs --noinform -p /lib/=../lib CalendarMark2.jw
   ../bin/jwacs --noinform Counter.jw
   ../bin/jwacs --noinform TrivialHttpRequest.jw
 

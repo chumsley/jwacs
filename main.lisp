@@ -1,6 +1,10 @@
 ;;;; main.lisp
 ;;;
 ;;; Defines the MAIN function which is the entry-point for the delivered binary.
+;;;
+;;; Copyright (c) 2006 James Wright
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jwacs)
 
 (defun command-line-arguments ()
@@ -111,7 +115,7 @@
                ~%   -r <uri-path>  URI-path of the runtime script to use.  Default: \"jw-rt.js\".~
                ~%   -o <uri-path>  URI-path of the output file to create.  Default: the name~
                ~%                  of the main source file with new extension \".html\".~
-               ~%   -p <uri-path>=<directory>[:<uri-path>=<directory> ...]~
+               ~%   -p <uri-path>=<directory>[;<uri-path>=<directory> ...]~
                ~%                  Specifies the mapping between absolute URI paths and the~
                ~%                  filesystem.~
                ~%                  eg: -i /foo/=~A;/foo/bar/=~A~

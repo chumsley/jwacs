@@ -5,6 +5,10 @@
 ;;; the bottom of three levels continuation) with references to "shadow
 ;;; values", which are variable that have been set to point to the /correct/
 ;;; versions of `this` and arguments at the beginning of a function.
+;;;
+;;; Copyright (c) 2006 James Wright
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jw)
 
 (defparameter *shadowed-this-name* nil

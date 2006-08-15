@@ -1,5 +1,9 @@
 ;;;; package.lisp
 ;;; Defines the package used by the unit tests
+;;;
+;;; Copyright (c) 2005-2006 James Wright
+;;; See LICENSE for full licensing details.
+;;;
 
 (defpackage :jwacs-tests
   (:use :cl :rtest :cl-ppcre :jwacs)

@@ -2,7 +2,10 @@
 ;;;
 ;;; Some helper functions for testing in general (i.e., that are
 ;;; not specific to testing a certain file).
-
+;;;
+;;; Copyright (c) 2005 James Wright
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jw-tests)
 
 (defun flag-expected-failure (test-name)
@@ -67,10 +70,9 @@
                                                             :name :unspecific :type :unspecific :version :unspecific)
                                         sys-pathname)))
     (flet ((build-ex (name)
-             (format t "~A /lib=~S~%" (merge-pathnames name examples-pathname) lib-pathname) ;TEST
              (jw:build-app (merge-pathnames name examples-pathname) :prefix-lookup `(("/lib/" . ,lib-pathname)))))
 
-;;      (build-ex "CalendarMark2.jw")
+      (build-ex "CalendarMark2.jw")
       (build-ex "Counter.jw")
       (build-ex "TrivialHttpRequest.jw"))))
 

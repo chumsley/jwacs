@@ -1,6 +1,10 @@
 ;;;; test-type-analysis.lisp
 ;;;
 ;;; Unit tests and benchmarks for type analysis functionality
+;;;
+;;; Copyright (c) 2006 James Wright
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jw-tests)
 
 (defnote type-analysis "tests for the type-analysis functionality")

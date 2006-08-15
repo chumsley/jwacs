@@ -1,7 +1,10 @@
 ;;;; parse-javascript-yacc.lisp
 ;;;
 ;;; Use the cl-yacc package to parse javascript source text.
-
+;;;
+;;; Copyright (c) 2005 Greg Smolyn
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jwacs)
 
 (defun expand-hashtable-to-values (hashtable)

@@ -1,6 +1,10 @@
 ;;;; test-explicitize.lisp
 ;;;
 ;;; Tests for the explicitize transformation (and related functions)
+;;;
+;;; Copyright (c) 2005 James Wright
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jwacs-tests)
 
 ;;;; Test categories 

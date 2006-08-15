@@ -1,6 +1,10 @@
 ;;;; test-parser.lisp
 ;;;
 ;;; Unit tests for the Javascript parser
+;;;
+;;; Copyright (c) 2005 James Wright
+;;; See LICENSE for full licensing details.
+;;;
 
 ;;TODO Round-trip test (eg, parse -> pretty-print -> parse)
 

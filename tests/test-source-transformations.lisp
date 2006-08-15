@@ -1,7 +1,10 @@
 ;;;; test-source-transformation.lisp
 ;;;
 ;;; Tests for the source transformations.
-
+;;;
+;;; Copyright (c) 2005 James Wright
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jwacs-tests)
 
 ;;;; Test categories 

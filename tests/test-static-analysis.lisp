@@ -1,6 +1,10 @@
 ;;;; test-static-analysis.lisp
 ;;;
 ;;; Unit tests for the static analysis utility functions
+;;;
+;;; Copyright (c) 2006 James Wright
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jwacs-tests)
 
 (deftest static-analysis/explicitly-terminated-p/1 :notes static-analysis

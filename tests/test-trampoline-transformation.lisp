@@ -1,6 +1,10 @@
 ;;;; test-trampoline-transformation.lisp
 ;;;
 ;;; Tests for the trampoline transformation
+;;;
+;;; Copyright (c) 2006 James Wright
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jwacs-tests)
 
 (defnote trampoline "tests for the trampoline transformation")

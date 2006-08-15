@@ -1,0 +1,126 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+  <title>jwacs examples</title>
+  <meta http-equiv="Content-type" content="text/html;charset=iso-8859-1">
+  <style type='text/css'>
+    h2
+    {
+      margin-top: 6pt;
+      margin-bottom: 6pt;
+      font-size: 16pt;
+      font-weight: normal;
+    }
+
+    a
+    {
+      color: blue;
+      text-decoration: none;
+    }
+
+    a:hover
+    {
+      text-decoration: underline;
+    }
+    
+    body
+    {
+      background: white;
+      font-family: Georgia, Times, serif;
+      font-size: 10pt;
+      margin: 0 auto;
+      width: 700px;
+      line-height: 2;
+    }
+    
+    span.highlight
+    {
+      background: yellow;
+    }
+  
+    pre, code
+    {
+      font-family: Courier, monospace;
+      font-size: small;
+      line-height: 1.25;
+      color: #980000;
+      padding-right: 0.5ex;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>jwacs examples</h2>
+  The <tt>examples/</tt> directory contains some small (tiny) example
+  applications written in jwacs.  This file provides descriptions of 
+  them.
+  
+  <p>You can build all of the example programs by running the
+  <tt>build-examples</tt> script (under Linux) or the
+  <tt>build-examples.cmd</tt> batch file (under Windows).  You can also execute
+  the following from the REPL:
+  
+  <pre>
+  (asdf:oos 'asdf:load-op :jwacs-tests)
+  (jw-tests::compile-examples)</pre>
+  
+  <p>Some of the example programs (okay, one) require the server to provide
+  certain services for Ajax requests, so they (okay, it) won't run very well on
+  a local file system.  So that you can still see these (this) application in
+  action, we provide running versions of all the example apps on the 
+  <a href='http://chumsley.org/jwacs/demos.html'>jwacs site</a>.
+  
+  <dl>
+    <dt>TrivialHttpRequest</dt>
+    <dd>This trivial little app demonstrates the use of
+    <code>JwacsLib.fetchData</code>; it fetches a text file from the server and
+    displays it on the page.  Note that it is making an asynchronous
+    <code>XMLHttpRequest</code> request, but to the programmer it appears that
+    <code>fetchData</code> blocks until complete and then returns the result.
+
+    <dt>Counter</dt>
+    <dd>This application shows a simple counter, and links to make it go up and
+    down.  It demonstrates the use of the history (ie, back-button) management
+    capabilities that the jwacs library provides.</dd>
+    
+    <dt>Calendar Mark 2</dt>
+    <dd>This slightly more substantial example of a jwacs application implements
+    a simple web-calendar as a client-side application.  Login using username
+    <b><tt>guest</b></tt> and password <b><tt>guest</b></tt>.
+
+    <p>The client expects the server to provide a basic REST-style service that
+    exposes the following endpoints:
+    <ul>
+      <li><tt>GET /event-query</tt> with parameter <tt>id</tt>: Returns a single event
+      <li><tt>GET /event-query</tt> with parameters <tt>s</tt> and <tt>e</tt>:
+              Returns all events that occur between the start date <tt>s</tt>
+              and the end date <tt>e</tt> inclusive.
+      <li><tt>POST /event-add</tt> with parameters <tt>date</tt>, <tt>desc</tt>,
+      and <tt>notes</tt>: Creates a new event on the specified date with the
+      specified description and notes.  Returns the created event if successful.
+      <li><tt>POST /event-del</tt> with parameter <tt>id</tt>: Deletes the
+      specified event.
+      <li><tt>POST /event-update</tt> with required parameter <tt>id</tt> and
+      optional parameters <tt>date</tt>, <tt>desc</tt>, and <tt>notes</tt>:
+      Updates the specified fields of the specified event.
+    </ul></dd>
+  </dl>
+
+  <h3>Unit tests</h3>
+
+  The <code>jwacs-tests</code> system contains a bunch of unit tests that verify
+  that the transformations produce the code that we expect them to.  To run
+  these unit tests, execute the following from the REPL:
+  <pre>
+  (asdf:oos 'asdf:test-op :jwacs)</pre>
+  
+  <h3>Language tests</h3>
+  The <tt>tests/</tt> directory also contains "language tests" to verify that
+  transformed code behaves as expected.  To run these tests, execute
+  
+  <pre>
+  (asdf:oos 'asdf:load-op :jwacs-tests)
+  (jw-tests::compile-lang-tests)</pre>
+  
+  from the REPL and then open <tt>tests/lang-tests.html</tt> in a browser.  All
+  the tests should pass.

@@ -2,7 +2,10 @@
 ;;;
 ;;; Defines the data structures that are used for the internal representation
 ;;; of parsed Javascript source files.
-
+;;;
+;;; Copyright (c) 2005-2006 James Wright
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jwacs)
 
 #-(or sbcl cmu)

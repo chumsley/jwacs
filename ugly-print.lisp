@@ -8,8 +8,11 @@
 ;;; and *opt-space* are correctly set.
 ;;; Essentially all we do in this is the uniquifying transformation.
 ;;;
-;;; Unit tests in tests/ugly-print.lisp
-
+;;; Unit tests in tests/ugly-print.lisp.
+;;;
+;;; Copyright (c) 2005 Greg Smolyn and James Wright
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jwacs) 
 
 ; Our main entry point to the ugly printer

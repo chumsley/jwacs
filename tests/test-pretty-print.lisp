@@ -1,7 +1,10 @@
 ;;;; test-pretty-print.lisp
 ;;;
 ;;; Tests for the pretty-printer.
-
+;;;
+;;; Copyright (c) 2005 James Wright
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jwacs-tests)
 
 ;;;; Helper functions

@@ -1,7 +1,10 @@
 ;;;; test-ugly-print.lisp
 ;;;
 ;;; Tests for the ugly printer
-
+;;;
+;;; Copyright (c) 2005 Greg Smolyn
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jwacs-tests)
 
 ;;;; Helper functions

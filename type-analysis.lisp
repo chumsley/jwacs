@@ -2,6 +2,10 @@
 ;;;
 ;;; Defines functions and data structures for static type analysis
 ;;; on jwacs source code.
+;;;
+;;; Copyright (c) 2006 James Wright
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jwacs)
 
 ;;; ======================================================================

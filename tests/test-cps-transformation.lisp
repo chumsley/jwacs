@@ -1,6 +1,10 @@
 ;;;; test-cps-transformation.lisp
 ;;;
 ;;; Tests for the cps transformation
+;;;
+;;; Copyright (c) 2005-2006 James Wright
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jwacs-tests)
 
 ;;;; Test categories 

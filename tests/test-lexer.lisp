@@ -1,6 +1,10 @@
 ;;;; test-lexer.lisp
 ;;;
 ;;; Unit tests for the Javascript lexer.
+;;;
+;;; Copyright (c) 2005 James Wright
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jwacs-tests)
 
 ;;;; Helper functions

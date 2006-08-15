@@ -2,7 +2,10 @@
 ;;;
 ;;; Contains macros and macro-supporting functions that
 ;;; are used to define the lexer.
-
+;;;
+;;; Copyright (c) 2005 James Wright
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jwacs)
 
 (defun re-cond-clause (string start block-name clause)

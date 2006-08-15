@@ -6,7 +6,10 @@
 ;;;
 ;;; The grammar for the parser is based on The ECMAScript Language Specification (ECMA-262),
 ;;; available at <http://www.ecma-international.org/publications/standards/Ecma-262.htm>.
-
+;;;
+;;; Copyright (c) 2005 James Wright and Greg Smolyn
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jwacs)
 
 ;;;; Cross-compiler configuration

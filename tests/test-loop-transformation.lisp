@@ -1,3 +1,7 @@
+;;;
+;;; Copyright (c) 2005 Greg Smolyn
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jwacs-tests)
 
 ;; canonicalization tests

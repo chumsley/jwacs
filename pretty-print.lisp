@@ -3,7 +3,10 @@
 ;;; Provides generic functions for printing abstract source trees in a parseable (and
 ;;; human-readable) fashion.  The PRETTY-PRINT generic function is the main interface.
 ;;; Unit tests are in tests/test-pretty-print.lisp.
-
+;;;
+;;; Copyright (c) 2005 James Wright
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jwacs)
 
 ;;;; Semicolon-termination rules

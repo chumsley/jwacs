@@ -1,6 +1,10 @@
 ;;;; test-shift-function-decls.lisp
 ;;;
 ;;; Tests for the shift-decls transformation
+;;;
+;;; Copyright (c) 2005 James Wright
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jwacs-tests)
 
 (deftest shift-decls/1

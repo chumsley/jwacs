@@ -2,6 +2,10 @@
 ;;;
 ;;; Define the transformation that converts cps-form Javascript source
 ;;; into trampolined cps-form Javascript.
+;;;
+;;; Copyright (c) 2006 James Wright
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jwacs)
 
 ;;;; ======= Trampoline transformation =============================================================

@@ -1,0 +1,404 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+  <title>jwacs documentation</title>
+  <meta http-equiv="Content-type" content="text/html;charset=iso-8859-1">
+  <style type='text/css'>
+    h2
+    {
+      margin-top: 6pt;
+      margin-bottom: 6pt;
+      font-size: 16pt;
+      font-weight: normal;
+    }
+
+    a
+    {
+      color: blue;
+      text-decoration: none;
+    }
+
+    a:hover
+    {
+      text-decoration: underline;
+    }
+    
+    body
+    {
+      background: white;
+      font-family: Georgia, Times, serif;
+      font-size: 10pt;
+      margin: 0 auto;
+      width: 700px;
+      line-height: 2;
+    }
+    
+    span.highlight
+    {
+      background: yellow;
+    }
+  
+    pre, code
+    {
+      font-family: Courier, monospace;
+      font-size: small;
+      line-height: 1.25;
+      color: #980000;
+      padding-right: 0.5ex;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>jwacs documentation</h2>
+  
+  jwacs is a program transformer.  You write code in an extended syntax and then
+  transform it into standard Javascript code.  This quick-start document has the
+  following sections:
+  <ol>
+    <li><a href='#syntax'>Syntax</a> - describes the syntax extensions
+    <ol>
+      <li><a href='#function_continuation'>The <code>function_continuation</code> statement</a>
+      <li><a href='#resume'>The <code>resume</code> statement</a>
+      <li><a href='#suspend'>The <code>suspend</code> statement</a>
+      <li><a href='#throw-extensions'>Extended <code>throw</code> syntax</a>
+      <li><a href='#import'>The <code>import</code> statement</a>
+      <li><a href='#caveats'>Some caveats</a>
+    </ol>
+    <li><a href='#library'>Library</a> - describes the library functions
+    <li><a href='#compiler'>Compiler</a> - describes how to use the actual compiler
+    <ol>
+      <li><a href='#binary'>Using the jwacs executable</a>
+      <li><a href='#function'>Using the <code>build-app</code> function</a>
+      <li><a href='#uri-translation'>URI path translation</a>
+    </ol>
+  </ol>
+  
+  <a name='syntax'></a>
+  <h3>Syntax</h3>
+  
+  jwacs adds 4 new keywords to Javascript.  It also extends the syntax of the
+  <code>throw</code> statement somewhat to allow throwing exceptions into
+  continuation objects.
+  
+  <a name='function_continuation'></a>
+  <h4>The <code>function_continuation</code> statement</h4>
+  The new <code>function_continuation</code> statement takes no arguments and
+  returns the return continuation for the current function.  For example, in the
+  following code:
+  
+  <pre>
+  function sleep(msec)
+  {
+    <span class='highlight'>var k = function_continuation;</span>
+    setTimeout(function() { resume k; }, msec);
+    suspend;
+  }</pre>
+  
+  <p>the local variable <code>k</code> is set to the return continuation for the
+  sleep function.  This continuation is resumed by the timeout function that is
+  set by the <code>setTimeout</code> call.  When the <code>k</code> continuation
+  is resumed, the sleep function "returns" to the caller, in the same state as
+  when it was called.
+  
+  <p>You can think of the value returned by the
+  <code>function_continuation</code> statement as being a copy of the call stack
+  (complete with all locals, parameters, and return addresses) at the time of
+  entry into the current function.
+  
+  <a name='resume'></a>
+  <h4>The <code>resume</code> statement</h4>
+  
+  The <code>resume</code> statement takes either one or two arguments.  The
+  first argument is an expression that returns a continuation to resume, and the
+  second, optional argument is an expression that returns the value for the
+  resumed continuation's function to return.  If the optional second argument is
+  omitted, the function returns <code>undefined</code>.  The syntax is:
+  
+  <p>The anonymous function in the <code>setTimeout</code> call above shows the
+  single-argument version of <code>resume</code>.  The version of
+  <code>sleep</code> above will return undefined when its continuation is
+  resumed.  The following, modified version of <code>sleep</code> will return
+  the number of milliseconds that it was called with:
+  
+  <pre>
+  function sleep(msec)
+  {
+    var k = function_continuation;
+    setTimeout(function() { <span class='highlight'>resume k <- msec;</span> }, msec);
+    suspend;
+  }</pre>
+  
+  Note that the first and second arguments to <code>resume</code> must be
+  separated by a left-pointing arrow token.  This slightly-hokey syntax is
+  intended to convey that the value is passed into the continuation.  Also it
+  makes the grammar unambiguous. :)
+  
+  <p>You can think of the <code>resume</code> statement as replacing the current
+  call stack with the stack saved in the continuation and then executing a
+  <code>return</code> statement.  In particular, since they replace the call
+  stack, <code>resume</code> statements never return.  
+  
+  <p>So, in this code:
+  
+  <pre>
+  function foo(k)
+  {
+    if(k)
+      return 20;
+    else
+      resume k <- 20;
+    
+    alert("you'll never see this");
+  }</pre>
+  
+  the <code>alert</code> statement is never executed, since <code>foo</code>
+  either returns or resumes the continuation argument <code>k</code>.
+  
+  <a name='suspend'></a>
+  <h4>The <code>suspend</code> statement</h4>
+  
+  The <code>suspend</code> statement suspends the current thread.  It accepts no
+  arguments.
+  
+  <p>It is frequently the case that a function that captures its own
+  continuation in one form or another will want to delay its return until some
+  event has occurred.  In the case of the <code>fetchData</code> function (see
+  the <a href='#library'>library</a> section), we want to delay returning until
+  the data has returned from the server, so we save a continuation in an event
+  handler and execute a <code>suspend</code> statement.  In the case of the
+  <code>sleep</code> function defined above, we want to delay returning until a
+  specified number of milliseconds have elapsed, so we save a continuation to be
+  resumed by a timer and then execute a <code>suspend</code> statement.
+  
+  <p>In the above definition of <code>sleep</code>, if the <code>suspend</code>
+  statement were missing, then <code>sleep</code> would actually return
+  <i>twice</i>: Once immediately, and once when the timer fired and resumed its
+  continuation.
+  
+  <p>You can think of the <code>suspend</code> statement as discarding the
+  current call stack.
+  
+  <a name='throw-extensions'></a>
+  <h4>Extended <code>throw</code> syntax</h4>
+  
+  Of course, there's more ways for a function to exit than by returning.  It is
+  also possible to leave a function by throwing an exception.  To make it
+  possible to cause the function whose continuation was captured to throw an
+  exception, jwacs extends the syntax of the <code>throw</code> statement to
+  allow you to throw an exception "into" a continuation:
+  
+  <pre>
+  throw <i>value</i> -> <i>continuation</i></pre>
+  
+  The usual, 1-argument syntax still works as expected (ie, it throws an
+  exception in the current control context).  However, there is now also an
+  optional second argument that specifies that an exception is to be thrown into
+  a continuation.  Note that the second argument is separated from the first by
+  a right-facing arrow (indicating that the exception is thrown into the
+  exception).
+  
+  <p>For example:
+  <pre>
+  function strictSleep(msec)
+  {
+    var k = function_continuation;
+    var s = (new Date).getTime();
+    setTimeout(function() { 
+      var e = (new Date).getTime();
+      if(e - s < msec)
+        <span class='highlight'>throw "setTimeout did not sleep for long enough!" -> k;</span>
+      else
+        resume k <- msec;
+    }, msec);
+  }</pre>
+  
+  In the above code, <code>strictSleep</code> verifies that the timeout is not
+  called until at least <code>msec</code> milliseconds have elapsed.  If enough
+  time has elapsed, then it returns <code>msec</code> as in the definition of
+  <code>sleep</code> above.  However, if enough time has <i>not</i> elapsed, it
+  throws an error.  Note that the exception is thrown into
+  <i><code>strictSleep</code></i>'s return stack, <i>not</i> into the timeout
+  handler's stack, just as it is <code>strictSleep</code> that returns
+  <code>msec</code> when there is no error, and not the event handler.
+  
+  <p>You can think of the two-argument version of throw as replacing the current
+  call stack with the stack saved in the continuation argument, and then
+  throwing the exception argument.
+  
+  <a name='import'></a>
+  <h4>The <code>import</code> statement</h4>
+
+  As a convenience, jwacs also provides an <code>import</code> statement for
+  linking together multiple source files.  It has the following syntax:
+
+  <pre>
+  import [<i>type</i>] "<i>path</i>";</pre>
+  
+  The <i>type</i> can be one of <code>jwacs</code>, <code>jw</code>,
+  <code>javascript</code>, or <code>js</code>.  The <i>type</i> is optional; if
+  it is omitted it will be inferred from the extension of the <i>path</i>.
+
+  <p>The <i>path</i> should be a relative or absolute path to a Javascript or
+  jwacs source file to include in the web app.  (See the <a
+  href='#compiler'>compiler</a> section for details of how absolute paths are
+  resolved).  These paths will be passed straight through to the <tt>src</tt>
+  attribute of a <tt>&lt;script&gt;</tt> tag, so use absolute paths with care.
+  
+  <p>Imports of Javascript files will be turned directly into a
+  <tt>&lt;script&gt;</tt> tag in the output html file.  jwacs files that are
+  imported will be transformed into Javascript files, which will then be
+  referenced from a <tt>&lt;script&gt;</tt> tag in the output html file.
+  
+  <p>Ex:
+  <pre>
+  import "../lib/prototype.js";
+  import "utils.jw";</pre>
+  
+  will cause a <tt>&lt;script&gt;</tt> tag to be omitted for
+  <tt>../lib/prototype.js</tt> and <tt>utils.js</tt>.  The <tt>utils.jw</tt>
+  file will be transformed into <tt>utils.js</tt>.
+  
+  <a name='caveats'></a>
+  <h4>Some caveats</h4>
+
+  <ol>
+    <li> When talking about replacing/discarding the call stack, it is sometimes
+    important to remember an important restriction: <code>resume</code>,
+    <code>suspend</code>, and extended <code>throw</code> statements all replace
+    the existing call stack, but <i>only back to the nearest non-jwacs
+    function.</i>
+  
+    <p>In practice, this means that event handlers called from non-jwacs code (eg,
+    handlers for built-in events and those called by third-party libraries) will
+    return <code>undefined</code> as soon as a <code>resume</code>,
+    <code>suspend</code>, or extended <code>throw</code> statement is executed.
+    In the following code:
+
+    <pre>
+    window.addEventListener("load", function() {
+      alert("alpha");
+      JwacsLib.sleep(5000);
+      alert("beta");
+    }, false);</pre>
+
+    The user will see an "alpha" alert box followed by a "beta" alert box 5
+    seconds later.  However, the anonymous event handler for the "load" event will
+    return <i>as soon as <code>JwacsLib.sleep</code> is executed,</i> because
+    <code>JwacsLib.sleep</code> executes a <code>suspend</code> statement.
+    
+    <li>The jwacs parser does not perform semicolon insertion, so all jwacs
+    statements must be properly terminated.
+  </ol>
+  
+  <a name='library'></a>
+  <h3>Library</h3>
+  tk - this section still needs to be written.
+    
+  <a name='compiler'></a>
+  <h3>Compiler</h3>
+  There are two ways to use the jwacs compiler: Either as a standalone binary
+  file that is invoked using command-line arguments, or as a Lisp function that
+  is invoked from a Lisp program or REPL.
+
+  <p>The compiler is invoked on a single jwacs source file.  That jwacs file may
+  contain imports to other Javascript or jwacs files.  The compiler transforms
+  all imported jwacs files (and all jwacs files that they import, and so forth)
+  into standard Javascript.
+  
+  <p>Once Javascript files have been generated, an html file is generated by
+  adding <tt>&lt;script&gt;</tt> tags to a template html file.  If no template
+  file exists, a standard template is used.  (If you don't care about generating
+  an html file directly, you can ignore these aspects of the output and just use
+  the Javascript file that will be generated).
+  
+  <a name='binary'></a>
+  <h4>Using the <tt>jwacs</tt> executable</h4>
+  The jwacs executable has the following usage:
+  
+  <pre>
+  jwacs [<i>options</i>] <i>main_source_file</i></pre>
+
+  The following options are available:
+  <dl>
+    <dt><tt>-t <i>uri-path</i></tt></dt>
+    <dd>URI-path of the template file to use.  Default: the name of the main
+    source file, with new extension <tt>".template"</tt>.  This file will be
+    generated if it doesn't exist.</dd>
+
+    <dt><tt>-r <i>uri-path</i></tt></dt>
+    <dd>URI-path of the runtime script to use.  Default: <tt>"jw-rt.js"</tt>.
+    This file will be generated if it doesn't exist.</dd>
+
+    <dt><tt>-o <i>uri-path</i></tt></dt>
+    <dd>URI-path of the output file to create.  Default: the name of the main
+    source file with new extension <tt>".html"</tt>.  (Note that this option
+    controls the name of the html output file, not of the Javascript file that
+    is generated from the main source file).</dd>
+
+    <dt>-p <i>uri-path</i>=<i>directory</i>[;<i>uri-path</i>=<i>directory</i> ...]</tt></dt>
+    <dd>Specifies the mapping between absolute URI paths and the filesystem.  See
+    <a href='#uri-translation'>URI path translation</a> for details.
+  </dl>
+
+  <a name='function'></a>
+  <h4>Using the <code>build-app</code> Lisp function</h4>
+  
+  The <code>build-app</code> function takes one required argument and four
+  keyword arguments.  The required argument is a path specifier designating the
+  main jwacs source file to transform.  The keyword arguments closely mirror the
+  command-line arguments of the executable (or perhaps it's the other way
+  around):
+
+  <dl>
+    <dt><code>:template-uripath</code></dt>
+    <dd>URI-path of the template file to use.  Default: the name of the main
+    source file, with new extension <tt>".template"</tt>.  This file will be
+    generated if it doesn't exist.</dd>
+
+    <dt><code>:runtime-uripath</code></dt>
+    <dd>URI-path of the runtime script to use.  Default: <tt>"jw-rt.js"</tt>.
+    This file will be generated if it doesn't exist.</dd>
+
+    <dt><code>:output-uripath</code></dt>
+    <dd>URI-path of the output file to create.  Default: the name of the main
+    source file with new extension <tt>".html"</tt>.  (Note that this option
+    controls the name of the html output file, not of the Javascript file that
+    is generated from the main source file).</dd>
+
+    <dt><code>:prefix-lookup</code></dt>
+    <dd>Specifies the mapping between absolute URI paths and the filesystem.  See
+    <a href='#uri-translation'>URI path translation</a> for details.
+  </dl>
+  
+  <a name='uri-translation'></a>
+  <h4>URI path translation</h4>
+  
+  The paths specified by <a href='#import'><code>import</code></a> statements
+  may be relative paths, in which case files are found in a straightforward
+  fashion, or they may be absolute paths.  If they are absolute paths, then you
+  must specify a translation from absolute URI paths to file system paths.
+  
+  <p>When using the executable compiler, use the <tt>-p</tt> option to specify
+  the translation.  When using the Lisp function, use the
+  <code>:prefix-lookup</code> keyword argument to specify a list of cons cells;
+  the CAR of each cell is the path prefix, and the CDR is a pathname that
+  specifies which filesystem directory that prefix represents.
+  
+  <p>For example, to indicate that absolute import paths beginning with
+  <tt>/lib/</tt> refer to files in the <tt>/home/james/lib</tt> directory, and
+  all other absolute paths refer to files in the <tt>/home/james/jwacs</tt>
+  directory, pass the following arguments to the binary:
+  
+  <pre>
+  -p /lib=/home/james/lib;/=/home/james/jwacs</pre>
+  
+  or pass the following list as the <code>:prefix-lookup</code> keyword argument
+  to <code>build-app</code>:
+  
+  <pre>
+  '(("/lib/" . #P"/home/james/lib/") 
+    ("/" . #P"/home/james/jwacs/"))</pre>
+
+</body>
+</html>

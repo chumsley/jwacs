@@ -1,6 +1,10 @@
 ;;;; test-runtime-transformation.lisp
 ;;;
 ;;; Unit tests for the runtime transformation
+;;;
+;;; Copyright (c) 2006 James Wright
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jwacs-tests)
 
 (defnote runtime "tests for the runtime transformation")

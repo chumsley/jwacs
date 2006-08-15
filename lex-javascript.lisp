@@ -3,7 +3,10 @@
 ;;; Contains the definition of the Javascript lexer used by the parser,
 ;;; as well as some lookup structures for dealing with tokens.
 ;;; Unit tests are in tests/test-lexer.lisp.
-
+;;;
+;;; Copyright (c) 2005 James Wright
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jwacs)
 
 ;;;; Token definitions

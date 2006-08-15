@@ -1,6 +1,10 @@
 ;;;; shift-function-decls-transformation.lisp
 ;;;
 ;;; Define the shift-function-decls transformation.
+;;;
+;;; Copyright (c) 2005 James Wright
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jwacs)
 
 ;;;; ======= shift-decls transformation ============================================================

@@ -2,6 +2,10 @@
 ;;;
 ;;; Define the transformation that adds in support for and calls into
 ;;; the dynamic runtime.
+;;;
+;;; Copyright (c) 2006 James Wright
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jwacs)
 
 ;;;; ======= Constants =============================================================================

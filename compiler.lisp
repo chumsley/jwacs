@@ -1,6 +1,10 @@
 ;;;; compiler.lisp
 ;;;
 ;;; Defines the interface functions for the jwacs compiler.
+;;;
+;;; Copyright (c) 2006 James Wright
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jwacs)
 
 ;;;; ======= Dependency checks =====================================================================

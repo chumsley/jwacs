@@ -2,6 +2,10 @@
 ;;;
 ;;; Handy utility functions that don't really belong anywhere else
 ;;; (these aren't really jwacs-specific in any way)
+;;;
+;;; Copyright (c) 2006 James Wright
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jwacs)
 
 ;;;; ======= Anaphoric conditionals ================================================================

@@ -8,7 +8,10 @@
 ;;
 ;;
 ;; We'll also turn everything into a while loop, so we only have one loop type to deal with later on.
-
+;;;
+;;; Copyright (c) 2005 Greg Smolyn and James Wright
+;;; See LICENSE for full licensing details.
+;;;
 (in-package :jwacs)
 
 ;; ===================================

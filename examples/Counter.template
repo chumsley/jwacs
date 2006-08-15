@@ -1,7 +1,6 @@
 <html>
 <head>
   <title>Counter example</title>
-  <@ jwacs_imports @>
   <style type='text/css'>
     #counter
     {
@@ -13,5 +12,6 @@
 </head>
 <body>
 <div id='contentDiv'><i>Loading...</i></div>
+<@ jwacs_imports @>
 </body>
  </html>
