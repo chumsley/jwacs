@@ -1,0 +1,113 @@
+//// WebIdeClient.jw
+///
+/// A simple web-based client for writing jwacs applications.
+import "../lib/jwacs-lib.js";
+
+JwacsLib.initHistory();
+
+function main()
+{ }
+
+function doLoad()
+{
+  try
+  {
+    var sourceNameElm = document.getElementById("sourceName");
+    var textElm = document.getElementById("sourceText");
+
+    //TODO prompt if unsaved
+    
+    var newSource = JwacsLib.fetchData("GET", "/jwacs/demos/web-ide/source/" + sourceNameElm.value);
+    textElm.value = newSource;
+  }
+  catch(e)
+  {
+    alert("error: " + e);
+  }
+}
+
+function updateButtons()
+{
+  var sourceNameElm = document.getElementById("sourceName");
+  if(sourceNameElm.value.match(/\.jw$/i))
+  {
+    document.getElementById('compileButton').disabled = false;
+    document.getElementById('runButton').disabled = false;
+  }
+  else
+  {
+    document.getElementById('compileButton').disabled = true;
+    document.getElementById('runButton').disabled = true;
+  }
+}
+
+function doSave()
+{
+  try
+  {
+    var sourceNameElm = document.getElementById("sourceName");
+    var textElm = document.getElementById("sourceText");
+
+    JwacsLib.sendRequest("POST", "/jwacs/demos/web-ide/source/" + sourceNameElm.value,
+                         textElm.value);
+  }
+  catch(e)
+  {
+    alert(e);
+  }
+  //TODO update unsaved information
+}
+
+function doCompile()
+{
+  var sourceNameElm = document.getElementById("sourceName");
+  var textElm = document.getElementById("sourceText");
+  var errElm = document.getElementById('errorText');
+  
+  // TODO only save if unsaved
+  doSave();
+  
+  try
+  {
+    var http = JwacsLib.sendRequest("POST", "/jwacs/demos/web-ide/compile/" + sourceNameElm.value,
+                                   textElm.value);
+
+    // Handle errors
+    if(http.status == 409)
+    {
+      errElm.innerHTML = http.responseText;
+      return;
+    }
+
+    if(http.status != 200)
+    {
+      alert("Error (" + http + "): " + http.responseText);
+      return;
+    }
+
+    // Otherwise, there were no errors and we can reset the error box and return
+    // the name of the application's entry URI.
+    errElm.innerHTML = "<br>";
+    return http.responseText;
+  }
+  catch(e)
+  {
+    if(e.http && e.http.status == 409)
+      errElm.innerHTML = e.http.responseText;
+    else
+      alert(e);
+  }
+}
+
+var appWindow = null;
+function doRun()
+{
+  var appURI = doCompile();
+  if(appWindow)
+    appWindow.close();
+  alert("'"+appURI+"'"); //TEST
+  appWindow = window.open(appURI, "appWindow");
+  appWindow.focus();
+}
+
+  
