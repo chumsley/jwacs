@@ -288,7 +288,7 @@ var JwacsLib =
 
   emptyFunction: function() { },
     
-  fetchData: function(method, url)
+  sendRequest: function(method, url, body)
   {
     var http = JwacsLib.getHttpObj();
     var k = function_continuation;
@@ -300,31 +300,39 @@ var JwacsLib =
         // Report results to the continuation on completion
         if(http.readyState == 4)
         {
-          // Check for errors
-          if(!(http.status == undefined ||
-               http.status == 0 ||
-               (http.status >= 200 && http.status < 300)))
-          {
-            var err = new Error("Server returned " + http.status);
-            throw err;
-          }
-
-          // No errors, so resume the continuation with the raw results
+          // Resume the continuation with the raw results
           http.onreadystatechange = JwacsLib.emptyFunction;
-          resume k <- http.responseText;
+          resume k <- http;
         }
       }
       catch(e)
       {
         // Errors are thrown as exceptions into the continuation
-        http.onreadystatechange = null;
+        http.onreadystatechange = JwacsLib.emptyFunction;
         throw e -> k;
       }
     };
 
     http.open(method, url);
-    http.send(null);
+    http.send(body);
     suspend;
+  },
+
+  fetchData: function(method, url)
+  {
+    var http = JwacsLib.sendRequest(method, url, null);
+    
+    // Check for errors
+    if(!(http.status == undefined ||
+         http.status == 0 ||
+         (http.status >= 200 && http.status < 300)))
+    {
+      var err = new Error("Server returned " + http.status);
+      err.http = http;
+      throw err;
+    }
+
+    return http.responseText;
   }
 };
 
