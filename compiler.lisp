@@ -159,7 +159,7 @@
 
              ;; Emit the transformed code
              (with-open-file (out-stream out-path :direction :output :if-exists :supersede)
-               (emit-elms xformed-elms out-stream :pretty-output t))
+               (emit-elms xformed-elms out-stream :pretty-output nil))
 
              ;; Return the output module
              (make-module :uripath (change-uripath-extension (module-uripath module) "js")
