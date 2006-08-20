@@ -604,3 +604,13 @@
   "Parse a string as a Javascript script, returning a list of statements."
   #+use-yacc (yacc:parse-with-lexer (make-javascript-lexer str) javascript-script)
   #-use-yacc (javascript-script (make-javascript-lexer str)))
+
+(defun parse-only (str)
+  "Parse a string as a Javascript script, returning a list of statements.  Only one value
+   will be returned (important for testing), and an error is guaranteed to be raised if
+   a syntax error is encountered (important for error recovery)."
+  (multiple-value-bind (val1 val2) 
+      (parse str) 
+    (if val2 
+      (error "Parse failed.  Lispworks recovered by inserting a token")
+      val1)))

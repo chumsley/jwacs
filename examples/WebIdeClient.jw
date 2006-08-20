@@ -1,6 +1,7 @@
 //// WebIdeClient.jw
 ///
 /// A simple web-based client for writing jwacs applications.
+import "../lib/prototype.js";
 import "../lib/jwacs-lib.js";
 
 JwacsLib.initHistory();
@@ -105,9 +106,70 @@ function doRun()
   var appURI = doCompile();
   if(appWindow)
     appWindow.close();
-  alert("'"+appURI+"'"); //TEST
   appWindow = window.open(appURI, "appWindow");
   appWindow.focus();
 }
 
+function doEval()
+{
+  var elm = document.getElementById('evalInput');
+  $globalEval(elm.value);
+}
+
+var $exHook = hookHandler;
+function hookHandler(e, handler, handlerStack, latestStack, latestThunk)
+{
+  var parent = document.getElementById('exceptions');
   
+  var div = document.createElement("DIV");
+  div.className = "exceptionDiv";
+  div.appendChild(document.createTextNode("[" + (new Date) + "]: Exception '" + e + "' thrown"));
+
+  var restartThunk = document.createElement("A");
+  restartThunk.appendChild(document.createTextNode("restart thunk"));
+  restartThunk.href = '#';
+  restartThunk.onclick = function(evt)
+  {
+    Event.stop(evt);
+    parent.removeChild(div);
+    $trampoline(latestThunk, latestStack);
+  };
+  div.appendChild(document.createElement("BR"));
+  div.appendChild(restartThunk);
+
+  var handleException = document.createElement("A");
+  handleException.appendChild(document.createTextNode("invoke handler"));
+  handleException.href = '#';
+  handleException.onclick = function(evt)
+  {
+    Event.stop(evt);
+    parent.removeChild(div);
+    $trampoline(function() { return handler(e); }, handlerStack);
+  };
+
+  if(handler)
+  {
+    div.appendChild(document.createTextNode(" | "));
+    div.appendChild(handleException);
+  }
+  
+  parent.appendChild(div);
+};
+
+var shouldThrow = true;
+try
+{
+  if(shouldThrow)
+    throw "catchable exception"; //TEST
+  else
+    alert("not throwing catchable");
+}
+catch(e)
+{
+  alert("I'm handling '" + e + "'!");
+}
+
+if(shouldThrow)
+  throw "No-handlers exception";
+else
+  alert("not throwing no-handlers");

@@ -75,13 +75,14 @@
                                                        (match-degree right))
                                                   left
                                                   right))
-                           (mapcar #'car prefix-lookup)))
+                           (mapcar #'car prefix-lookup)
+                           :initial-value ""))
            (prefix-base (cdr (assoc prefix prefix-lookup)))
            (suffix (subseq uripath (length prefix))))
       (assert (absolute-uripath-p uripath))
       (if (or (null prefix)
               (zerop (match-degree prefix)))
-        (error "~A has no prefixes in ~S" uripath prefix-lookup)
+        (error "~S has no prefixes in ~S" uripath prefix-lookup)
         (merge-pathnames (pathname suffix) prefix-base)))))
       
 (defun resolve-import-uripath (base-pathname uripath prefix-lookup)
@@ -159,7 +160,7 @@
 
              ;; Emit the transformed code
              (with-open-file (out-stream out-path :direction :output :if-exists :supersede)
-               (emit-elms xformed-elms out-stream :pretty-output nil))
+               (emit-elms xformed-elms out-stream :pretty-output t))
 
              ;; Return the output module
              (make-module :uripath (change-uripath-extension (module-uripath module) "js")
@@ -196,7 +197,7 @@
                   (loop for line = (read-line in nil nil nil)
                       until (null line)
                       do (format str "~A~%" line)))))
-      (parse text))))
+      (parse-only text))))
 
 (defun emit-elms (elms out-stream &key pretty-output)
   "Prints ELMS to OUT-STREAM.  If PRETTY-OUTPUT is NIL, the elements will
@@ -292,8 +293,8 @@
           (format out "~A" *default-iframe*)))
       
       ;; If no runtime file exists, generate one
-;TEST      (when (null (probe-file (module-path runtime-module)))
-      (when t
+     (when (null (probe-file (module-path runtime-module)))
+;;TEST      (when t
         (with-open-file (out (module-path runtime-module) :direction :output :if-exists :supersede)
           (format out "~A" *runtime-text*)))
 

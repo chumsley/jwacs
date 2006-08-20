@@ -61,7 +61,7 @@
 
 ;;;; ======= System definition =====================================================================
 (asdf:defsystem jwacs 
-  :version "0.1"
+  :version *version*
   :author "James Wright <james@chumsley.org> et al"
   :licence "MIT License <http://www.opensource.org/licenses/mit-license.php>"
   :serial t

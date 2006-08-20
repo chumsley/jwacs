@@ -2,21 +2,35 @@
 <html>
 <head>
   <title>jwacs editor</title>
+  <style type='text/css'>
+    div.exceptionDiv {
+      background: #ffaaaa;
+      margin-top: 12pt;
+      margin-bottom: 12pt;
+      width:650px;
+    }
+  </style>
 </head>
 <body>
 <div id='contentDiv'>
   <form action='javascript:doLoad();'>
     Source file: <input id='sourceName' type='text' onKeyUp='updateButtons();'><br>
-    <textarea id='sourceText' rows=24 cols=80></textarea>
-    <br>
-    <input id='loadButton' type='button' value='load' onclick='doLoad();'>
-    <input id='saveButton' type='button' value='save' onclick='doSave();'>
-    <input id='compileButton' type='button' value='compile' onclick='doCompile();'>
-    <input id='runButton' type='button' value='run' onclick='doRun();'>
-    <p><br>
-    Errors:<br>
-    <div id='errorText' style='width: 40em; border: 1px dashed red;'><br></div>
   </form>
+  <textarea id='sourceText' rows=24 cols=80></textarea>
+  <br>
+  <input id='loadButton' type='button' value='load' onclick='doLoad();'>
+  <input id='saveButton' type='button' value='save' onclick='doSave();'>
+  <input id='compileButton' type='button' value='compile' onclick='doCompile();'>
+  <input id='runButton' type='button' value='run' onclick='doRun();'>
+  <p><br>
+  <form action='javascript:doEval();'>
+    Eval input:<br>
+    <input id='evalInput' type='text' size=80>  
+  </form>
+  <p><br>
+  Errors:<br>
+  <div id='errorText' style='width: 40em; border: 1px dashed red;'><br></div>
+  <div id='exceptions'></div>
 </div>
 <@ jwacs_imports @>
 </body>

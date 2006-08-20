@@ -11,5 +11,6 @@
   (:nicknames :jw)
   (:export
    #:parse
+   #:parse-only
    #:process
    #:build-app))
