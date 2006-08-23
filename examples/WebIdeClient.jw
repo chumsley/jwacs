@@ -123,7 +123,7 @@ function hookHandler(e, handler, handlerStack, latestStack, latestThunk)
   
   var div = document.createElement("DIV");
   div.className = "exceptionDiv";
-  div.appendChild(document.createTextNode("[" + (new Date) + "]: Exception '" + e + "' thrown"));
+  div.appendChild(document.createTextNode("[" + dateStr(new Date) + "]: Exception '" + e + "' thrown"));
 
   var restartThunk = document.createElement("A");
   restartThunk.appendChild(document.createTextNode("restart thunk"));
@@ -137,37 +137,64 @@ function hookHandler(e, handler, handlerStack, latestStack, latestThunk)
   div.appendChild(document.createElement("BR"));
   div.appendChild(restartThunk);
 
-  var handleException = document.createElement("A");
-  handleException.appendChild(document.createTextNode("invoke handler"));
-  handleException.href = '#';
-  handleException.onclick = function(evt)
-  {
-    Event.stop(evt);
-    parent.removeChild(div);
-    $trampoline(function() { return handler(e); }, handlerStack);
-  };
-
   if(handler)
   {
+    var handleException = document.createElement("A");
+    handleException.appendChild(document.createTextNode("invoke handler"));
+    handleException.href = '#';
+    handleException.onclick = function(evt)
+    {
+      Event.stop(evt);
+      parent.removeChild(div);
+      resume handler <- e;
+    };
+  
     div.appendChild(document.createTextNode(" | "));
     div.appendChild(handleException);
-  }
   
+    var evalForm = document.createElement("FORM");
+    var evalInput = document.createElement("INPUT");
+    evalForm.appendChild(evalInput);
+    evalInput.id = "evalInput";
+    evalForm.onsubmit = function(evt) {
+      Event.stop(evt);
+      var evalArg = evalInput.value;
+      alert("evalArg = " + evalArg); //TEST
+      var result = $localEval(latestThunk, latestStack, evalArg);
+      evalInput.value = "";
+    };
+  
+    div.appendChild(document.createTextNode(" |  Eval in local scope: "));
+    div.appendChild(evalForm);
+  }
   parent.appendChild(div);
 };
 
+function dateStr(date)
+{
+  return date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate() + " " +
+    date.getHours() + ":" + date.getMinutes() + ":" + date.getSeconds();
+}
+    
+
+//TEST from here down
 var shouldThrow = true;
-try
+function doCatchable()
 {
-  if(shouldThrow)
-    throw "catchable exception"; //TEST
-  else
-    alert("not throwing catchable");
+  var secret = shouldThrow;
+  try
+  {
+    if(secret)
+      throw "catchable exception";
+    else
+      alert("not throwing catchable");
+  }
+  catch(e)
+  {
+    alert("I'm handling '" + e + "'!");
+  }
 }
-catch(e)
-{
-  alert("I'm handling '" + e + "'!");
-}
+doCatchable();
 
 if(shouldThrow)
   throw "No-handlers exception";

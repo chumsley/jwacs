@@ -547,10 +547,17 @@ function $trampoline(origThunk, origStack)
 	return ret.result;
 }
 
-//// Evaluates `$s` in a close-to-global environment
+// Evaluates `$s` in a close-to-global environment
 function $globalEval($s)
 {
   eval($s);
+}
+
+// Evaluates '$s' in a local environment defined by `thunk` and `handlerStack`
+function $localEval(thunk, handlerStack, $s)
+{
+  var ret = thunk(handlerStack, $s);
+  return ret.result;
 }
 
 var $exHook = function(e, handler, handlerStack, latestStack, latestThunk)
