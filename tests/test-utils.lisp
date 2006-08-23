@@ -54,9 +54,10 @@
   (transform 'remove-administratives
              (transform xform elm)))
 
-(defun compile-lang-tests ()
+(defun compile-lang-tests (&key debug-mode)
   "Compile the language tests"
-  (let* ((module (asdf:find-component (asdf:find-system :jwacs-tests) "tests"))
+  (let* ((jw::*debug-mode* debug-mode)
+         (module (asdf:find-component (asdf:find-system :jwacs-tests) "tests"))
          (component (asdf:find-component module "lang-tests")))
     (jw::build-app (asdf:component-pathname component))))
     

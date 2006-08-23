@@ -43,6 +43,17 @@
                                                                      #S(fn-call :fn #S(identifier :name "fn")
                                                                                 :args (#S(numeric-literal :value 4))))))))))))
 
+
+(deftest trampoline/inlined-thunk/3 :notes trampoline
+  (let ((jw::*debug-mode* t))
+    (test-transform 'trampoline
+                    (parse "return fn(4);")))
+  #.(parse "return {done: false,
+                      thunk: function($e, $localEvalArg) {
+                          if($localEvalArg) return $id(eval($localEvalArg));
+                          return fn(4);
+                      }};"))
+  
 (deftest trampoline/new-expr/1 :notes trampoline
   (test-transform 'trampoline (parse "
         return new Object;"))

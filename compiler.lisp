@@ -160,7 +160,7 @@
 
              ;; Emit the transformed code
              (with-open-file (out-stream out-path :direction :output :if-exists :supersede)
-               (emit-elms xformed-elms out-stream :pretty-output t))
+               (emit-elms xformed-elms out-stream :pretty-output *debug-mode*))
 
              ;; Return the output module
              (make-module :uripath (change-uripath-extension (module-uripath module) "js")
@@ -263,7 +263,8 @@
 
 ;;;; ======= Exported API ==========================================================================
 
-(defun build-app (main-module-path &key template-uripath output-uripath prefix-lookup runtime-uripath)
+(defun build-app (main-module-path
+                   &key template-uripath output-uripath prefix-lookup runtime-uripath debug-mode)
   "Build a wrapper html file for a jwacs application"
   (flet ((get-path (param-uripath path-name path-type)
            "If PARAM-PATH is non-NIL, return it.
@@ -272,7 +273,8 @@
              (merge-pathnames (make-pathname :name path-name :type path-type)
                               main-module-path)
              (resolve-import-uripath main-module-path param-uripath prefix-lookup))))
-    (let ((template-path (get-path template-uripath nil "template"))
+    (let ((*debug-mode* debug-mode)
+          (template-path (get-path template-uripath nil "template"))
           (output-path (get-path output-uripath nil "html"))
           (iframe-path (get-path nil "blank" "html"))
           (runtime-module (if (null runtime-uripath)

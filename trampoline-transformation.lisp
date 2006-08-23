@@ -50,22 +50,60 @@
 (defparameter *handler-stack-var-name* "$e"
   "standard variable name for storing the current handler stack")
 
+(defvar *debug-mode* nil
+  "When true, we pack more information into each boxed thunk")
+
+(defparameter *debug-eval-var-name* "$localEvalArg"
+  "Name of the parameter containing an expression to be evaluated locally for debug-mode thunks")
+
+(defparameter *debug-eval-boilerplate*
+  (make-if-statement :condition (make-identifier :name *debug-eval-var-name*)
+                     :then-statement (make-return-statement
+                                      :arg (make-continuation-call :fn (make-identifier :name "$id")
+                                                                   :args (list (make-continuation-call :fn (make-identifier :name "eval")
+                                                                                                       :args (list (make-identifier :name *debug-eval-var-name*)))))))
+  "Boilerplate code for debug-mode local evaluation")
+
 (defun make-boxed-thunk (body-elm &optional stack-op stack-op-arg)
   "Returns an object literal whose `done` field is `false` and whose
    `thunk` field contains a thunk whose body is BODY-ELM.  When STACK-OP
    is non-NIL, a handler stack operation property will also be added with
-   a value of STACK-OP-ARG."
-  (let ((core-properties (list
-                          (cons *done-prop* (make-special-value :symbol :false))
-                          (cons *thunk-prop*
-                                (make-thunk-function :parameters (list *handler-stack-var-name*)
-                                                     :body (combine-statements body-elm))))))
-    (assert (explicit-return-p body-elm))
-    (make-object-literal :properties (if (null stack-op)
-                                       core-properties
-                                       (cons (cons stack-op stack-op-arg)
-                                             core-properties)))))
-
+   a value of STACK-OP-ARG.  When *DEBUG-MODE* is non-NIL, an `$evalArg`
+   parameter is also provided, along with boilerplate code that evaluates
+   the argument and then returns when it's present."
+  (cond
+    ((and *debug-mode* stack-op)
+     (make-object-literal :properties (list
+                                       (cons stack-op stack-op-arg)
+                                       (cons *done-prop* (make-special-value :symbol :false))
+                                       (cons *thunk-prop*
+                                             (make-thunk-function :parameters (list *handler-stack-var-name*
+                                                                                    *debug-eval-var-name*)
+                                                                  :body (combine-statements
+                                                                         *debug-eval-boilerplate*
+                                                                         body-elm))))))
+    (stack-op
+     (make-object-literal :properties (list
+                                       (cons stack-op stack-op-arg)
+                                       (cons *done-prop* (make-special-value :symbol :false))
+                                       (cons *thunk-prop*
+                                             (make-thunk-function :parameters (list *handler-stack-var-name*)
+                                                                  :body (combine-statements body-elm))))))
+    (*debug-mode*
+     (make-object-literal :properties (list
+                                       (cons *done-prop* (make-special-value :symbol :false))
+                                       (cons *thunk-prop*
+                                             (make-thunk-function :parameters (list *handler-stack-var-name*
+                                                                                    *debug-eval-var-name*)
+                                                                  :body (combine-statements
+                                                                         *debug-eval-boilerplate*
+                                                                         body-elm))))))
+    (t
+     (make-object-literal :properties (list
+                                       (cons *done-prop* (make-special-value :symbol :false))
+                                       (cons *thunk-prop*
+                                             (make-thunk-function :parameters (list *handler-stack-var-name*)
+                                                                  :body (combine-statements body-elm))))))))
 (defun make-boxed-result (elm)
   "Returns an object literal whose `done` field is `true` and whose
    `result` field contains ELM.  If ELM is NIL, the result field will
