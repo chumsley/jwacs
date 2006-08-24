@@ -288,9 +288,10 @@
                                                "/*"
                                                (:greedy-repetition 0 nil
                                                 (:branch (:positive-lookahead "*/")
-                                                         (:alternation :void :everything)))
+                                                         (:alternation :void
+                                                                       (:alternation :everything
+                                                                                     :whitespace-char-class))))
                                                 "*/")))))
-
   "Regular expression for consuming (and thereby skipping) whitespace and comments")
 
 (defparameter integer-re (create-scanner
