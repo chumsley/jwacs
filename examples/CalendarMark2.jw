@@ -5,7 +5,8 @@ import "/lib/prototype.js";
 import "/lib/effects.js";
 import "/lib/dragdrop.js";
 import "/lib/jwacs-lib.jw";
-import "CalendarMark2Config.js";
+// import "CalendarMark2Config.js"; // This must never be combined, so we manually put the tag
+                                    // into the template file.
 
 JwacsLib.initHistory();
 

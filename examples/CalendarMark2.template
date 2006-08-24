@@ -8,5 +8,6 @@
   <div id='contentDiv'><i>Loading...</i></div>
   <div id='StatusDisplay' style='display:none'></div>
   <@ jwacs_imports @>
+  <script type='text/javascript' src='CalendarMark2Config.js'></script>
 </body>
 </html>

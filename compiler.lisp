@@ -146,7 +146,7 @@
   "The list of transformations (in order) that are performed to convert jwacs source into
    Javascript source.")
 
-(defun transform-modules (module-list &optional (pipeline *compiler-pipeline*) (var-counter 0))
+(defun transform-modules (module-list &key (compress-mode (not *debug-mode*)) (pipeline *compiler-pipeline*) (var-counter 0))
   "Transforms each module in MODULE-LIST and returns a list of modules suitable for wrapping."
   (flet ((transform-jwacs-module (module)
            (let* ((*genvar-counter* var-counter)
@@ -160,7 +160,7 @@
 
              ;; Emit the transformed code
              (with-open-file (out-stream out-path :direction :output :if-exists :supersede)
-               (emit-elms xformed-elms out-stream :pretty-output *debug-mode*))
+               (emit-elms xformed-elms out-stream :pretty-output (not compress-mode)))
 
              ;; Return the output module
              (make-module :uripath (change-uripath-extension (module-uripath module) "js")
@@ -216,23 +216,36 @@
              
 ;;;; ======= Module wrapping =======================================================================
 
-(defun wrap-modules (module-list template-path out-path)
+(defun wrap-modules (module-list template-path out-path combined-js-module)
   "Creates a 'wrapper' html file that represents a jwacs application containing
    all of the files of MODULE-LIST.  We read in a template file from
    TEMPLATE-PATH, modify it to contain appropriate <SCRIPT> tags referencing each
-   of the modules, and write it to OUT-PATH."
+   of the modules, and write it to OUT-PATH.  If COMBINED-JS-MODULE is NIL, each
+   js-module gets its own SCRIPT tag; otherwise we will wrap all JS modules into a
+   single file."
 
   ;; Make sure we're not overwriting any input modules
   (when (find out-path module-list :key 'module-path :test 'pathnames-equal)
     (error "Attempt to overwrite ~A" out-path))
     
+  ;; If there's a combined-js-module, make sure that we replace it
+  (when (and combined-js-module
+             (probe-file (module-path combined-js-module)))
+    (delete-file (module-path combined-js-module)))
+  
+  ;; Okay, let's build that html file
   (let ((template-string (read-entire-file template-path)))
     (multiple-value-bind (s e)
         (cl-ppcre:scan "<@\\s*jwacs_imports\\s*@>" template-string)
       (with-open-file (out out-path :direction :output :if-exists :supersede)
         (format out "~A" (subseq template-string 0 s))
         (dolist (module module-list)
-          (wrap-module module (module-type module) out))
+          (if (and combined-js-module
+                   (eq (module-type module) 'js))
+            (append-module module combined-js-module)
+            (wrap-module module (module-type module) out)))
+        (if combined-js-module
+          (wrap-module combined-js-module (module-type combined-js-module) out))
         (format out "~A" (subseq template-string e)))))
 
   ;; Return the path of the output file
@@ -247,6 +260,22 @@
 
 (defmethod wrap-module (module (module-type (eql 'js)) head-stream)
   (format head-stream "~&<script type='text/javascript' src='~A'></script>" (module-uripath module)))
+
+(defun append-module (src-module target-module)
+  "Appends the contents of SRC-MODULE to the end of TARGET-MODULE, creating TARGET-MODULE if
+   necessary"
+  (with-open-file (in (module-path src-module)
+                      :direction :input
+                      :element-type 'unsigned-byte)
+    (with-open-file (out (module-path target-module)
+                         :direction :output
+                         :if-exists :append
+                         :if-does-not-exist :create
+                         :element-type 'unsigned-byte)
+      (let ((buffer (make-array 8192 :element-type 'unsigned-byte)))
+        (loop for pos = (read-sequence buffer in)
+              until (zerop pos)
+              do (write-sequence buffer out :end pos))))))
 
 ;;;; ======= Cached defaults =======================================================================
 ;; These strings will be used to generate default versions of missing files.
@@ -264,7 +293,8 @@
 ;;;; ======= Exported API ==========================================================================
 
 (defun build-app (main-module-path
-                   &key template-uripath output-uripath prefix-lookup runtime-uripath debug-mode)
+                   &key template-uripath output-uripath prefix-lookup runtime-uripath
+                        debug-mode (compress-mode (not debug-mode)) (combine-mode (not debug-mode)))
   "Build a wrapper html file for a jwacs application"
   (flet ((get-path (param-uripath path-name path-type)
            "If PARAM-PATH is non-NIL, return it.
@@ -284,7 +314,7 @@
                             (make-module :type 'js
                                          :path (resolve-import-uripath main-module-path runtime-uripath prefix-lookup)
                                          :uripath runtime-uripath))))
-
+          
       ;; If no template file exists, generate one
       (unless (probe-file template-path)
         (with-open-file (out template-path :direction :output)
@@ -298,15 +328,36 @@
      (when (null (probe-file (module-path runtime-module)))
 ;;TEST      (when t
         (with-open-file (out (module-path runtime-module) :direction :output :if-exists :supersede)
-          (format out "~A" *runtime-text*)))
+          (if compress-mode
+            (emit-elms (parse *runtime-text*) out :pretty-output (not compress-mode))
+            (format out "~A" *runtime-text*))))
 
       ;; Wrap the modules.  Note that we force the runtime onto the front of the list
       ;; of imports.
-      (wrap-modules
-       (cons runtime-module (transform-modules
-                             (determine-modules main-module-path prefix-lookup)))
-       template-path
-       output-path))))
+      (let* ((module-list (cons runtime-module
+                                (remove (module-path runtime-module)
+                                        (determine-modules main-module-path prefix-lookup)
+                                        :key 'module-path
+                                        :test 'pathnames-equal)))
+             (combined-js-module (when combine-mode ; TODO deal with non-jwacs main modules
+                                   (let ((combined-path (get-path nil (format nil "~A_all" (pathname-name main-module-path)) "js")))
+
+                                     ;; Ensure that we don't overwrite any input files
+                                     (loop while (find combined-path module-list :test 'pathnames-equal :key 'module-path)
+                                       do (setf combined-path
+                                                (get-path nil (format nil "~A_all" (pathname-name combined-path)) "js")))
+
+                                     ;; Generate the combined module name with the unique name from above
+                                     (make-module :type 'js
+                                                  :path combined-path
+                                                  :uripath (file-namestring combined-path))))))
+
+
+        (wrap-modules
+         (transform-modules module-list :compress-mode compress-mode)
+         template-path
+         output-path
+         combined-js-module)))))
 
 (defun process (in-path)
   (transform-modules (list (make-module :type 'jw :path in-path))))
