@@ -27,7 +27,7 @@
   (:export #:*do-tests-when-defined* #:*test* #:continue-testing
            #:deftest #:do-test #:do-tests #:get-test #:pending-tests
            #:rem-all-tests #:rem-test
-           #:defnote #:enable-note #:disable-note)
+           #:defnote #:enable-note #:disable-note #:enable-all-notes #:disable-all-notes)
   (:documentation "The MIT regression tester with pfdietz's modifications & later JWACS modifications"))
 
 ;;This was the December 19, 1990 version of the regression tester, but
@@ -56,6 +56,9 @@
 ;;; James Wright Nov 21/2005:
 ;;;   - The STRUCTURE case for EQUALP-WITH-CASE now checks that the TYPE-OF for the
 ;;;     two values are EQ as well as the set of slots.
+
+;;; James Wright Aug 25/2006:
+;;;   - Added ENABLE-ALL-NOTES and DISABLE-ALL-NOTES
 
 (in-package :regression-test)
 
@@ -469,3 +472,11 @@
     (unless note (error "~A is not a note or note name." n))
     (setf (note-disabled note) nil)
     note))
+
+(defun enable-all-notes ()
+  (loop for note being each hash-value of *notes*
+        do (setf (note-disabled note) nil)))
+
+(defun disable-all-notes ()
+  (loop for note being each hash-value of *notes*
+        do (setf (note-disabled note) t)))
