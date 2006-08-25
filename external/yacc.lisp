@@ -21,20 +21,20 @@
 (defpackage #:yacc
   (:use #:common-lisp)
   (:export #:make-production #:make-grammar #:make-parser #:parse-with-lexer
-           #:define-grammar #:define-parser
+           #:define-grammar #:define-parser #:yacc-eof-symbol
            #:yacc-parse-error #:yacc-parse-error-terminal
-           #:yacc-parse-error-value #:yacc-parse-error-expected-terminals)
+           #:yacc-parse-error-value #:yacc-parse-error-expected-terminals
+           #:insert-terminal #:replace-terminal #:skip-terminal)
   #+CMU
   (:import-from #:extensions #:required-argument #:memq)
   )
 
+;;;; changes since being added to the jwacs repository:
+
+;;; James Wright Aug 24/2006
+;;; - Added INSERT-TERMINAL, REPLACE-TERMINAL, and SKIP-TERMINAL restarts
+
 (in-package #:yacc)
-
-(defparameter *debug* nil)
-
-(if *debug*
-    (pushnew :yacc-debug cl:*features*)
-    (setf cl:*features* (remove :yacc-debug cl:*features*)))
 
 #-CMU
 (defun required-argument () (error "A required argument was not supplied"))
@@ -666,7 +666,7 @@ If PROPAGATE-ONLY is true, ignore spontaneous generation."
 (defun compute-all-lookaheads (kernels grammar)
   "Compute the LR(1) lookaheads for all the collections in KERNELS."
   (declare (list kernels) (type grammar grammar))
-  (setf (item-lookaheads (kernel-item (car kernels))) (list 'eof))
+  (setf (item-lookaheads (kernel-item (car kernels))) (list 'yacc-eof-symbol))
   (let ((previously-changed kernels) (changed '())
         (propagate-only nil))
     (declare (optimize (speed 3) (space 0)))
@@ -945,8 +945,8 @@ or a list of the form (sr rr)."
                  (cond
                    ((and (eq 's-prime (item-symbol item))
                          (= 1 (item-position item)))
-                    (when (member 'eof la)
-                      (set-action k (list 'eof)
+                    (when (member 'yacc-eof-symbol la)
+                      (set-action k (list 'yacc-eof-symbol)
                                   (make-accept-action)
                                   (item-production item))))
                    (t
@@ -1037,8 +1037,18 @@ MUFFLE-WARNINGS is one of NIL, T, :SOME or a list of the form (sr rr)."
                      (yacc-parse-error-value e)
                      (yacc-parse-error-expected-terminals e)))))
 
+(defmacro npush-end (val list)
+  "Destructively pushes VAL onto the end of LIST"
+  `(cond
+    ((null ,list)
+     (setf ,list (cons ,val nil)))
+    (t
+     (setf (cdr (last ,list))
+           (cons ,val nil))
+     ,list)))
+
 (defun parse-with-lexer (lexer parser)
-"Parse the stream of symbols provided by LEXER using PARSER.
+  "Parse the stream of symbols provided by LEXER using PARSER.
 LEXER is a function of no arguments returning a symbol and a semantic value,
 and should return (VALUES NIL NIL) when the end of input is reached.
 Handle YACC-PARSE-ERROR to provide custom error reporting."
@@ -1054,45 +1064,62 @@ Handle YACC-PARSE-ERROR to provide custom error reporting."
              (declare (type index i) (symbol a))
              (or (cdr (assoc a (aref goto-array i)))
                  (error "This cannot happen."))))
-      (let ((stack (list 0)) symbol value)
+      (let ((stack (list 0)) symbol value unget-queue)
         (flet ((next-symbol ()
-                 (multiple-value-bind (s v) (funcall lexer)
-                   (setq symbol (or s 'eof) value v)
-		   #+yacc-debug (format *trace-output* "Grabbing symbol: ~a~%" symbol)
-		   )))		   
+                 (if unget-queue
+                   (let ((cell (pop unget-queue)))
+                     (setq symbol (car cell)
+                           value (cdr cell)))
+                   (multiple-value-bind (s v) (funcall lexer)
+                     (setq symbol (or s 'yacc-eof-symbol)
+                           value v)
+                     ))))
           (next-symbol)
           (loop
-           (let* ((state (car stack))
-                  (action (action state symbol)))
-	     #+yacc-debug (format *trace-output* "Current state: ~a, current action: ~a~%" state action)
-             (etypecase action
-               (shift-action
-		#+yacc-debug (format *trace-output* "Shifting: Value: ~a, Action: ~a~%" value (shift-action-state action))
-                (push value stack)
-                (push (shift-action-state action) stack)
-                (next-symbol))
-               (reduce-action
-                (let ((vals '()))
-                  (dotimes (n (reduce-action-length action))
-                    (pop stack)
-                    (push (pop stack) vals))
-                  (let ((s* (car stack)))
-                    (push (apply (reduce-action-action action) vals) stack)
-                    (push (goto s* (reduce-action-symbol action)) stack))))
-               (accept-action
-		#+yacc-debug (format *trace-output* "Accepting Action: ~a~%" (cadr stack))
-                (pop stack)
-                (return (pop stack)))
-               (error-action
-                (error (make-condition
-                        'yacc-parse-error
-                        :terminal symbol :value value
-                        :expected-terminals
-                        (mapcan #'(lambda (e)
-                                    (and (not (error-action-p (cdr e)))
-                                         (list (car e))))
-                                (aref action-array state)))))
-               ))))))))
+              (let* ((state (car stack))
+                     (action (action state symbol)))
+                (etypecase action
+                  (shift-action
+                   (push value stack)
+                   (push (shift-action-state action) stack)
+                   (next-symbol))
+                  (reduce-action
+                   (let ((vals '()))
+                     (dotimes (n (reduce-action-length action))
+                       (pop stack)
+                       (push (pop stack) vals))
+                     (let ((s* (car stack)))
+                       (push (apply (reduce-action-action action) vals) stack)
+                       (push (goto s* (reduce-action-symbol action)) stack))))
+                  (accept-action
+                   (pop stack)
+                   (return (pop stack)))
+                  (error-action
+                   (restart-case (error (make-condition
+                                         'yacc-parse-error
+                                         :terminal symbol :value value
+                                         :expected-terminals
+                                         (mapcan #'(lambda (e)
+                                                     (and (not (error-action-p (cdr e)))
+                                                          (list (car e))))
+                                                 (aref action-array state))))
+                     (insert-terminal (new-terminal new-value)
+                       :report "Insert a new terminal and continue processing"
+                       :interactive (lambda () (list :semicolon ";"))
+                       (npush-end (cons symbol value) unget-queue)
+                       (setf symbol new-terminal
+                             value new-value))
+                     (replace-terminal (new-terminal new-value)
+                       :report (lambda (s)
+                                 (format s "Replace ~S with a new terminal and continue processing" symbol))
+                       :interactive (lambda () (list :semicolon ";"))
+                       (setf symbol new-terminal
+                             value new-value))
+                     (skip-terminal ()
+                       :report "Skip this terminal and contine processing"
+                       (next-symbol))
+                  ))))))))))
+
 
 ;;; User interface
 
