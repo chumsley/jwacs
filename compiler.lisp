@@ -197,7 +197,7 @@
                   (loop for line = (read-line in nil nil nil)
                       until (null line)
                       do (format str "~A~%" line)))))
-      (parse-only text))))
+      (parse text))))
 
 (defun emit-elms (elms out-stream &key pretty-output)
   "Prints ELMS to OUT-STREAM.  If PRETTY-OUTPUT is NIL, the elements will

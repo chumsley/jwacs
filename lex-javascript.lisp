@@ -191,7 +191,8 @@
 (deftoken :identifier)
 (deftoken :re-literal)
 (deftoken :string-literal)
-
+(deftoken :inserted-semicolon)
+    
 ;;;;; Regular expressions
 (defparameter floating-re (create-scanner
                             '(:sequence
@@ -272,6 +273,11 @@
 
   "Regular expression for recognizing operators")
 
+(defparameter line-terminator-re (create-scanner 
+                                  '(:alternation #\Newline #\Return))
+  "Regular expression for recognizing that a LineTerminator is lurking somewhere
+   in a blob of text.  Note that there are /no/ anchors on this regexp.")
+
 (defparameter whitespace-and-comments-re (create-scanner
                                           '(:sequence
                                             :start-anchor
@@ -327,44 +333,57 @@
 
 ;;;;; Top-level logic
 (defun make-javascript-lexer (string)
-  "Construct and return a new lexer that reads from the provided string."
-  (let ((cursor 0))
-    (lambda ()
-      ;; Skip whitespace and comments
-      (multiple-value-bind (comment-s comment-e)
-          (scan whitespace-and-comments-re string :start cursor)
-        (if comment-s
-          (incf cursor (- comment-e comment-s))))
+  "Construct and return a new lexer that reads from the provided string.
+   First return value is a function of 0 arguments that returns the next lexeme.
+   Second return value is a function of 0 arguments that returns non-NIL when the
+   most-recently-returned lexeme was immediately preceded by a newline."
+  (let ((cursor 0)
+        (encountered-line-terminators nil))
+    (values
+     (lambda ()
+       ;; Skip whitespace and comments.  We note whether the skipped text
+       ;; included any line terminators, because the parser will sometimes want
+       ;; to query whether the current token was preceded by a line terminator.
+       (multiple-value-bind (comment-s comment-e)
+           (scan whitespace-and-comments-re string :start cursor)
+         (setf encountered-line-terminators nil)
+         (when comment-s
+           (incf cursor (- comment-e comment-s))
+           (setf encountered-line-terminators
+                 (scan line-terminator-re string :start comment-s :end comment-e))))
 
-      ;; Lex a token.  We know that the cursor is at the start of a real token,
-      ;; because we just finished skipping all of the whitespace and comments.
-      (re-cond (string :start cursor)
-       ("^$"
-        eoi)
-       (floating-re
-        (incf cursor (- %e %s))
-        (values :number (read-from-string string nil eoi :start %s :end %e)))
-       (integer-re
-        (incf cursor (- %e %s))
-        (values :number (parse-javascript-integer string :start %s :end %e)))
-       ("^(\\$|\\w)+"
-        (incf cursor (- %e %s))
-        (let ((token (subseq string %s %e)))
-          (if (gethash token *tokens-to-symbols*)
+       ;; Lex a token.  We know that the cursor is at the start of a real token,
+       ;; because we just finished skipping all of the whitespace and comments.
+       (re-cond (string :start cursor)
+         ("^$"
+          eoi)
+         (floating-re
+          (incf cursor (- %e %s))
+          (values :number (read-from-string string nil eoi :start %s :end %e)))
+         (integer-re
+          (incf cursor (- %e %s))
+          (values :number (parse-javascript-integer string :start %s :end %e)))
+         ("^(\\$|\\w)+"
+          (incf cursor (- %e %s))
+          (let ((token (subseq string %s %e)))
+            (if (gethash token *tokens-to-symbols*)
               (values (gethash token *tokens-to-symbols*) token)
               (values :identifier token))))
-       (regexp-re
-        (incf cursor (- %e %s))
-        (values :re-literal (cons (unescape-regexp (subseq string (aref %sub-s 0) (aref %sub-e 0)))
-                                   (subseq string (aref %sub-s 1) (aref %sub-e 1)))))
-       (string-re
-        (incf cursor (- %e %s))
-        (values :string-literal (subseq string (1+ %s) (1- %e))))
-       (operator-re
-        (incf cursor (- %e %s))
-        (let ((token (subseq string %s %e)))
-          (values (gethash token *tokens-to-symbols*) token)))
-       ("^\\S+"
-        (error "unrecognized token: '~A'" (subseq string %s %e)))
-       (t
-        (error "coding error - we should never get here"))))))
+         (regexp-re
+          (incf cursor (- %e %s))
+          (values :re-literal (cons (unescape-regexp (subseq string (aref %sub-s 0) (aref %sub-e 0)))
+                                    (subseq string (aref %sub-s 1) (aref %sub-e 1)))))
+         (string-re
+          (incf cursor (- %e %s))
+          (values :string-literal (subseq string (1+ %s) (1- %e))))
+         (operator-re
+          (incf cursor (- %e %s))
+          (let ((token (subseq string %s %e)))
+            (values (gethash token *tokens-to-symbols*) token)))
+         ("^\\S+"
+          (error "unrecognized token: '~A'" (subseq string %s %e)))
+         (t
+          (error "coding error - we should never get here"))))
+
+     (lambda ()
+       encountered-line-terminators))))

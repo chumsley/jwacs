@@ -12,6 +12,17 @@
   "Add a test to the list of expected failures"
   (pushnew test-name rtest::*expected-failures*))
 
+(defmacro expect-error (form &optional (condition-type 'error))
+  "If evaluating FORM results in an error being raised, returns non-NIL.
+   If the CONDITION-TYPE argument is provided, non-NIL is raised only if
+   an error of that specific type is raised."
+  (let ((gret (gensym))
+        (gerr (gensym)))
+    `(multiple-value-bind (,gret ,gerr)
+        (ignore-errors ,form)
+      (declare (ignore ,gret))
+      (typep ,gerr ',condition-type))))
+
 ;;; The REMOVE-ADMINISTRATIVES transformation translates administrative source-elements
 ;;; (such as CONTINUATION-FUNCTIONs) to their non-administrative equivalents (eg FUNCTION-EXPRESSION).
 ;;; This transformation is used by the TEST-TRANSFORM function to ensure that the results of a

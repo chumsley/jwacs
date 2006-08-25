@@ -28,6 +28,11 @@
     
     ((program source-elements) $1) ; Starting production
 
+  ;; Cheap and cheerful semicolon insertions.  The lexer will never return :inserted-semicolon,
+  ;; but we may invoke the INSERT-TERMINAL restart with :inserted-semicolon when appropriate.
+  ((insertable-semicolon :semicolon) :semicolon)
+  ((insertable-semicolon :inserted-semicolon) :inserted-semicolon)
+  
   ;; Expressions
   ((primary-expression :this) (make-special-value :symbol :this))
   ((primary-expression :function_continuation) (make-special-value :symbol :function_continuation))
@@ -121,7 +126,7 @@
   ((postfix-expression-no-lbf left-hand-side-expression-no-lbf :plus2) (make-unary-operator :op-symbol :post-incr :arg $1))
   ((postfix-expression-no-lbf left-hand-side-expression-no-lbf :minus2) (make-unary-operator :op-symbol :post-decr :arg $1))
   ((postfix-expression-no-lbf left-hand-side-expression-no-lbf) $1) ; the long versions need to be first
-; TODO plus2 == incr_no_lt
+;; TODO plus2 == incr_no_lt
 
   ;; Pg 58
   ((unary-expression postfix-expression) $1)
@@ -383,7 +388,7 @@
   ((statement-list statement-list statement) (append $1 (list $2)))
 
   ;; Pg 74
-  ((variable-statement :var variable-decl-list :semicolon) (make-var-decl-statement :var-decls $2))
+  ((variable-statement :var variable-decl-list insertable-semicolon) (make-var-decl-statement :var-decls $2))
 
   ((variable-decl-list variable-decl) (list $1))
   ((variable-decl-list variable-decl-list :comma variable-decl) (append $1 (list $3)))
@@ -400,7 +405,7 @@
   ;; Pg 75
   ((empty-statement :semicolon) nil)
 
-  ((expression-statement expression-no-lbf :semicolon) $1)
+  ((expression-statement expression-no-lbf insertable-semicolon) $1)
 
 
   ((if-statement :if :left-paren expression :right-paren statement-no-if :else statement) (make-if-statement :condition $3 :then-statement $5 :else-statement $7))
@@ -410,7 +415,7 @@
   
 
   ;; Pg 76
-  ((iteration-statement :do statement :while :left-paren expression :right-paren :semicolon) (make-do-statement :condition $5 :body $2))
+  ((iteration-statement :do statement :while :left-paren expression :right-paren insertable-semicolon) (make-do-statement :condition $5 :body $2))
   ((iteration-statement :while :left-paren expression :right-paren statement) (make-while :condition $3 :body $5))
 
   ;; (generate-rules-with-optional '(iteration-statement :for :left-paren ?expression-no-in :semicolon ?expression :semicolon ?expression :right-paren statement))
@@ -482,14 +487,14 @@
   ((iteration-statement-no-if :for :left-paren :var variable-decl-no-in :in expression :right-paren statement-no-if)
    (make-for-in :binding (make-var-decl-statement :var-decls (list $4)) :collection $6 :body $8))
 
-  ((continue-statement :continue :identifier :semicolon) (make-continue-statement :target-label $2))
-  ((continue-statement :continue :semicolon) (make-continue-statement))
+  ((continue-statement :continue :identifier insertable-semicolon) (make-continue-statement :target-label $2))
+  ((continue-statement :continue insertable-semicolon) (make-continue-statement))
 
-  ((break-statement :break :identifier :semicolon) (make-break-statement :target-label $2))
-  ((break-statement :break :semicolon) (make-break-statement))
+  ((break-statement :break :identifier insertable-semicolon) (make-break-statement :target-label $2))
+  ((break-statement :break insertable-semicolon) (make-break-statement))
 
-  ((return-statement :return expression :semicolon) (make-return-statement :arg $2))
-  ((return-statement :return :semicolon) (make-return-statement))
+  ((return-statement :return expression insertable-semicolon) (make-return-statement :arg $2))
+  ((return-statement :return insertable-semicolon) (make-return-statement))
 
   ((with-statement :with :left-paren expression :right-paren statement) (make-with :scope-object $3 :body $5))
 
@@ -523,8 +528,8 @@
      (setf (source-element-label elm) $1)
      elm))
 
-  ((throw-statement :throw expression :semicolon) (make-throw-statement :value $2))
-  ((throw-statement :throw expression :right-arrow expression :semicolon) (make-throw-statement :value $2 :target $4))
+  ((throw-statement :throw expression insertable-semicolon) (make-throw-statement :value $2))
+  ((throw-statement :throw expression :right-arrow expression insertable-semicolon) (make-throw-statement :value $2 :target $4))
   
   ((try-statement :try block catch) (make-try :body (statement-block-statements $2) :catch-clause $3))
   ((try-statement :try block finally) (make-try :body (statement-block-statements $2) :finally-clause $3))
@@ -534,9 +539,9 @@
   ((finally :finally block) (make-finally-clause :body (statement-block-statements $2)))
 
   ;; jwacs extended syntax
-  ((suspend-statement :suspend :semicolon) (make-suspend-statement))
-  ((resume-statement :resume left-hand-side-expression-no-lbf :semicolon) (make-resume-statement :target $2))
-  ((resume-statement :resume left-hand-side-expression-no-lbf :left-arrow expression :semicolon) (make-resume-statement :target $2 :arg $4))
+  ((suspend-statement :suspend insertable-semicolon) (make-suspend-statement))
+  ((resume-statement :resume left-hand-side-expression-no-lbf insertable-semicolon) (make-resume-statement :target $2))
+  ((resume-statement :resume left-hand-side-expression-no-lbf :left-arrow expression insertable-semicolon) (make-resume-statement :target $2 :arg $4))
 
   ;; Functions (Pg 83)
   ((function-decl :function :identifier :left-paren formal-parameter-list :right-paren function-body)
@@ -559,10 +564,10 @@
   ((function-body :left-curly source-elements :right-curly) $2)
   ((function-body :left-curly :right-curly) nil)
 
-  ((import-decl :import :identifier :string-literal :semicolon)
+  ((import-decl :import :identifier :string-literal insertable-semicolon)
    (make-import-decl :type-symbol (intern (string-upcase $2) :jwacs)
                      :uripath $3))
-  ((import-decl :import :string-literal :semicolon) (make-import-decl :uripath $2))
+  ((import-decl :import :string-literal insertable-semicolon) (make-import-decl :uripath $2))
 
   ((source-elements source-element) (list $1))
   ((source-elements source-elements source-element) (append $1 (list $2)))
@@ -600,17 +605,65 @@
          (generate-rules-with-optional rule-spec (1+ mask)))))))
 
 ;;;; ======= Public interface ======================================================================
-(defun parse (str)
-  "Parse a string as a Javascript script, returning a list of statements."
+(define-condition syntax-error (error)
+  ((terminal :initarg :terminal :reader terminal)
+   (value :initarg :value :reader value)
+   (expected-terminals :initarg :expected-terminals :reader expected-terminals))
+  (:report (lambda (e s)
+             (format s "Encountered ~S (interpreted as ~S)~@:_~
+                        Expected one of: ~S"
+                     (value e)
+                     (terminal e)
+                     (expected-terminals e)))))
+
+;; TODO should signal SYNTAX-ERROR
+(defun strict-parse (str)
+  "Parse a string as a Javascript script, returning a list of statements.
+   Semicolon insertion will /not/ be performed."
   #+use-yacc (yacc:parse-with-lexer (make-javascript-lexer str) javascript-script)
   #-use-yacc (javascript-script (make-javascript-lexer str)))
 
-(defun parse-only (str)
-  "Parse a string as a Javascript script, returning a list of statements.  Only one value
-   will be returned (important for testing), and an error is guaranteed to be raised if
-   a syntax error is encountered (important for error recovery)."
-  (multiple-value-bind (val1 val2) 
-      (parse str) 
-    (if val2 
-      (error "Parse failed.  Lispworks recovered by inserting a token")
-      val1)))
+#+use-yacc
+(defun parse (str)
+  "Parse STR as a Javascript script, returning a list of statements.
+   Semicolon insertion is performed according to the ECMA-262 standard."
+  (multiple-value-bind (lexer line-term-preceded)
+      (make-javascript-lexer str)
+    (let ((inserted-eof-semicolon nil))
+      (labels ((resignal (err)
+                 (error (make-condition 'syntax-error
+                                        :terminal (yacc:yacc-parse-error-terminal err)
+                                        :value (yacc:yacc-parse-error-value err)
+                                        :expected-terminals (yacc:yacc-parse-error-expected-terminals err))))
+               (handle-yacc-error (err)
+                 (cond
+
+                   ;; Don't try to perform semicolon insertion unless inserted-semicolons are permitted
+                   ((null (find :inserted-semicolon (yacc:yacc-parse-error-expected-terminals err)))
+                    (resignal err))
+                   
+                   ;; Semicolon-insertion cases
+                   ((or (funcall line-term-preceded)
+                        (eq :right-curly (yacc:yacc-parse-error-terminal err)))
+                    (invoke-restart 'yacc:insert-terminal :inserted-semicolon ";"))
+                   ((and (eq 'yacc:yacc-eof-symbol (yacc:yacc-parse-error-terminal err))
+                         (null inserted-eof-semicolon))
+                    (invoke-restart 'yacc:insert-terminal :inserted-semicolon ";")
+                    (setf inserted-eof-semicolon t))
+
+                   ;; Resignal as a jwacs error if we don't handle the yacc error
+                   (t (resignal err)))))
+                    
+        (handler-bind ((yacc:yacc-parse-error #'handle-yacc-error))
+          (yacc:parse-with-lexer lexer javascript-script))))))
+
+#-use-yacc
+(defun parse (str)
+  "Parse STR as a Javascript script, returning a list of statements."
+  ;; TODO Lispworks semicolon insertion
+  (warn "Semicolon-insertion is not yet implemented under Lispworks")
+  (multiple-value-bind (ast error-p)
+      (strict-parse str)
+    (if error-p
+      (error "Lispworks parse failed")
+      ast)))
