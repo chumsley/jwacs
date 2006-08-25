@@ -1037,16 +1037,6 @@ MUFFLE-WARNINGS is one of NIL, T, :SOME or a list of the form (sr rr)."
                      (yacc-parse-error-value e)
                      (yacc-parse-error-expected-terminals e)))))
 
-(defmacro npush-end (val list)
-  "Destructively pushes VAL onto the end of LIST"
-  `(cond
-    ((null ,list)
-     (setf ,list (cons ,val nil)))
-    (t
-     (setf (cdr (last ,list))
-           (cons ,val nil))
-     ,list)))
-
 (defun parse-with-lexer (lexer parser)
   "Parse the stream of symbols provided by LEXER using PARSER.
 LEXER is a function of no arguments returning a symbol and a semantic value,
@@ -1064,10 +1054,10 @@ Handle YACC-PARSE-ERROR to provide custom error reporting."
              (declare (type index i) (symbol a))
              (or (cdr (assoc a (aref goto-array i)))
                  (error "This cannot happen."))))
-      (let ((stack (list 0)) symbol value unget-queue)
+      (let ((stack (list 0)) symbol value unget-stack)
         (flet ((next-symbol ()
-                 (if unget-queue
-                   (let ((cell (pop unget-queue)))
+                 (if unget-stack
+                   (let ((cell (pop unget-stack)))
                      (setq symbol (car cell)
                            value (cdr cell)))
                    (multiple-value-bind (s v) (funcall lexer)
@@ -1106,7 +1096,7 @@ Handle YACC-PARSE-ERROR to provide custom error reporting."
                      (insert-terminal (new-terminal new-value)
                        :report "Insert a new terminal and continue processing"
                        :interactive (lambda () (list :semicolon ";"))
-                       (npush-end (cons symbol value) unget-queue)
+                       (push (cons symbol value) unget-stack)
                        (setf symbol new-terminal
                              value new-value))
                      (replace-terminal (new-terminal new-value)
