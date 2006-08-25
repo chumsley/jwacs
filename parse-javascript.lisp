@@ -30,6 +30,9 @@
 
   ;; Cheap and cheerful semicolon insertions.  The lexer will never return :inserted-semicolon,
   ;; but we may invoke the INSERT-TERMINAL restart with :inserted-semicolon when appropriate.
+  ;; We flag the parts of the grammar where it is permissable to recover from errors by
+  ;; inserting a semicolon by using the insertable-semicolon nonterminal instead of the
+  ;; :semicolon terminal.
   ((insertable-semicolon :semicolon) :semicolon)
   ((insertable-semicolon :inserted-semicolon) :inserted-semicolon)
   
@@ -119,22 +122,23 @@
   ((left-hand-side-expression-no-lbf call-expression-no-lbf) $1)
 
   ;; Pg 57
-  ((postfix-expression left-hand-side-expression :plus2) (make-unary-operator :op-symbol :post-incr :arg $1))
-  ((postfix-expression left-hand-side-expression :minus2) (make-unary-operator :op-symbol :post-decr :arg $1))
+  ((postfix-expression left-hand-side-expression :no-line-terminator :plus2) (make-unary-operator :op-symbol :post-incr :arg $1))
+  ((postfix-expression left-hand-side-expression :no-line-terminator :minus2) (make-unary-operator :op-symbol :post-decr :arg $1))
   ((postfix-expression left-hand-side-expression) $1) ; the long versions need to be first
 
-  ((postfix-expression-no-lbf left-hand-side-expression-no-lbf :plus2) (make-unary-operator :op-symbol :post-incr :arg $1))
-  ((postfix-expression-no-lbf left-hand-side-expression-no-lbf :minus2) (make-unary-operator :op-symbol :post-decr :arg $1))
+  ((postfix-expression-no-lbf left-hand-side-expression-no-lbf :no-line-terminator :plus2) (make-unary-operator :op-symbol :post-incr :arg $1))
+  ((postfix-expression-no-lbf left-hand-side-expression-no-lbf :no-line-terminator :minus2) (make-unary-operator :op-symbol :post-decr :arg $1))
   ((postfix-expression-no-lbf left-hand-side-expression-no-lbf) $1) ; the long versions need to be first
-;; TODO plus2 == incr_no_lt
 
   ;; Pg 58
   ((unary-expression postfix-expression) $1)
   ((unary-expression :delete unary-expression) (make-unary-operator :op-symbol :delete :arg $2))
   ((unary-expression :void unary-expression) (make-unary-operator :op-symbol :void :arg $2))
   ((unary-expression :typeof unary-expression) (make-unary-operator :op-symbol :typeof :arg $2))
-  ((unary-expression :plus2 unary-expression) (make-unary-operator :op-symbol :pre-incr :arg $2))
-  ((unary-expression :minus2 unary-expression) (make-unary-operator :op-symbol :pre-decr :arg $2))
+  ((unary-expression :no-line-terminator :plus2 unary-expression) (make-unary-operator :op-symbol :pre-incr :arg $3))
+  ((unary-expression :no-line-terminator :minus2 unary-expression) (make-unary-operator :op-symbol :pre-decr :arg $3))
+  ((unary-expression :line-terminator :plus2 unary-expression) (make-unary-operator :op-symbol :pre-incr :arg $3))
+  ((unary-expression :line-terminator :minus2 unary-expression) (make-unary-operator :op-symbol :pre-decr :arg $3))
   ((unary-expression :plus unary-expression) (make-unary-operator :op-symbol :unary-plus :arg $2))
   ((unary-expression :minus unary-expression) (make-unary-operator :op-symbol :unary-minus :arg $2))
   ((unary-expression :tilde unary-expression) (make-unary-operator :op-symbol :bitwise-not :arg $2))
@@ -144,8 +148,10 @@
   ((unary-expression-no-lbf :delete unary-expression) (make-unary-operator :op-symbol :delete :arg $2))
   ((unary-expression-no-lbf :void unary-expression) (make-unary-operator :op-symbol :void :arg $2))
   ((unary-expression-no-lbf :typeof unary-expression) (make-unary-operator :op-symbol :typeof :arg $2))
-  ((unary-expression-no-lbf :plus2 unary-expression) (make-unary-operator :op-symbol :pre-incr :arg $2))
-  ((unary-expression-no-lbf :minus2 unary-expression) (make-unary-operator :op-symbol :pre-decr :arg $2))
+  ((unary-expression-no-lbf :no-line-terminator :plus2 unary-expression) (make-unary-operator :op-symbol :pre-incr :arg $3))
+  ((unary-expression-no-lbf :no-line-terminator :minus2 unary-expression) (make-unary-operator :op-symbol :pre-decr :arg $3))
+  ((unary-expression-no-lbf :line-terminator :plus2 unary-expression) (make-unary-operator :op-symbol :pre-incr :arg $3))
+  ((unary-expression-no-lbf :line-terminator :minus2 unary-expression) (make-unary-operator :op-symbol :pre-decr :arg $3))
   ((unary-expression-no-lbf :plus unary-expression) (make-unary-operator :op-symbol :unary-plus :arg $2))
   ((unary-expression-no-lbf :minus unary-expression) (make-unary-operator :op-symbol :unary-minus :arg $2))
   ((unary-expression-no-lbf :tilde unary-expression) (make-unary-operator :op-symbol :bitwise-not :arg $2))
@@ -487,17 +493,19 @@
   ((iteration-statement-no-if :for :left-paren :var variable-decl-no-in :in expression :right-paren statement-no-if)
    (make-for-in :binding (make-var-decl-statement :var-decls (list $4)) :collection $6 :body $8))
 
-  ((continue-statement :continue :identifier insertable-semicolon) (make-continue-statement :target-label $2))
-  ((continue-statement :continue insertable-semicolon) (make-continue-statement))
+  ((continue-statement :continue :no-line-terminator :identifier insertable-semicolon) (make-continue-statement :target-label $3))
+  ((continue-statement :continue :no-line-terminator :semicolon) (make-continue-statement))
+  ((continue-statement :continue :line-terminator) (make-continue-statement))
 
-  ((break-statement :break :identifier insertable-semicolon) (make-break-statement :target-label $2))
-  ((break-statement :break insertable-semicolon) (make-break-statement))
+  ((break-statement :break :no-line-terminator :identifier insertable-semicolon) (make-break-statement :target-label $3))
+  ((break-statement :break :no-line-terminator :semicolon) (make-break-statement))
+  ((break-statement :break :line-terminator) (make-break-statement))
 
-  ((return-statement :return expression insertable-semicolon) (make-return-statement :arg $2))
-  ((return-statement :return insertable-semicolon) (make-return-statement))
+  ((return-statement :return :no-line-terminator expression insertable-semicolon) (make-return-statement :arg $3))
+  ((return-statement :return :no-line-terminator :semicolon) (make-return-statement))
+  ((return-statement :return :line-terminator) (make-return-statement))
 
   ((with-statement :with :left-paren expression :right-paren statement) (make-with :scope-object $3 :body $5))
-
   ((with-statement-no-if :with :left-paren expression :right-paren statement-no-if) (make-with :scope-object $3 :body $5))
 
   ;; Note that by treating the default clause as just another type of case clause, as opposed
@@ -528,8 +536,8 @@
      (setf (source-element-label elm) $1)
      elm))
 
-  ((throw-statement :throw expression insertable-semicolon) (make-throw-statement :value $2))
-  ((throw-statement :throw expression :right-arrow expression insertable-semicolon) (make-throw-statement :value $2 :target $4))
+  ((throw-statement :throw :no-line-terminator expression insertable-semicolon) (make-throw-statement :value $3))
+  ((throw-statement :throw :no-line-terminator expression :right-arrow expression insertable-semicolon) (make-throw-statement :value $3 :target $5))
   
   ((try-statement :try block catch) (make-try :body (statement-block-statements $2) :catch-clause $3))
   ((try-statement :try block finally) (make-try :body (statement-block-statements $2) :finally-clause $3))
@@ -610,10 +618,10 @@
    (value :initarg :value :reader value)
    (expected-terminals :initarg :expected-terminals :reader expected-terminals))
   (:report (lambda (e s)
-             (format s "Encountered ~S (interpreted as ~S)~@:_~
+             (format s "Encountered ~S (value: ~S)~@:_~
                         Expected one of: ~S"
-                     (value e)
                      (terminal e)
+                     (value e)
                      (expected-terminals e)))))
 
 ;; TODO should signal SYNTAX-ERROR

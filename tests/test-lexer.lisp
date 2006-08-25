@@ -129,3 +129,30 @@
    (:identifier "foo1")
    (:identifier "foo$")
    (:identifier "foo_")))
+
+(deftest lexer/restricted-tokens/1 :notes lexer
+  (read-all-tokens "break foo")
+  ((:break "break") (:no-line-terminator "") (:identifier "foo")))
+
+(deftest lexer/restricted-tokens/2 :notes lexer
+  (read-all-tokens "break
+                    foo")
+  ((:break "break") (:line-terminator "") (:identifier "foo")))
+
+(deftest lexer/restricted-tokens/3 :notes lexer
+  (read-all-tokens "continue;")
+  ((:continue "continue") (:no-line-terminator "") (:semicolon ";")))
+
+(deftest lexer/restricted-tokens/4 :notes lexer
+  (read-all-tokens "continue
+                    ;")
+  ((:continue "continue") (:line-terminator "") (:semicolon ";")))
+
+(deftest lexer/restricted-tokens/5 :notes lexer
+  (read-all-tokens "b ++ c")
+  ((:identifier "b") (:no-line-terminator "") (:plus2 "++") (:identifier "c")))
+
+(deftest lexer/restricted-tokens/6 :notes lexer
+  (read-all-tokens "b
+                    ++ c")
+  ((:identifier "b") (:line-terminator "") (:plus2 "++") (:identifier "c")))

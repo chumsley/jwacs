@@ -640,19 +640,13 @@
                 syntax-error)
   t)
 
-;; These tests are from the spec and are currently disabled because we do not parse
-;; "restricted productions" in a conformant fashion.
-
 (deftest parser/semicolon-insertion/12 :notes parser
   (parse "return
           a + b")
   #.(parse "return;
             a + b;"))
-(flag-expected-failure 'parser/semicolon-insertion/12)
 
 (deftest parser/semicolon-insertion/13 :notes parser
   (parse "a = b
           ++c")
-  #.(parse "a = b;
-            ++c"))
-(flag-expected-failure 'parser/semicolon-insertion/13)
+  #.(parse "a = b; ++c;"))
