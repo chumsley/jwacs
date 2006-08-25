@@ -68,13 +68,17 @@
                                                     :right-arg #S(numeric-literal :value 20)))
    #S(re-literal :pattern "hello" :options "ig")))
 
-;; I acknowledge that the parser (actually the lexer) isn't treating this case properly, 
-;; but frankly I don't care.  To get it to work properly it is necessary to switch lexers
-;; depending upon the current location in the syntax, and it's just not worth the effort
-;; right now.  The problem is easily worked around by the programmer (just stick a newline
-;; between your statements).  I'll fix this around the same time as I add semicolon insertion.
-(flag-expected-failure 'parser/re-literal/4)
- 
+(deftest parser/re-literal/5 :notes parser
+  (parse "(x/4) + (x/5);")
+  (#s(binary-operator :op-symbol :add
+                      :left-arg #s(binary-operator :op-symbol :divide
+                                                   :left-arg #s(identifier :name "x")
+                                                   :right-arg #s(numeric-literal :value 4))
+                      :right-arg #s(binary-operator :op-symbol :divide
+                                                    :left-arg #s(identifier :name "x")
+                                                    :right-arg #s(numeric-literal :value 5)))))
+                      
+
 (deftest parser/property-access/1 :notes parser
   (parse "var x = y[44];")
   (#S(var-decl-statement :var-decls

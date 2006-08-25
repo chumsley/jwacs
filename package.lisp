@@ -10,6 +10,7 @@
   (:use :cl :cl-ppcre)
   (:nicknames :jw)
   (:export
+   #:javascript-lexer #:make-lexer-function
    #:parse #:parse-only #:strict-parse
    #:process #:build-app
    #:syntax-error))

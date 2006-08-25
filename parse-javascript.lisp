@@ -628,42 +628,53 @@
 (defun strict-parse (str)
   "Parse a string as a Javascript script, returning a list of statements.
    Semicolon insertion will /not/ be performed."
-  #+use-yacc (yacc:parse-with-lexer (make-javascript-lexer str) javascript-script)
-  #-use-yacc (javascript-script (make-javascript-lexer str)))
+  #+use-yacc (yacc:parse-with-lexer (make-lexer-function (make-instance 'javascript-lexer :text str)))
+  #-use-yacc (javascript-script (make-lexer-function (make-instance 'javascript-lexer :text str))))
 
 #+use-yacc
 (defun parse (str)
   "Parse STR as a Javascript script, returning a list of statements.
    Semicolon insertion is performed according to the ECMA-262 standard."
-  (multiple-value-bind (lexer line-term-preceded)
-      (make-javascript-lexer str)
-    (let ((inserted-eof-semicolon nil))
-      (labels ((resignal (err)
-                 (error (make-condition 'syntax-error
-                                        :terminal (yacc:yacc-parse-error-terminal err)
-                                        :value (yacc:yacc-parse-error-value err)
-                                        :expected-terminals (yacc:yacc-parse-error-expected-terminals err))))
-               (handle-yacc-error (err)
-                 (cond
+  (let ((lexer (make-instance 'javascript-lexer :text str))
+        (inserted-eof-semicolon nil))
+    (labels ((resignal (err)
+               (error (make-condition 'syntax-error
+                                      :terminal (yacc:yacc-parse-error-terminal err)
+                                      :value (yacc:yacc-parse-error-value err)
+                                      :expected-terminals (yacc:yacc-parse-error-expected-terminals err))))
+             (handle-yacc-error (err)
+               (cond
 
-                   ;; Don't try to perform semicolon insertion unless inserted-semicolons are permitted
-                   ((null (find :inserted-semicolon (yacc:yacc-parse-error-expected-terminals err)))
-                    (resignal err))
+                 ;; Irritating regular-expression-literal vs. division ambiguity case.
+                 ;; If we encounter an unexpected RE literal, try interpreting it as a
+                 ;; division operator instead.  We do that by rewinding the lexer to
+                 ;; just before the RE literal and instructing it to read the slash as
+                 ;; just a slash.  We then instruct the parser to throw away the RE
+                 ;; literal and continue parsing.
+                 ((and (eq :re-literal (yacc:yacc-parse-error-terminal err))
+                       (find :slash (yacc:yacc-parse-error-expected-terminals err))
+                       (restore-cursor lexer))
+                  (coerce-token lexer :slash)
+                  (invoke-restart 'yacc:skip-terminal))
+                 
+                 ;; Don't try to perform semicolon insertion unless inserted-semicolons are permitted
+                 ((null (find :inserted-semicolon (yacc:yacc-parse-error-expected-terminals err)))
+                  (resignal err))
                    
-                   ;; Semicolon-insertion cases
-                   ((or (funcall line-term-preceded)
-                        (eq :right-curly (yacc:yacc-parse-error-terminal err)))
-                    (invoke-restart 'yacc:insert-terminal :inserted-semicolon ";"))
-                   ((and (eq 'yacc:yacc-eof-symbol (yacc:yacc-parse-error-terminal err))
-                         (null inserted-eof-semicolon))
-                    (invoke-restart 'yacc:insert-terminal :inserted-semicolon ";")
-                    (setf inserted-eof-semicolon t))
+                 ;; Semicolon-insertion cases
+                 ((or (encountered-line-terminator lexer)
+                      (eq :right-curly (yacc:yacc-parse-error-terminal err)))
+                  (invoke-restart 'yacc:insert-terminal :inserted-semicolon ";"))
+                 ((and (eq 'yacc:yacc-eof-symbol (yacc:yacc-parse-error-terminal err))
+                       (null inserted-eof-semicolon))
+                  (invoke-restart 'yacc:insert-terminal :inserted-semicolon ";")
+                  (setf inserted-eof-semicolon t))
 
-                   ;; Resignal as a jwacs error if we don't handle the yacc error
-                   (t (resignal err)))))
+                 ;; Resignal as a jwacs error if we don't handle the yacc error
+                 (t (resignal err)))))
                     
-        (handler-bind ((yacc:yacc-parse-error #'handle-yacc-error))
-          (yacc:parse-with-lexer lexer javascript-script))))))
+      (handler-bind ((yacc:yacc-parse-error #'handle-yacc-error))
+        (yacc:parse-with-lexer (make-lexer-function lexer) javascript-script)))))
 
 #-use-yacc
 (defun parse (str)

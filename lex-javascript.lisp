@@ -347,94 +347,151 @@
   (regex-replace "\\\\/" re-string "/"))
 
 ;;;;; Top-level logic
-(defun make-javascript-lexer (string)
-  "Construct and return a new lexer that reads from the provided string.
-   First return value is a function of 0 arguments that returns the next lexeme.
-   Second return value is a function of 0 arguments that returns non-NIL when the
-   most-recently-returned lexeme was immediately preceded by a newline."
-  (let ((cursor 0)
-        (encountered-line-terminators nil)
-        (pushback-queue nil))
-    (values
-     (lambda ()
 
-       (block lexer                    ; The need for this block is a good enough argument for going to CLOS-lexer
-         
-         ;; If we've queued up other input, then return it
-         (when pushback-queue
-           (let ((cell (pop pushback-queue)))
-             (return-from lexer (values (car cell) (cdr cell)))))
+(defclass javascript-lexer ()
+  ((cursor :initform 0 :accessor cursor)
+   (prev-cursor :initform nil :accessor prev-cursor)
+   (text :initarg :text :reader text)
+   (unget-stack :initform nil :accessor unget-stack)
+   (encountered-line-terminator :initform nil :accessor encountered-line-terminator))
+  (:documentation
+   "Represents the current state of a lexing operation"))
 
-         ;; Skip whitespace and comments.  We note whether the skipped text
-         ;; included any line terminators, because the parser will sometimes want
-         ;; to query whether the current token was preceded by a line terminator.
-         (multiple-value-bind (comment-s comment-e)
-             (scan whitespace-and-comments-re string :start cursor)
-           (setf encountered-line-terminators nil)
-           (when comment-s
-             (incf cursor (- comment-e comment-s))
-             (setf encountered-line-terminators
-                   (scan line-terminator-re string :start comment-s :end comment-e))))
+(defun next-token (lexer)
+  "First return value is the next token in the lexing operation represented by LEXER,
+   second return value is the text that was interpreted as token.  Returns NIL token
+   to represent the end of stream.  This is the only method that takes account of the
+   pushback queue."
 
-         ;; Lex a token.  We know that the cursor is at the start of a real token,
-         ;; because we just finished skipping all of the whitespace and comments.
-         (multiple-value-bind (token-symbol token-string)
-             (re-cond (string :start cursor)
-                      ("^$"
-                       eoi)
-                      (floating-re
-                       (incf cursor (- %e %s))
-                       (values :number (read-from-string string nil eoi :start %s :end %e)))
-                      (integer-re
-                       (incf cursor (- %e %s))
-                       (values :number (parse-javascript-integer string :start %s :end %e)))
-                      ("^(\\$|\\w)+"
-                       (incf cursor (- %e %s))
-                       (let ((token (subseq string %s %e)))
-                         (if (gethash token *tokens-to-symbols*)
-                           (values (gethash token *tokens-to-symbols*) token)
-                           (values :identifier token))))
-                      (regexp-re
-                       (incf cursor (- %e %s))
-                       (values :re-literal (cons (unescape-regexp (subseq string (aref %sub-s 0) (aref %sub-e 0)))
-                                                 (subseq string (aref %sub-s 1) (aref %sub-e 1)))))
-                      (string-re
-                       (incf cursor (- %e %s))
-                       (values :string-literal (subseq string (1+ %s) (1- %e))))
-                      (operator-re
-                       (incf cursor (- %e %s))
-                       (let ((token (subseq string %s %e)))
-                         (values (gethash token *tokens-to-symbols*) token)))
-                      ("^\\S+"
-                       (error "unrecognized token: '~A'" (subseq string %s %e)))
-                      (t
-                       (error "coding error - we should never get here")))
+  ;; If we've pushed other input, then return that instead
+  (when-let (cell (pop (unget-stack lexer)))
+    (setf (encountered-line-terminator lexer) (third cell))
+    (return-from next-token (values (first cell) (second cell))))
 
-           ;; Restricted token handling
-           (case (gethash token-symbol *restricted-tokens*)
-             (:pre
-              (cond
-                (encountered-line-terminators
-                 (npush-end (cons token-symbol token-string) pushback-queue)
-                 (values :line-terminator ""))
-                (t
-                 (npush-end (cons token-symbol token-string) pushback-queue)
-                 (values :no-line-terminator ""))))
-             (:post
-              (multiple-value-bind (comment-s comment-e)
-                  (scan whitespace-and-comments-re string :start cursor)
-                (cond
-                  (comment-s
-                   (incf cursor (- comment-e comment-s))
-                   (if (scan line-terminator-re string :start comment-s :end comment-e)
-                     (npush-end (cons :line-terminator "") pushback-queue)
-                     (npush-end (cons :no-line-terminator "") pushback-queue))
-                   (values token-symbol token-string))
-                  (t
-                   (npush-end (cons :no-line-terminator "") pushback-queue)
-                   (values token-symbol token-string)))))
-             (otherwise
-              (values token-symbol token-string))))))
+  ;; Skip the whitespace...
+  (consume-whitespace lexer)
 
-     (lambda ()
-       encountered-line-terminators))))
+  ;; .. and grab a token from the text
+  (multiple-value-bind (token-symbol token-string)
+      (consume-token lexer)
+
+    ;; Restricted token handling
+    (case (gethash token-symbol *restricted-tokens*)
+      (:pre
+       (cond
+         ((encountered-line-terminator lexer)
+          (push-token lexer token-symbol token-string)
+          (values :line-terminator ""))
+         (t
+          (push-token lexer token-symbol token-string)
+          (values :no-line-terminator ""))))
+      (:post
+       (if (consume-whitespace lexer)
+         (push-token lexer :line-terminator)
+         (push-token lexer :no-line-terminator))
+       (values token-symbol token-string))
+      (otherwise
+       (values token-symbol token-string)))))
+
+(defun push-token (lexer token-symbol &optional (token-string "") (encountered-line-terminator :default))
+  "Push a token onto the top of LEXER's unget stack.  The next token fetched by NEXT-TOKEN will be
+   the pushed token."
+  (when (eq encountered-line-terminator :default)
+    (setf encountered-line-terminator (encountered-line-terminator lexer)))
+
+  (push (list token-symbol token-string encountered-line-terminator)
+        (unget-stack lexer)))
+
+(defun set-cursor (lexer new-pos)
+  "Sets the cursor of the lexer to the position specified by NEW-POS"
+  (setf (prev-cursor lexer) (cursor lexer)
+        (cursor lexer) new-pos))
+
+(defun restore-cursor (lexer)
+  "Restores LEXER's cursor to the value it had just before it read the current token."
+  (when (prev-cursor lexer)
+    (setf (cursor lexer) (prev-cursor lexer)
+          (prev-cursor lexer) nil)
+    (cursor lexer)))
+
+(defun coerce-token (lexer token-symbol)
+  "Force LEXER to interpret the next token as TOKEN-SYMBOL.  An error will be raised
+   if that's not actually possible."
+  (let ((token-string (gethash token-symbol *symbols-to-tokens*)))
+
+    ;; Only coerce constant tokens (ie, :SLASH good, :STRING-LITERAL bad)
+    (unless (stringp token-string)
+      (error "~S is not a coerceable token type" token-symbol))
+
+    ;; Check that this is a feasible request
+    (unless (string= (subseq (text lexer)
+                             (cursor lexer)
+                             (+ (cursor lexer) (length token-string)))
+                     token-string)
+      (error "Cannot interpret ~S as a ~S"
+             (subseq (text lexer)
+                     (cursor lexer)
+                     (+ (cursor lexer) (length token-string)))
+             token-symbol))
+
+    ;; Okay, let's do this thing
+    (set-cursor lexer (+ (cursor lexer) (length token-string)))
+    (push-token lexer token-symbol token-string)))
+             
+
+(defun consume-whitespace (lexer)
+  "Consumes whitespace and comments.  Lexer's cursor is updated to the next
+   non-whitespace character, and its ENCOUNTERED-LINE-TERMINATOR slot is set
+   based upon whether or not the skipped whitespace included a newline.
+   Returns non-NIL if line-terminators were encountered."
+  (with-slots (cursor text encountered-line-terminator) lexer
+    (multiple-value-bind (comment-s comment-e)
+        (scan whitespace-and-comments-re text :start cursor)
+      (setf encountered-line-terminator nil)
+      (when comment-s
+        (set-cursor lexer comment-e)
+        (setf encountered-line-terminator
+              (scan line-terminator-re text :start comment-s :end comment-e))))))
+
+(defun consume-token (lexer)
+  "Reads the next token from LEXER's source text (where 'next' is determined by
+   the value of LEXER's cursor).  The cursor is assumed to point to a non-whitespace
+   character on entry; on exit points to the first character after the consumed token."
+  (with-slots (text cursor) lexer
+    (re-cond (text :start cursor)
+       ("^$"
+        eoi)
+       (floating-re
+        (set-cursor lexer %e)
+        (values :number (read-from-string text nil eoi :start %s :end %e)))
+       (integer-re
+        (set-cursor lexer %e)
+        (values :number (parse-javascript-integer text :start %s :end %e)))
+       ("^(\\$|\\w)+"
+        (set-cursor lexer %e)
+        (let ((token (subseq text %s %e)))
+          (if (gethash token *tokens-to-symbols*)
+            (values (gethash token *tokens-to-symbols*) token)
+            (values :identifier token))))
+       (regexp-re
+        (set-cursor lexer %e)
+        (values :re-literal (cons (unescape-regexp (subseq text (aref %sub-s 0) (aref %sub-e 0)))
+                                  (subseq text (aref %sub-s 1) (aref %sub-e 1)))))
+       (string-re
+        (set-cursor lexer %e)
+        (values :string-literal (subseq text (1+ %s) (1- %e))))
+       (operator-re
+        (set-cursor lexer %e)
+        (let ((token (subseq text %s %e)))
+          (values (gethash token *tokens-to-symbols*) token)))
+       ("^\\S+"
+        (error "unrecognized token: '~A'" (subseq text %s %e)))
+       (t
+        (error "coding error - we should never get here")))))
+
+;;;; Interface function
+(defun make-lexer-function (lexer)
+  "Returns a function of 0 arguments that calls NEXT-TOKEN on LEXER whenever it is called.
+   This is normally the function that gets passed into a parser."
+  (lambda ()
+    (next-token lexer)))

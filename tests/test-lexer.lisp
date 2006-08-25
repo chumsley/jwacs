@@ -47,7 +47,7 @@
   "Return a list of cons cells representing the tokens
    of JS-STRING.  The CAR of each cell is the type of
    token, and the CDR is the source text."
-  (loop with l = (make-javascript-lexer js-string)
+  (loop with l = (make-lexer-function (make-instance 'javascript-lexer :text js-string))
         for x = (multiple-value-list (funcall l))
         while (not (eq (car x) eoi))
         collect x))
@@ -156,3 +156,23 @@
   (read-all-tokens "b
                     ++ c")
   ((:identifier "b") (:line-terminator "") (:plus2 "++") (:identifier "c")))
+
+(deftest lexer/restore-cursor/1 :notes lexer
+  (let ((lexer (make-instance 'javascript-lexer :text "x/5 + x/10;")))
+    (jw::next-token lexer)  ; ==> X
+    (jw::next-token lexer)  ; ==> /5 + x/
+    (jw::restore-cursor lexer)
+    (jw::next-token lexer))
+  :re-literal
+  ("5 + x" . ""))
+  
+(deftest lexer/restore-cursor/2 :notes lexer
+  (let ((lexer (make-instance 'javascript-lexer :text "x/5 + x/10;")))
+    (jw::next-token lexer)  ; ==> X
+    (jw::next-token lexer)  ; ==> /5 + x/
+    (jw::restore-cursor lexer)
+    (jw::coerce-token lexer :slash)
+    (jw::next-token lexer)
+    (jw::next-token lexer))
+  :number
+  5)
