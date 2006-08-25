@@ -55,11 +55,11 @@
   options)
 
 (defelement (new-expr (:include expression))
-  (constructor nil :type (or identifier property-access fn-call function-expression))
+  (constructor nil :type expression)
   (args nil :type (or (cons source-element) null)))
 
 (defelement (fn-call (:include expression))
-  (fn nil :type (or identifier property-access fn-call function-expression))
+  (fn nil :type expression)
   (args nil :type (or (cons source-element) null)))
 
 (defelement (property-access (:include expression))
