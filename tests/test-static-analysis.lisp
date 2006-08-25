@@ -7,6 +7,8 @@
 ;;;
 (in-package :jwacs-tests)
 
+(defnote static-analysis "Tests for the simple static-analysis utility functions")
+
 (deftest static-analysis/explicitly-terminated-p/1 :notes static-analysis
   (explicitly-terminated-p
    (parse "

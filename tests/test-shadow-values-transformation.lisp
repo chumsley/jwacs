@@ -7,6 +7,8 @@
 ;;;
 (in-package :jw-tests)
 
+(defnote shadow-values "Tests for the shadow-values transformation")
+
 (deftest shadow-values/fn-decl/arguments-referenced/1 :notes shadow-values
   (with-fresh-genvar
     (test-transform 'shadow-values (parse "

@@ -7,7 +7,9 @@
 ;;;
 (in-package :jwacs-tests)
 
-(deftest shift-decls/1
+(defnote shift-decls "Tests for the shift-decls transformation")
+
+(deftest shift-decls/1 :notes shift-decls
   (transform 'shift-decls (parse "
     var global1, global2 = 20;
     WScript.echo(global2);
@@ -43,7 +45,7 @@
     global3 = /h/g;"))
 
 
-(deftest shift-decls/2
+(deftest shift-decls/2 :notes shift-decls
   (transform 'shift-decls (parse "
     function foo()
     {
@@ -75,7 +77,7 @@
       }
     }"))
 
-(deftest shift-decls/3
+(deftest shift-decls/3 :notes shift-decls
   (transform 'shift-decls (parse "
       var obj = { field: 44, method: function() { return this.field * 2; }};
       function fn()
@@ -90,7 +92,7 @@
       }
       obj = { field: 44, method: function() { return this.field * 2; }};"))
 
-(deftest shift-decls/nested-var-decls/1
+(deftest shift-decls/nested-var-decls/1 :notes shift-decls
   (transform 'shift-decls (parse "
       foo();
       var x = 10;
@@ -116,7 +118,7 @@
         bar(e);
       }"))
 
-(deftest shift-decls/nested-var-decls/2
+(deftest shift-decls/nested-var-decls/2 :notes shift-decls
   (transform 'shift-decls (parse "
       foo();
       var x = 10;

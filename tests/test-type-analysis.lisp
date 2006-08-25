@@ -26,7 +26,7 @@
                   (type-analyze (parse "x = 5 / '2.5'; y = 'str'; y = x;"))))
    ("Number" "String"))
 
-(deftest type-analysis/simple-assignment/3 :note type-analysis
+(deftest type-analysis/simple-assignment/3 :notes type-analysis
   (type-names
    (compute-types #s(identifier :name "non-existo")
                   (type-analyze (parse "var x = 10; var y = str; y = x;"))))
