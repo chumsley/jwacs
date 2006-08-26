@@ -615,13 +615,6 @@
   (parse "if(x) { foo() } bar()")
   #.(parse "if(x) { foo(); } bar();"))
 
-this.each(function(value, index) {
-      var stringValue = value.toString();
-      if (stringValue.match(pattern))
-        results.push((iterator || Prototype.K)(value, index));
-    })
-    return results;
-
 (deftest parser/semicolon-insertion/7 :notes parser
   (parse "this.each(function() { foo() })
           return results;")
