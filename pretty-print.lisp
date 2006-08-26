@@ -116,7 +116,7 @@
   (format s "~D" (numeric-literal-value elm)))
 
 (defmethod pretty-print ((elm string-literal) s)
-  (format s "~S" (string-literal-value elm)))
+  (format s "\"~A\"" (string-literal-value elm)))
 
 (defmethod pretty-print ((elm array-literal) s)
   (format s "[")
@@ -124,7 +124,7 @@
   (format s "]"))
 
 (defmethod pretty-print ((elm re-literal) s)
-  (format s "/~A/~A" (re-literal-pattern elm) (re-literal-options elm)))
+  (format s "/~A/~A" (escape-regexp (re-literal-pattern elm)) (re-literal-options elm)))
 
 ;; TODO May want some extra smarts here for things like class defns
 ;; ie, add newlines after each property if any of the properties are of type function-expression

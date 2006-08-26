@@ -540,3 +540,12 @@ suspend;")
   (pretty-string (make-throw-statement :value foo-id
                                        :target bar-id))
   "throw foo -> bar;")
+
+;;;; Some round-trip tests
+(deftest parse-print/round-trip/1 :notes (pretty-print parser)
+  (parse (pretty-string (parse "\"string \\\"literal\\\"\"")))
+  #.(parse "\"string \\\"literal\\\"\""))
+
+(deftest parse-print/round-trip/2 :notes (pretty-print parser)
+  (parse (pretty-string (parse "var endTag = /<\\/[^>]+>/;")))
+  #.(parse "var endTag = /<\\/[^>]+>/;"))

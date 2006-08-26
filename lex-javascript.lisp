@@ -340,6 +340,9 @@
 (defun unescape-regexp (re-string)
   (regex-replace "\\\\/" re-string "/"))
 
+(defun escape-regexp (re-string)
+  (regex-replace "/" re-string "\\/"))
+
 (defun line-terminator-p (c)
   "Return non-NIL if C is a line-terminator character according to the Javascript spec"
   (find (char-code c) '(#x0a #x0d #x2028 #x2029)))
