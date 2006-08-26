@@ -11,10 +11,15 @@
   (:import-from jwacs
                 ;; lexer-specific symbols for testing
                 regexp-re
-                make-javascript-lexer
                 eoi
+                next-token
+                restore-cursor
+                coerce-token
                 make-load-form
-
+                prev-cursor-position
+                cursor-position
+                encountered-line-terminator
+                
                 ;; source-model structure types
                 source-element
                 special-value

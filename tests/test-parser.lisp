@@ -615,42 +615,55 @@
   (parse "if(x) { foo() } bar()")
   #.(parse "if(x) { foo(); } bar();"))
 
-;; Some further semicolon-insertion unit-tests from the spec
+this.each(function(value, index) {
+      var stringValue = value.toString();
+      if (stringValue.match(pattern))
+        results.push((iterator || Prototype.K)(value, index));
+    })
+    return results;
+
 (deftest parser/semicolon-insertion/7 :notes parser
+  (parse "this.each(function() { foo() })
+          return results;")
+  #.(parse "this.each(function() { foo() });
+            return results;"))
+
+;; Some further semicolon-insertion unit-tests from the spec
+(deftest parser/semicolon-insertion/8 :notes parser
   (expect-error (parse "{ 1 2 } 3")
                 syntax-error)
   t)
 
-(deftest parser/semicolon-insertion/8 :notes parser
+(deftest parser/semicolon-insertion/9 :notes parser
   (parse "{ 1
             2 } 3")
   #.(parse "{ 1
             ;2 ;} 3;"))
 
-(deftest parser/semicolon-insertion/9 :notes parser
+(deftest parser/semicolon-insertion/10 :notes parser
   (expect-error (parse "for(a; b
                         )")
                 syntax-error)
   t)
 
-(deftest parser/semicolon-insertion/10 :notes parser
+(deftest parser/semicolon-insertion/11 :notes parser
   (parse "a = b + c
           (d + e).print()")
   #.(parse "a = b + (c(d + e)).print()"))
 
-(deftest parser/semicolon-insertion/11 :notes parser
+(deftest parser/semicolon-insertion/12 :notes parser
   (expect-error (parse "if (a > b)
                         else c = d")
                 syntax-error)
   t)
 
-(deftest parser/semicolon-insertion/12 :notes parser
+(deftest parser/semicolon-insertion/13 :notes parser
   (parse "return
           a + b")
   #.(parse "return;
             a + b;"))
 
-(deftest parser/semicolon-insertion/13 :notes parser
+(deftest parser/semicolon-insertion/14 :notes parser
   (parse "a = b
           ++c")
   #.(parse "a = b; ++c;"))

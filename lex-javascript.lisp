@@ -92,7 +92,6 @@
 (deftoken :or-equals      "|=" :operator-token)
 
 ;; Operators and punctuators
-(deftoken :newline      (format nil "~%"))
 (deftoken :semicolon    ";" :operator-token)
 (deftoken :comma        "," :operator-token)
 (deftoken :hook         "?" :operator-token)
@@ -288,11 +287,6 @@
 
   "Regular expression for recognizing operators")
 
-(defparameter line-terminator-re (create-scanner 
-                                  '(:alternation #\Newline #\Return))
-  "Regular expression for recognizing that a LineTerminator is lurking somewhere
-   in a blob of text.  Note that there are /no/ anchors on this regexp.")
-
 (defparameter whitespace-and-comments-re (create-scanner
                                           '(:sequence
                                             :start-anchor
@@ -346,6 +340,10 @@
 (defun unescape-regexp (re-string)
   (regex-replace "\\\\/" re-string "/"))
 
+(defun line-terminator-p (c)
+  "Return non-NIL if C is a line-terminator character according to the Javascript spec"
+  (find (char-code c) '(#x0a #x0d #x2028 #x2029)))
+
 ;;;;; Top-level logic
 
 (defclass javascript-lexer ()
@@ -386,10 +384,13 @@
           (push-token lexer token-symbol token-string)
           (values :no-line-terminator ""))))
       (:post
-       (if (consume-whitespace lexer)
-         (push-token lexer :line-terminator)
-         (push-token lexer :no-line-terminator))
-       (values token-symbol token-string))
+       (let ((saved-terminator (encountered-line-terminator lexer))
+             (next-terminator (consume-whitespace lexer)))
+         (if next-terminator
+           (push-token lexer :line-terminator "" t)
+           (push-token lexer :no-line-terminator "" nil))
+         (setf (encountered-line-terminator lexer) saved-terminator)
+         (values token-symbol token-string)))
       (otherwise
        (values token-symbol token-string)))))
 
@@ -445,13 +446,13 @@
    based upon whether or not the skipped whitespace included a newline.
    Returns non-NIL if line-terminators were encountered."
   (with-slots (cursor text encountered-line-terminator) lexer
-    (multiple-value-bind (comment-s comment-e)
+    (multiple-value-bind (ws-s ws-e)
         (scan whitespace-and-comments-re text :start cursor)
       (setf encountered-line-terminator nil)
-      (when comment-s
-        (set-cursor lexer comment-e)
+      (when ws-s
+        (setf (cursor lexer) ws-e)      ; Not using SET-CURSOR because we don't want to change PREV-CURSOR
         (setf encountered-line-terminator
-              (scan line-terminator-re text :start comment-s :end comment-e))))))
+              (find-if 'line-terminator-p text :start ws-s :end ws-e))))))
 
 (defun consume-token (lexer)
   "Reads the next token from LEXER's source text (where 'next' is determined by
@@ -488,6 +489,28 @@
         (error "unrecognized token: '~A'" (subseq text %s %e)))
        (t
         (error "coding error - we should never get here")))))
+
+(defun cursor-position (lexer)
+  "Return a cons cell containing the 1-based row and column for the lexer's
+   current position (ie, the position of the first character after the most
+   recently read token)."
+  (index-position (text lexer) (cursor lexer)))
+
+(defun prev-cursor-position (lexer)
+  "Return a cons cell containing the 1-based row and column for the lexer's
+   previous position (ie, the position of the first character of the most recently
+   read token).  If no previous cursor exists, returns the current position."
+  (index-position (text lexer) (or (prev-cursor lexer) (cursor lexer))))
+
+;; TODO Tab handling
+(defun index-position (text index)
+  "Returns a cons cell containing the 1-based row and column for the character
+  at INDEX in TEXT."
+  (let ((newline-count (count #\Newline text :end index))
+        (final-newline (position #\Newline text :end index :from-end t)))
+    (if final-newline
+      (cons (1+ newline-count) (- index final-newline))
+      (cons 1 (1+ index)))))
 
 ;;;; Interface function
 (defun make-lexer-function (lexer)

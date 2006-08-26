@@ -616,12 +616,15 @@
 (define-condition syntax-error (error)
   ((terminal :initarg :terminal :reader terminal)
    (value :initarg :value :reader value)
-   (expected-terminals :initarg :expected-terminals :reader expected-terminals))
+   (expected-terminals :initarg :expected-terminals :reader expected-terminals)
+   (row :initarg :row :reader row)
+   (column :initarg :column :reader column))
   (:report (lambda (e s)
              (format s "Encountered ~S (value: ~S)~@:_~
+                        at line ~D, column ~D~%~
                         Expected one of: ~S"
-                     (terminal e)
-                     (value e)
+                     (terminal e) (value e)
+                     (row e) (column e)
                      (expected-terminals e)))))
 
 ;; TODO should signal SYNTAX-ERROR
@@ -635,13 +638,15 @@
 (defun parse (str)
   "Parse STR as a Javascript script, returning a list of statements.
    Semicolon insertion is performed according to the ECMA-262 standard."
-  (let ((lexer (make-instance 'javascript-lexer :text str))
-        (inserted-eof-semicolon nil))
+  (let ((lexer (make-instance 'javascript-lexer :text str)))
     (labels ((resignal (err)
-               (error (make-condition 'syntax-error
-                                      :terminal (yacc:yacc-parse-error-terminal err)
-                                      :value (yacc:yacc-parse-error-value err)
-                                      :expected-terminals (yacc:yacc-parse-error-expected-terminals err))))
+               (destructuring-bind (row . col) (prev-cursor-position lexer)
+                 (error (make-condition 'syntax-error
+                                        :terminal (yacc:yacc-parse-error-terminal err)
+                                        :value (yacc:yacc-parse-error-value err)
+                                        :expected-terminals (yacc:yacc-parse-error-expected-terminals err)
+                                        :row row
+                                        :column col))))
              (handle-yacc-error (err)
                (cond
 
@@ -661,14 +666,11 @@
                  ((null (find :inserted-semicolon (yacc:yacc-parse-error-expected-terminals err)))
                   (resignal err))
                    
-                 ;; Semicolon-insertion cases
+                 ;; Semicolon-insertion case
                  ((or (encountered-line-terminator lexer)
-                      (eq :right-curly (yacc:yacc-parse-error-terminal err)))
+                      (eq :right-curly (yacc:yacc-parse-error-terminal err))
+                      (eq 'yacc:yacc-eof-symbol (yacc:yacc-parse-error-terminal err)))
                   (invoke-restart 'yacc:insert-terminal :inserted-semicolon ";"))
-                 ((and (eq 'yacc:yacc-eof-symbol (yacc:yacc-parse-error-terminal err))
-                       (null inserted-eof-semicolon))
-                  (invoke-restart 'yacc:insert-terminal :inserted-semicolon ";")
-                  (setf inserted-eof-semicolon t))
 
                  ;; Resignal as a jwacs error if we don't handle the yacc error
                  (t (resignal err)))))

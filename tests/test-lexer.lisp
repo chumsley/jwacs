@@ -159,20 +159,52 @@
 
 (deftest lexer/restore-cursor/1 :notes lexer
   (let ((lexer (make-instance 'javascript-lexer :text "x/5 + x/10;")))
-    (jw::next-token lexer)  ; ==> X
-    (jw::next-token lexer)  ; ==> /5 + x/
-    (jw::restore-cursor lexer)
-    (jw::next-token lexer))
+    (next-token lexer)  ; ==> X
+    (next-token lexer)  ; ==> /5 + x/
+    (restore-cursor lexer)
+    (next-token lexer))
   :re-literal
   ("5 + x" . ""))
   
 (deftest lexer/restore-cursor/2 :notes lexer
   (let ((lexer (make-instance 'javascript-lexer :text "x/5 + x/10;")))
-    (jw::next-token lexer)  ; ==> X
-    (jw::next-token lexer)  ; ==> /5 + x/
-    (jw::restore-cursor lexer)
-    (jw::coerce-token lexer :slash)
-    (jw::next-token lexer)
-    (jw::next-token lexer))
+    (next-token lexer)  ; ==> X
+    (next-token lexer)  ; ==> /5 + x/
+    (restore-cursor lexer)
+    (coerce-token lexer :slash)
+    (next-token lexer)  ; ==> /
+    (next-token lexer))
   :number
   5)
+
+(deftest lexer/position/1 :notes lexer
+  (let ((lexer (make-instance 'javascript-lexer :text "Line 1
+Line number 2
+
+Line 4")))
+    (loop for token = (next-token lexer)
+          until (null token)
+          collect (prev-cursor-position lexer)))
+  ((1 . 1) (1 . 6)
+   (2 . 1) (2 . 6) (2 . 13)
+   (4 . 1) (4 . 6)))
+
+(deftest lexer/position/2 :notes lexer
+  (let ((lexer (make-instance 'javascript-lexer :text "Line 1
+Line number 2
+
+Line 4")))
+    (loop for token = (next-token lexer)
+          until (null token)
+          collect (cursor-position lexer)))
+  ((1 . 5) (1 . 7)
+   (2 . 5) (2 . 12) (2 . 14)
+   (4 . 5) (4 . 7)))
+
+(deftest lexer/encountered-line-terminator/1 :notes lexer
+  (let ((lexer (make-instance 'javascript-lexer :text "})
+                                                       return 10;")))
+    (loop for token = (next-token lexer)
+          until (null token)
+          collect (not (null (encountered-line-terminator lexer)))))
+  (nil nil t nil nil nil))
