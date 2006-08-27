@@ -146,24 +146,12 @@
   (format s "}"))
 
 (defmethod pretty-print ((elm new-expr) s)
-  (flet ((pretty-print-ctor ()
-           (cond
-             ((fn-call-p (new-expr-constructor elm))
-              (format s "(")
-              (pretty-print (new-expr-constructor elm) s)
-              (format s ")"))
-             (t
-              (pretty-print (new-expr-constructor elm) s)))))
-    (cond
-      ((null (new-expr-args elm))
-       (format s "new ")
-       (pretty-print-ctor))
-      (t
-       (format s "new ")
-       (pretty-print-ctor)
-       (format s "(")
-       (pretty-print-separated-list (new-expr-args elm) s)
-       (format s ")")))))
+  (format s "new ")
+  (pretty-print-arg (new-expr-constructor elm) elm s :right)
+  (when (new-expr-args elm)
+    (format s "(")
+    (pretty-print-separated-list (new-expr-args elm) s)
+    (format s ")")))
 
 (defmethod pretty-print ((elm fn-call) s)
   (pretty-print-arg (fn-call-fn elm) elm s)
@@ -188,7 +176,7 @@
   nil)
 
 (defmethod pretty-print ((elm property-access) s)
-  (pretty-print (property-access-target elm) s)
+  (pretty-print-arg (property-access-target elm) elm s :left)
   (cond
     ((printable-as-dot (property-access-field elm))
      (format s ".~A" (string-literal-value (property-access-field elm))))
@@ -208,7 +196,7 @@
                (= (elm-precedence arg-elm)
                   (elm-precedence parent-elm))
                (not (eq associativity
-                        (op-associativity (binary-operator-op-symbol arg-elm))))))
+                        (elm-associativity arg-elm)))))
     (progn
       (format s "(")
       (pretty-print arg-elm s)

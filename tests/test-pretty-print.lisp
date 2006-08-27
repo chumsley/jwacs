@@ -155,6 +155,36 @@
                                                    :right-arg bar-id)))
   "delete (foo || bar)")
 
+(deftest pretty-print/operator-precedence/4 :notes pretty-print
+  (pretty-string
+   (make-property-access :target (make-new-expr :constructor foo-id)
+                         :field bar-id))
+  "(new foo)[bar]")
+
+(deftest pretty-print/operator-precedence/5 :notes pretty-print
+  (pretty-string
+   (make-property-access :target (make-new-expr :constructor foo-id
+                                                :args (list baz-id))
+                         :field bar-id))
+  "new foo(baz)[bar]")
+
+(deftest pretty-print/operator-precedence/6 :notes pretty-print
+  (pretty-string
+   (make-new-expr :constructor (make-property-access
+                                :target (make-fn-call :fn foo-id
+                                                      :args (list baz-id))
+                                :field bar-id)))
+  "new (foo(baz)[bar])")
+
+(deftest pretty-print/operator-precedence/7 :notes pretty-print
+  (pretty-string
+   (make-new-expr :constructor (make-property-access
+                                :target (make-fn-call :fn foo-id
+                                                      :args (list baz-id))
+                                :field bar-id)
+                  :args (list (make-numeric-literal :value 50))))
+  "new (foo(baz)[bar])(50)")
+
 (deftest pretty-print/operator-associativity/1 :notes pretty-print
   (pretty-string
    (make-binary-operator :op-symbol :add

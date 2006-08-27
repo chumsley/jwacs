@@ -200,7 +200,14 @@
 
 ;;;; ======= Static source element properties ======================================================
 
-;;;; ------- Operator precedence and associativity -------------------------------------------------
+;;;; ------- Broader classes of source element -----------------------------------------------------
+(defun call-expression-p (elm)
+  "Return non-NIL if ELM is a CallExpression, or NIL otherwise."
+  (or (fn-call-p elm)
+      (and (property-access-p elm)
+           (call-expression-p (property-access-target elm)))))
+
+;;;; ------- Element precedence and associativity --------------------------------------------------
 (defgeneric elm-precedence (elm)
   (:documentation
    "Returns an integer specifying the precedence of the source element
@@ -222,13 +229,15 @@
   1)
 
 (defmethod elm-precedence ((elm fn-call))
-  1)
+  2)
 
 (defmethod elm-precedence ((elm property-access))
-  1)
+  (if (call-expression-p (property-access-target elm))
+    2
+    1))
 
 (defmethod elm-precedence ((elm function-expression))
-  2)
+  3)
 
 (defmethod elm-precedence ((elm unary-operator))
   (ecase (unary-operator-op-symbol elm)
@@ -269,18 +278,30 @@
 (defmethod elm-precedence ((elm comma-expr))
   17)
 
-(defun op-associativity (op-symbol)
-  "Returns either :LEFT or :RIGHT to indicate the associativity of the binary
-   infix operation represented by OP-SYMBOL."
-  (ecase op-symbol
-    ((:multiply :divide :modulo :add :subtract :lshift :rshift :urshift
-      :less-than :greater-than :less-than-equals :greater-than-equals :instanceof
-      :equals :not-equals :strict-equals :strict-not-equals
-      :bitwise-and :bitwise-or :bitwise-xor :logical-and :logical-or)
-     :left)
-    ((:assign :times-equals :divide-equals :mod-equals :plus-equals :minus-equals
-      :lshift-equals :rshift-equals :urshift-equals :and-equals :xor-equals :or-equals)
-     :right)))
+(defun elm-associativity (operator-or-elm)
+  "Returns either :LEFT, :RIGHT, or NIL to indicate the associativity of the operator
+   represented by OP-SYMBOL-OR-ELM (representing left-, right-, and no-associativity
+   respectively."
+  (let ((op-symbol (cond
+                     ((symbolp operator-or-elm)
+                      operator-or-elm)
+                     ((binary-operator-p operator-or-elm)
+                      (binary-operator-op-symbol operator-or-elm))
+                     ((unary-operator-p operator-or-elm)
+                      (unary-operator-op-symbol operator-or-elm))
+                     (t
+                      (class-name (class-of operator-or-elm))))))
+    (case op-symbol
+      ((:multiply :divide :modulo :add :subtract :lshift :rshift :urshift
+                  :less-than :greater-than :less-than-equals :greater-than-equals :instanceof
+                  :equals :not-equals :strict-equals :strict-not-equals
+                  :bitwise-and :bitwise-or :bitwise-xor :logical-and :logical-or
+                  fn-call property-access)
+       :left)
+      ((:assign :times-equals :divide-equals :mod-equals :plus-equals :minus-equals
+                :lshift-equals :rshift-equals :urshift-equals :and-equals :xor-equals :or-equals
+                new-expr)
+       :right))))
 
 ;;;; ------- Other static properties of source elements --------------------------------------------
 
