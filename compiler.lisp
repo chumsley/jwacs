@@ -105,7 +105,8 @@
   "Represents a single module of a jwacs application"
   type
   path
-  uripath)
+  uripath
+  compressed-p)
 
 (defun lookup-module-type (raw-type)
   "Converts a 'raw' module type into a canonical type symbol.
@@ -165,8 +166,9 @@
              ;; Return the output module
              (make-module :uripath (change-uripath-extension (module-uripath module) "js")
                           :path out-path
-                          :type 'js)))
-
+                          :type 'js
+                          :compressed-p compress-mode)))
+           
          (confirm-file (module)
            "Confirm that the file specified by MODULE's uripath actually exists"
            (unless (probe-file (module-path module))
@@ -230,6 +232,7 @@
     
   ;; If there's a combined-js-module, make sure that we replace it
   (when (and combined-js-module
+             (module-path combined-js-module)
              (probe-file (module-path combined-js-module)))
     (delete-file (module-path combined-js-module)))
   
@@ -263,7 +266,22 @@
 
 (defun append-module (src-module target-module)
   "Appends the contents of SRC-MODULE to the end of TARGET-MODULE, creating TARGET-MODULE if
-   necessary"
+   necessary.  If TARGET-MODULE is compressed and SRC-MODULE is not, then SRC-MODULE's text
+   will be compressed before being added to TARGET-MODULE."
+
+  ;; Parse and emit if we need to compress
+  (when (and (module-compressed-p target-module)
+             (not (module-compressed-p src-module)))
+    (let ((elms (parse-file (module-path src-module))))
+      (with-open-file (out (module-path target-module)
+                           :direction :output
+                           :if-exists :append
+                           :if-does-not-exist :create)
+        (emit-elms elms out :pretty-output nil)
+        (terpri out))
+      (return-from append-module)))
+  
+  ;; Read and write if we don't
   (with-open-file (in (module-path src-module)
                       :direction :input
                       :element-type 'unsigned-byte)
@@ -275,7 +293,9 @@
       (let ((buffer (make-array 8192 :element-type 'unsigned-byte)))
         (loop for pos = (read-sequence buffer in)
               until (zerop pos)
-              do (write-sequence buffer out :end pos))))))
+              do (write-sequence buffer out :end pos))
+        (terpri out)))))
+
 
 ;;;; ======= Cached defaults =======================================================================
 ;; These strings will be used to generate default versions of missing files.
@@ -350,7 +370,8 @@
                                      ;; Generate the combined module name with the unique name from above
                                      (make-module :type 'js
                                                   :path combined-path
-                                                  :uripath (file-namestring combined-path))))))
+                                                  :uripath (file-namestring combined-path)
+                                                  :compressed-p compress-mode)))))
 
 
         (wrap-modules

@@ -72,7 +72,7 @@
          (component (asdf:find-component module "lang-tests")))
     (jw::build-app (asdf:component-pathname component))))
     
-(defun compile-examples ()
+(defun compile-examples (&key (compress-mode t) (combine-mode t))
   "Compiles all the examples"
   (let* ((sys-pathname (truename (asdf:system-definition-pathname (asdf:find-system :jwacs))))
          (lib-pathname (merge-pathnames (make-pathname :directory '(:relative "lib")
@@ -82,11 +82,15 @@
                                                             :name :unspecific :type :unspecific :version :unspecific)
                                         sys-pathname)))
     (flet ((build-ex (name)
-             (jw:build-app (merge-pathnames name examples-pathname) :prefix-lookup `(("/lib/" . ,lib-pathname)))))
+             (jw:build-app (merge-pathnames name examples-pathname)
+                           :prefix-lookup `(("/lib/" . ,lib-pathname))
+                           :compress-mode compress-mode
+                           :combine-mode combine-mode)))
 
-      (build-ex "CalendarMark2.jw")
-      (build-ex "Counter.jw")
-      (build-ex "TrivialHttpRequest.jw"))))
+      (list
+       (build-ex "CalendarMark2.jw")
+       (build-ex "Counter.jw")
+       (build-ex "TrivialHttpRequest.jw")))))
 
 ;;TODO Automated benchmarks?
 ;;TODO Randomized testing?  (a la Quickcheck)
