@@ -688,3 +688,7 @@
     (if error-p
       (error "Lispworks parse failed")
       ast)))
+
+(defun parse-file (path)
+  "Load the file at PATH and parse it into a js/jw source model"
+  (parse (read-entire-file path)))

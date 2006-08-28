@@ -9,47 +9,53 @@
 
 ;;;; ======= Dependency checks =====================================================================
 
-(defun determine-imported-modules (main-pathname prefix-lookup &optional already-imported)
-  "Determines the modules imported by the file specified by MAIN-PATHNAME.  Modules that
-   are elements of ALREADY-IMPORTED will not be included."
-  (labels ((import-decl-to-module (elm)
-             (with-slots (uripath) elm
-               (if (null (import-decl-type-symbol elm))
-                 (make-module :type (lookup-module-type (pathname-type (pathname uripath)))
-                              :path (resolve-import-uripath main-pathname uripath prefix-lookup)
-                              :uripath uripath)
-                 (make-module :type (lookup-module-type (import-decl-type-symbol elm))
-                              :path (resolve-import-uripath main-pathname uripath prefix-lookup)
-                              :uripath uripath))))
-           (elms-to-modules (elm-list)
-             (loop for elm in elm-list
-                   when (import-decl-p elm)
-                   collect (import-decl-to-module elm))))
-    (let* ((queue (elms-to-modules (parse-file main-pathname)))
-           (own-already-imported (union (mapcar 'module-path queue)
-                                        already-imported
-                                        :test 'pathnames-equal)))
-      (loop for module in queue
-            unless (find (module-path module) already-imported :test 'pathnames-equal)
-            append (if (eq (module-type module) 'jw)
-                     (postpend (determine-imported-modules (module-path module)
-                                                           prefix-lookup
-                                                           own-already-imported)
-                               module)
-                     (list module))))))
+(defun determine-imported-modules (main-module prefix-lookup &optional already-imported)
+  "Determines the modules imported by MAIN-MODULE.  Modules whose pathnames are elements of
+   ALREADY-IMPORTED will not be included."
+  (with-slots ((main-pathname path)) main-module
+    (labels ((import-decl-to-module (elm)
+               (with-slots (uripath) elm
+                 (if (null (import-decl-type-symbol elm))
+                   (make-module :type (lookup-module-type (pathname-type (pathname uripath)))
+                                :path (resolve-import-uripath main-pathname uripath prefix-lookup)
+                                :uripath uripath)
+                   (make-module :type (lookup-module-type (import-decl-type-symbol elm))
+                                :path (resolve-import-uripath main-pathname uripath prefix-lookup)
+                                :uripath uripath))))
+             (elms-to-modules (elm-list)
+               (loop for elm in elm-list
+                     when (import-decl-p elm)
+                     collect (import-decl-to-module elm))))
+      (let* ((queue (elms-to-modules (parse-module main-module)))
+             (own-already-imported (union (mapcar 'module-path queue)
+                                          already-imported
+                                          :test 'pathnames-equal)))
+        (loop for module in queue
+              unless (find (module-path module) already-imported :test 'pathnames-equal)
+              append (if (eq (module-type module) 'jw)
+                       (postpend (determine-imported-modules module
+                                                             prefix-lookup
+                                                             own-already-imported)
+                                 module)
+                       (list module)))))))
 
-(defun determine-modules (main-pathname prefix-lookup)
-  "Using the file pointed to by MAIN-PATHNAME as the main module, determine a list of modules
-   that need to be processed to generate an app."
-  (let* ((uripath (if (null (pathname-type main-pathname))
-                    (pathname-name main-pathname)
-                    (format nil "~A.~A" (pathname-name main-pathname) (pathname-type main-pathname)))))
-    (postpend (determine-imported-modules main-pathname
-                                          prefix-lookup
-                                          (list main-pathname))
-              (make-module :type 'jw
-                           :path main-pathname
-                           :uripath uripath))))
+(defun determine-modules (main-module prefix-lookup)
+  "Using MAIN-MODULE as the main module, determine a list of modules that need
+   to be processed to generate an app."
+  (postpend (determine-imported-modules main-module
+                                        prefix-lookup
+                                        (list (module-path main-module)))
+            main-module))
+
+(defun make-main-module (main-pathname)
+  "Constructs a module for the file located at PATH, assuming that the uripath '.'
+   points to PATH's directory."
+  (let ((uripath (if (null (pathname-type main-pathname))
+                   (pathname-name main-pathname)
+                   (format nil "~A.~A" (pathname-name main-pathname) (pathname-type main-pathname)))))
+    (make-module :type 'jw
+                 :path main-pathname
+                 :uripath uripath)))
 
 ;;;; ======= URIPATH handling ==========================================================================
 
@@ -106,8 +112,38 @@
   type
   path
   uripath
-  compressed-p)
+  compressed-p
+  text
+  inline-stream)
 
+(defmacro with-module-output ((stream-name module &key append) &body body)
+  "Outputs to a module, optionally appending"
+  (let ((gmodule (gensym)))
+    `(let ((,gmodule ,module))
+      (if (module-inline-stream ,gmodule)
+        (let ((,stream-name (module-inline-stream ,gmodule)))
+          ,@body)
+        (with-open-file (,stream-name (module-path ,gmodule)
+                                      :direction :output
+                                      :if-does-not-exist :create
+                                      :if-exists ,(if append :append :supersede))
+          ,@body)))))
+
+(defun get-module-text (module)
+  "Reads the entire text of a module."
+  (with-slots (inline-stream text) module
+    (cond
+      (text
+       text)
+      (inline-stream
+       (get-output-stream-string inline-stream))
+      (t
+       (read-entire-file (module-path module))))))
+
+(defun parse-module (module)
+  "Parse the source text contained in MODULE and return a js/jw source-model"
+  (parse (get-module-text module)))
+  
 (defun lookup-module-type (raw-type)
   "Converts a 'raw' module type into a canonical type symbol.
    A warning will be signalled for unrecognized raw types.
@@ -192,15 +228,6 @@
     (pipeline-compile (transform (car pipeline) elm)
                       (cdr pipeline))))
 
-(defun parse-file (path)
-  "Load the file at PATH and parse it into a js/jw source model"
-  (with-open-file (in path :direction :input :if-does-not-exist :error)
-    (let ((text (with-output-to-string (str)
-                  (loop for line = (read-line in nil nil nil)
-                      until (null line)
-                      do (format str "~A~%" line)))))
-      (parse text))))
-
 (defun emit-elms (elms out-stream &key pretty-output)
   "Prints ELMS to OUT-STREAM.  If PRETTY-OUTPUT is NIL, the elements will
    be printed compactly"
@@ -218,51 +245,47 @@
              
 ;;;; ======= Module wrapping =======================================================================
 
-(defun wrap-modules (module-list template-path out-path combined-js-module)
+(defun wrap-modules (module-list template-string out-stream combined-js-module)
   "Creates a 'wrapper' html file that represents a jwacs application containing
-   all of the files of MODULE-LIST.  We read in a template file from
-   TEMPLATE-PATH, modify it to contain appropriate <SCRIPT> tags referencing each
-   of the modules, and write it to OUT-PATH.  If COMBINED-JS-MODULE is NIL, each
-   js-module gets its own SCRIPT tag; otherwise we will wrap all JS modules into a
-   single file."
+   all of the files of MODULE-LIST.  We modify the template-string to contain
+   appropriate <SCRIPT> tags referencing each of the modules, and write it to
+   OUT-STREAM.  If COMBINED-JS-MODULE is NIL, each js-module gets its own SCRIPT
+   tag; otherwise we will wrap all JS modules into COMBINED-JS-MODULE"
 
-  ;; Make sure we're not overwriting any input modules
-  (when (find out-path module-list :key 'module-path :test 'pathnames-equal)
-    (error "Attempt to overwrite ~A" out-path))
-    
-  ;; If there's a combined-js-module, make sure that we replace it
+  ;; If there's a non-inline combined-js-module, make sure that we replace it
   (when (and combined-js-module
              (module-path combined-js-module)
              (probe-file (module-path combined-js-module)))
     (delete-file (module-path combined-js-module)))
   
   ;; Okay, let's build that html file
-  (let ((template-string (read-entire-file template-path)))
-    (multiple-value-bind (s e)
-        (cl-ppcre:scan "<@\\s*jwacs_imports\\s*@>" template-string)
-      (with-open-file (out out-path :direction :output :if-exists :supersede)
-        (format out "~A" (subseq template-string 0 s))
-        (dolist (module module-list)
-          (if (and combined-js-module
-                   (eq (module-type module) 'js))
-            (append-module module combined-js-module)
-            (wrap-module module (module-type module) out)))
-        (if combined-js-module
-          (wrap-module combined-js-module (module-type combined-js-module) out))
-        (format out "~A" (subseq template-string e)))))
+  (multiple-value-bind (s e)
+      (cl-ppcre:scan "<@\\s*jwacs_imports\\s*@>" template-string)
+    (format out-stream "~A" (subseq template-string 0 s))
+    (dolist (module module-list)
+      (if (and combined-js-module
+               (eq (module-type module) 'js))
+        (append-module module combined-js-module)
+        (wrap-module module (module-type module) out-stream)))
+    (if combined-js-module
+      (wrap-module combined-js-module (module-type combined-js-module) out-stream))
+    (format out-stream "~A" (subseq template-string e))))
 
-  ;; Return the path of the output file
-  out-path)
-
-(defgeneric wrap-module (module module-type head-stream)
+(defgeneric wrap-module (module module-type stream)
   (:documentation
-   "Outputs HTML to HEAD-STREAM to cause the wrapper html file to link to MODULE."))
+   "Outputs HTML to STREAM to cause the wrapper html file to link to MODULE."))
 
-(defmethod wrap-module (module (module-type (eql 'jw)) head-stream)
+(defmethod wrap-module (module (module-type (eql 'jw)) stream)
   (error "Internal error: jwacs modules must be transformed before they are wrapped"))
 
-(defmethod wrap-module (module (module-type (eql 'js)) head-stream)
-  (format head-stream "~&<script type='text/javascript' src='~A'></script>" (module-uripath module)))
+(defmethod wrap-module (module (module-type (eql 'js)) stream)
+  (cond
+    ((module-inline-stream module)
+     (format stream "~&<script type='text/javascript'>~%~A</script>" (get-module-text module)))
+    ((module-uripath module)
+     (format stream "~&<script type='text/javascript' src='~A'></script>" (module-uripath module)))
+    (t
+     (error "Internal error: module ~S has neither a uripath or an inline stream" module))))
 
 (defun append-module (src-module target-module)
   "Appends the contents of SRC-MODULE to the end of TARGET-MODULE, creating TARGET-MODULE if
@@ -270,33 +293,19 @@
    will be compressed before being added to TARGET-MODULE."
 
   ;; Parse and emit if we need to compress
-  (when (and (module-compressed-p target-module)
-             (not (module-compressed-p src-module)))
-    (let ((elms (parse-file (module-path src-module))))
-      (with-open-file (out (module-path target-module)
-                           :direction :output
-                           :if-exists :append
-                           :if-does-not-exist :create)
+  (if (and (module-compressed-p target-module)
+           (not (module-compressed-p src-module)))
+    (let ((elms (parse-module src-module)))
+      (with-module-output (out target-module :append t)
         (emit-elms elms out :pretty-output nil)
-        (terpri out))
-      (return-from append-module)))
+        (terpri out)))
   
-  ;; Read and write if we don't
-  (with-open-file (in (module-path src-module)
-                      :direction :input
-                      :element-type 'unsigned-byte)
-    (with-open-file (out (module-path target-module)
-                         :direction :output
-                         :if-exists :append
-                         :if-does-not-exist :create
-                         :element-type 'unsigned-byte)
-      (let ((buffer (make-array 8192 :element-type 'unsigned-byte)))
-        (loop for pos = (read-sequence buffer in)
-              until (zerop pos)
-              do (write-sequence buffer out :end pos))
+    ;; Read and write if we don't
+    (let ((text (get-module-text src-module)))
+      (with-module-output (out target-module :append t)
+        (write-string text out)
         (terpri out)))))
-
-
+  
 ;;;; ======= Cached defaults =======================================================================
 ;; These strings will be used to generate default versions of missing files.
 
@@ -314,8 +323,10 @@
 
 (defun build-app (main-module-path
                    &key template-uripath output-uripath prefix-lookup runtime-uripath
-                        debug-mode (compress-mode (not debug-mode)) (combine-mode (not debug-mode)))
-  "Build a wrapper html file for a jwacs application"
+                        debug-mode (compress-mode (not debug-mode)) (combine-mode (not debug-mode))
+                        inline-output-stream)
+  "Build a wrapper html file for a jwacs application.  COMBINE-MODE is force to T if an
+   INLINE-OUTPUT-STREAM is provided."
   (flet ((get-path (param-uripath path-name path-type)
            "If PARAM-PATH is non-NIL, return it.
             Otherwise, make a new path based on MAIN-MODULE-PATH."
@@ -334,51 +345,65 @@
                             (make-module :type 'js
                                          :path (resolve-import-uripath main-module-path runtime-uripath prefix-lookup)
                                          :uripath runtime-uripath))))
+      (let ((template-string (if (probe-file template-path)
+                               (read-entire-file template-path)
+                               *default-template*)))
           
-      ;; If no template file exists, generate one
-      (unless (probe-file template-path)
-        (with-open-file (out template-path :direction :output)
-            (format out "~A" *default-template*)))
-
-      (unless (probe-file iframe-path)
-        (with-open-file (out iframe-path :direction :output)
-          (format out "~A" *default-iframe*)))
+        ;; Ensure that an iframe-file exists at the appropriate location
+        (unless (probe-file iframe-path)
+          (with-open-file (out iframe-path :direction :output)
+            (format out "~A" *default-iframe*)))
       
-      ;; If no runtime file exists, generate one
-     (when (null (probe-file (module-path runtime-module)))
+        ;; If no runtime file exists, generate one
+        (when (null (probe-file (module-path runtime-module)))
 ;;TEST      (when t
-        (with-open-file (out (module-path runtime-module) :direction :output :if-exists :supersede)
-          (if compress-mode
-            (emit-elms (parse *runtime-text*) out :pretty-output (not compress-mode))
-            (format out "~A" *runtime-text*))))
+          (with-open-file (out (module-path runtime-module) :direction :output :if-exists :supersede)
+            (if compress-mode
+              (emit-elms (parse *runtime-text*) out :pretty-output (not compress-mode))
+              (format out "~A" *runtime-text*))))
 
-      ;; Wrap the modules.  Note that we force the runtime onto the front of the list
-      ;; of imports.
-      (let* ((module-list (cons runtime-module
-                                (remove (module-path runtime-module)
-                                        (determine-modules main-module-path prefix-lookup)
-                                        :key 'module-path
-                                        :test 'pathnames-equal)))
-             (combined-js-module (when combine-mode ; TODO deal with non-jwacs main modules
-                                   (let ((combined-path (get-path nil (format nil "~A_all" (pathname-name main-module-path)) "js")))
+        ;; Wrap the modules.  Note that we force the runtime onto the front of the list
+        ;; of imports.
+        (let* ((module-list (cons runtime-module
+                                  (remove (module-path runtime-module)
+                                          (determine-modules (make-main-module main-module-path) prefix-lookup)
+                                          :key 'module-path
+                                          :test 'pathnames-equal)))
+               (transformed-modules (transform-modules module-list :compress-mode compress-mode))
+               (combined-js-module (cond
+                                     (inline-output-stream
+                                      (make-module :type 'js
+                                                   :path nil
+                                                   :uripath "all.js"
+                                                   :compressed-p compress-mode
+                                                   :inline-stream (make-string-output-stream)))
+                                     (combine-mode
+                                      (let ((combined-path (get-path nil (format nil "~A_all" (pathname-name main-module-path)) "js")))
 
-                                     ;; Ensure that we don't overwrite any input files
-                                     (loop while (find combined-path module-list :test 'pathnames-equal :key 'module-path)
-                                       do (setf combined-path
-                                                (get-path nil (format nil "~A_all" (pathname-name combined-path)) "js")))
+                                        ;; Ensure that we don't overwrite any input files
+                                        (loop while (find combined-path module-list :test 'pathnames-equal :key 'module-path)
+                                          do (setf combined-path
+                                                   (get-path nil (format nil "~A_all" (pathname-name combined-path)) "js")))
 
-                                     ;; Generate the combined module name with the unique name from above
-                                     (make-module :type 'js
-                                                  :path combined-path
-                                                  :uripath (file-namestring combined-path)
-                                                  :compressed-p compress-mode)))))
+                                        ;; Generate the combined module name with the unique name from above
+                                        (make-module :type 'js
+                                                     :path combined-path
+                                                     :uripath (file-namestring combined-path)
+                                                     :compressed-p compress-mode))))))
 
+          (when (find output-path module-list :key 'module-path :test 'pathnames-equal)
+            (error "Attempt to overwrite ~A" output-path))
+    
+          (if inline-output-stream
+            (wrap-modules transformed-modules template-string inline-output-stream combined-js-module)
+            (with-open-file (out output-path
+                                 :direction :output
+                                 :if-exists :supersede
+                                 :if-does-not-exist :create)
+              (wrap-modules transformed-modules template-string out combined-js-module)))
 
-        (wrap-modules
-         (transform-modules module-list :compress-mode compress-mode)
-         template-path
-         output-path
-         combined-js-module)))))
+          ;; If we're doing streamed output, return the stream; otherwise return the pathname of the app file
+          (or inline-output-stream output-path))))))
 
 (defun process (in-path)
   (transform-modules (list (make-module :type 'jw :path in-path))))
