@@ -618,14 +618,19 @@
    (value :initarg :value :reader value)
    (expected-terminals :initarg :expected-terminals :reader expected-terminals)
    (row :initarg :row :reader row)
-   (column :initarg :column :reader column))
-  (:report (lambda (e s)
-             (format s "Encountered ~S (value: ~S)~@:_~
+   (column :initarg :column :reader column)))
+
+(defmethod print-object ((e syntax-error) s)
+  (if *print-escape*
+    (print-unreadable-object (e s :type t :identity nil)
+      (format s "(~D, ~D): Unexpected token ~S"
+              (row e) (column e) (terminal e)))
+    (format s "Encountered ~S (value: ~S)~@:_~
                         at line ~D, column ~D~%~
                         Expected one of: ~S"
-                     (terminal e) (value e)
-                     (row e) (column e)
-                     (expected-terminals e)))))
+            (terminal e) (value e)
+            (row e) (column e)
+            (expected-terminals e))))
 
 ;; TODO should signal SYNTAX-ERROR
 (defun strict-parse (str)
