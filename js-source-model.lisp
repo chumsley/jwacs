@@ -278,30 +278,38 @@
 (defmethod elm-precedence ((elm comma-expr))
   17)
 
-(defun elm-associativity (operator-or-elm)
-  "Returns either :LEFT, :RIGHT, or NIL to indicate the associativity of the operator
-   represented by OP-SYMBOL-OR-ELM (representing left-, right-, and no-associativity
-   respectively."
-  (let ((op-symbol (cond
-                     ((symbolp operator-or-elm)
-                      operator-or-elm)
-                     ((binary-operator-p operator-or-elm)
-                      (binary-operator-op-symbol operator-or-elm))
-                     ((unary-operator-p operator-or-elm)
-                      (unary-operator-op-symbol operator-or-elm))
-                     (t
-                      (class-name (class-of operator-or-elm))))))
-    (case op-symbol
-      ((:multiply :divide :modulo :add :subtract :lshift :rshift :urshift
-                  :less-than :greater-than :less-than-equals :greater-than-equals :instanceof
-                  :equals :not-equals :strict-equals :strict-not-equals
-                  :bitwise-and :bitwise-or :bitwise-xor :logical-and :logical-or
-                  fn-call property-access)
-       :left)
-      ((:assign :times-equals :divide-equals :mod-equals :plus-equals :minus-equals
-                :lshift-equals :rshift-equals :urshift-equals :and-equals :xor-equals :or-equals
-                new-expr)
-       :right))))
+(defgeneric elm-associativity (operator-or-elm)
+  (:documentation
+   "Returns either :LEFT, :RIGHT, or NIL to indicate the associativity of the operator
+    represented by OP-SYMBOL-OR-ELM (representing left-, right-, and no-associativity
+    respectively."))
+
+(defmethod elm-associativity (operator-or-elm)
+  nil)
+
+(defmethod elm-associativity ((operator-or-elm binary-operator))
+  (case (binary-operator-op-symbol operator-or-elm)
+    ((:multiply :divide :modulo :add :subtract :lshift :rshift :urshift
+                :less-than :greater-than :less-than-equals :greater-than-equals :instanceof
+                :equals :not-equals :strict-equals :strict-not-equals
+                :bitwise-and :bitwise-or :bitwise-xor :logical-and :logical-or
+                fn-call property-access)
+     :left)
+    ((:assign :times-equals :divide-equals :mod-equals :plus-equals :minus-equals
+              :lshift-equals :rshift-equals :urshift-equals :and-equals :xor-equals :or-equals
+              new-expr)
+     :right)))
+
+(defmethod elm-associativity ((operator-or-elm fn-call))
+  :left)
+
+(defmethod elm-associativity ((operator-or-elm property-access))
+  :left)
+
+(defmethod elm-associativity ((operator-or-elm new-expr))
+  (if (zerop (length (new-expr-args operator-or-elm)))
+    :right
+    :left))
 
 ;;;; ------- Other static properties of source elements --------------------------------------------
 

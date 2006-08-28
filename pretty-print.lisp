@@ -147,17 +147,30 @@
 
 (defmethod pretty-print ((elm new-expr) s)
   (format s "new ")
-  (pretty-print-arg (new-expr-constructor elm) elm s :right)
+  (pretty-print-arg (new-expr-constructor elm) elm s)
   (when (new-expr-args elm)
     (format s "(")
     (pretty-print-separated-list (new-expr-args elm) s)
     (format s ")")))
 
 (defmethod pretty-print ((elm fn-call) s)
-  (pretty-print-arg (fn-call-fn elm) elm s)
-  (format s "(")
-  (pretty-print-separated-list (fn-call-args elm) s)
-  (format s ")"))
+  (with-slots (fn args) elm
+    ;; With zero-argument new expressions, the issue is less one of operator
+    ;; precedence and more one of ambiguity about what the "(" represents.  If
+    ;; we always printed the "()" after a 0-argument new expression, then we
+    ;; wouldn't need this special check, but since we omit it we need to add
+    ;; disambiguating parentheses in the function-call case only.
+    (if (and (new-expr-p fn)
+             (zerop (length (new-expr-args fn))))
+      (progn
+        (format s "(")
+        (pretty-print fn s)
+        (format s ")"))
+      (pretty-print-arg (fn-call-fn elm) elm s :left))
+
+    (format s "(")
+    (pretty-print-separated-list (fn-call-args elm) s)
+    (format s ")")))
 
 (defgeneric printable-as-dot (literal-elm)
   (:documentation

@@ -52,6 +52,18 @@
                                 :args (list baz-id)))
   "new (foo(bar))(baz)")
 
+(deftest pretty-print/new-expr/5 :notes pretty-print
+  (pretty-string (parse "new new new foo;"))
+  "new new new foo;")
+
+(deftest pretty-print/new-expr/6 :notes pretty-print
+  (pretty-string (parse "new new foo(20);"))
+  "new new foo(20);")
+
+(deftest pretty-print/new-expr/7 :notes pretty-print
+  (pretty-string (parse "(new new foo)(20);"))
+  "(new new foo)(20);")
+
 (deftest pretty-print/special-value/1 :notes pretty-print
   (pretty-string (make-special-value :symbol :this))
   "this")
