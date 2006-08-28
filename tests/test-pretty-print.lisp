@@ -583,6 +583,20 @@ suspend;")
                                        :target bar-id))
   "throw foo -> bar;")
 
+(deftest pretty-print/string-literal/1 :notes pretty-print
+  (pretty-string (make-string-literal :value "\\\"hello\\\""))
+  "\"\\\"hello\\\"\"")
+
+(deftest pretty-print/string-literal/2 :notes pretty-print
+  (let ((*escape-script-end-tags* t))
+    (pretty-string (make-string-literal :value "hello </script> ahoy")))
+  "(\"hello <\"+\"/script> ahoy\")")
+
+(deftest pretty-print/string-literal/3 :notes pretty-print
+  (let ((*escape-script-end-tags* nil))
+    (pretty-string (make-string-literal :value "hello </script> ahoy")))
+  "\"hello </script> ahoy\"")
+
 ;;;; Some round-trip tests
 (deftest parse-print/round-trip/1 :notes (pretty-print parser)
   (parse (pretty-string (parse "\"string \\\"literal\\\"\"")))

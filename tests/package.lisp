@@ -116,6 +116,7 @@
                 pretty-print
                 with-indent
                 *indent*
+                *escape-script-end-tags*
 
                 ;; ugly-printer symbols
                 genvar

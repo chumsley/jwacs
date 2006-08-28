@@ -41,7 +41,13 @@
 (defparameter *indent* 0
   "Current indentation level, in spaces (not steps)")
 
-(defparameter *pretty-mode* t)
+(defparameter *pretty-mode* t
+  "When non-NIL, print nicely (ie, with indentation and newlines).
+   When NIL, print compactly (ie, with no unnecessary whitespace).")
+
+(defparameter *escape-script-end-tags* t
+  "When non-NIL, escape script end tags (for supporting inline scripts")
+
 (defparameter *opt-space* " ")
 
 (defun fresh-line-indented (s)
@@ -116,7 +122,14 @@
   (format s "~D" (numeric-literal-value elm)))
 
 (defmethod pretty-print ((elm string-literal) s)
-  (format s "\"~A\"" (string-literal-value elm)))
+  (with-slots (value) elm
+    (let ((script-idx (and *escape-script-end-tags*
+                           (search "</script>" (string-literal-value elm) :test 'string-equal))))
+      (if script-idx
+        (format s "(\"~A\"+\"~A\")" (subseq value 0 (1+ script-idx))
+                                    (subseq value (1+ script-idx)))
+        
+        (format s "\"~A\"" value)))))
 
 (defmethod pretty-print ((elm array-literal) s)
   (format s "[")
