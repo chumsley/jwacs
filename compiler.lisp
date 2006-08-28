@@ -183,31 +183,37 @@
   "The list of transformations (in order) that are performed to convert jwacs source into
    Javascript source.")
 
-(defun transform-modules (module-list &key (compress-mode (not *debug-mode*)) (pipeline *compiler-pipeline*) (var-counter 0))
+(defun transform-modules (module-list 
+                            &key (compress-mode (not *debug-mode*)) inline-mode
+                                 (pipeline *compiler-pipeline*) (var-counter 0))
   "Transforms each module in MODULE-LIST and returns a list of modules suitable for wrapping."
   (flet ((transform-jwacs-module (module)
            (let* ((*genvar-counter* var-counter)
-                  (in-path (module-path module))
-                  (xformed-elms (pipeline-compile (parse-file in-path) pipeline))
-                  (out-path (merge-pathnames (make-pathname :type "js") in-path)))
+                  (xformed-elms (pipeline-compile (parse-module module) pipeline))
+                  (out-path (merge-pathnames (make-pathname :type "js") (module-path module)))
+                  (output-module (make-module :uripath (change-uripath-extension (module-uripath module) "js")
+                                              :path (unless inline-mode out-path)
+                                              :type 'js
+                                              :compressed-p compress-mode
+                                              :inline-stream (when inline-mode (make-string-output-stream)))))
 
              ;; Make sure that we're not trying to overwrite any input files
-             (when (find out-path module-list :test 'pathnames-equal :key 'module-path)
+             (when (and (not inline-mode)
+                        (find out-path module-list :test 'pathnames-equal :key 'module-path))
                (error "Attempt to overwrite ~A" out-path))
 
              ;; Emit the transformed code
-             (with-open-file (out-stream out-path :direction :output :if-exists :supersede)
-               (emit-elms xformed-elms out-stream :pretty-output (not compress-mode)))
+             (with-module-output (out output-module :append nil)
+               (emit-elms xformed-elms out :pretty-output (not compress-mode)))
 
              ;; Return the output module
-             (make-module :uripath (change-uripath-extension (module-uripath module) "js")
-                          :path out-path
-                          :type 'js
-                          :compressed-p compress-mode)))
+             output-module))
            
          (confirm-file (module)
            "Confirm that the file specified by MODULE's uripath actually exists"
-           (unless (probe-file (module-path module))
+           (unless (or (module-text module)
+                       (module-inline-stream module)
+                       (probe-file (module-path module)))
              (if (eq (module-type module) 'jw)
                (error "Cannot read '~A' (specified by URI path '~A')" (module-path module) (module-uripath module))
                (warn "Cannot read '~A' (specified by URI path '~A')" (module-path module) (module-uripath module))))))
@@ -369,7 +375,7 @@
                                           (determine-modules (make-main-module main-module-path) prefix-lookup)
                                           :key 'module-path
                                           :test 'pathnames-equal)))
-               (transformed-modules (transform-modules module-list :compress-mode compress-mode))
+               (transformed-modules (transform-modules module-list :compress-mode compress-mode :inline-mode inline-output-stream))
                (combined-js-module (cond
                                      (inline-output-stream
                                       (make-module :type 'js
