@@ -10,14 +10,17 @@
   (:nicknames :jw-tests)
   (:import-from jwacs
                 ;; lexer-specific symbols for testing
+                javascript-lexer
+                make-lexer-function
                 regexp-re
                 eoi
+                token
+                token-terminal token-value token-start token-end
                 next-token
-                restore-cursor
                 coerce-token
                 make-load-form
-                prev-cursor-position
-                cursor-position
+                set-cursor
+                position-to-line/column
                 encountered-line-terminator
                 
                 ;; source-model structure types

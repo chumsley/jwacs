@@ -49,8 +49,8 @@
    token, and the CDR is the source text."
   (loop with l = (make-lexer-function (make-instance 'javascript-lexer :text js-string))
         for x = (multiple-value-list (funcall l))
-        while (not (eq (car x) eoi))
-        collect x))
+        while (not (eq (first x) eoi))
+        collect (list (first x) (token-value (second x)))))
 
 (deftest lexer/1 :notes lexer
   (read-all-tokens
@@ -157,25 +157,26 @@
                     ++ c")
   ((:identifier "b") (:line-terminator "") (:plus2 "++") (:identifier "c")))
 
-(deftest lexer/restore-cursor/1 :notes lexer
-  (let ((lexer (make-instance 'javascript-lexer :text "x/5 + x/10;")))
+(deftest lexer/set-cursor/1 :notes lexer
+  (let ((lexer (make-instance 'javascript-lexer :text "x/5 + x/10;"))
+        (tok nil))
     (next-token lexer)  ; ==> X
-    (next-token lexer)  ; ==> /5 + x/
-    (restore-cursor lexer)
+    (setf tok (next-token lexer))  ; ==> /5 + x/
+    (set-cursor lexer (token-start tok))
     (next-token lexer))
-  :re-literal
-  ("5 + x" . ""))
-  
-(deftest lexer/restore-cursor/2 :notes lexer
-  (let ((lexer (make-instance 'javascript-lexer :text "x/5 + x/10;")))
+  #s(token :terminal :re-literal :value ("5 + x" . "")
+           :start 1 :end 8))
+
+(deftest lexer/coerce-token/1 :notes lexer
+  (let ((lexer (make-instance 'javascript-lexer :text "x/5 + x/10;"))
+        (tok nil))
     (next-token lexer)  ; ==> X
-    (next-token lexer)  ; ==> /5 + x/
-    (restore-cursor lexer)
+    (setf tok (next-token lexer))  ; ==> /5 + x/
+    (set-cursor lexer (token-start tok))
     (coerce-token lexer :slash)
     (next-token lexer)  ; ==> /
     (next-token lexer))
-  :number
-  5)
+  #s(token :terminal :number :value 5 :start 2 :end 3))
 
 (deftest lexer/position/1 :notes lexer
   (let ((lexer (make-instance 'javascript-lexer :text "Line 1
@@ -184,7 +185,7 @@ Line number 2
 Line 4")))
     (loop for token = (next-token lexer)
           until (null token)
-          collect (prev-cursor-position lexer)))
+          collect (position-to-line/column (jw::text lexer) (token-start token))))
   ((1 . 1) (1 . 6)
    (2 . 1) (2 . 6) (2 . 13)
    (4 . 1) (4 . 6)))
@@ -196,7 +197,7 @@ Line number 2
 Line 4")))
     (loop for token = (next-token lexer)
           until (null token)
-          collect (cursor-position lexer)))
+          collect (position-to-line/column (jw::text lexer) (token-end token))))
   ((1 . 5) (1 . 7)
    (2 . 5) (2 . 12) (2 . 14)
    (4 . 5) (4 . 7)))
