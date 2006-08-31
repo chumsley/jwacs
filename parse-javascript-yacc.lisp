@@ -55,9 +55,9 @@
   "Used by defparser macro. Take the lispworks list of productions and convert them into
    CL-YACC versions"
   (let* ((production-map (make-hash-table)))
-    (dolist (production productions)lisp convert int to char
+    (dolist (production productions)
             (let* ((rule (nth 0 production))
-                   (action (replace-dollar-signs (nth 1 production)))
+                   (action (maptree 'replace-special-variables (nth 1 production)))
                    (rule-name (first rule))
                    (rule-terminals (rest rule)))
               (setf (gethash rule-name production-map) 
@@ -69,25 +69,15 @@
                production-map)
       (reverse output))))
 
-
-; go through every symbol
-
-(defun replace-dollar-signs (item)
-  "If item is a symbol or list, replaces $n with (nth n-1 expr).
-   If item is neither, returns it unchanged."
-  (cond
-    ((null item) nil)
-    ((consp item) (cons (replace-dollar-signs (car item))
-                        (replace-dollar-signs (cdr item))))
-    ((symbolp item)
-     (replace-dollar-sign-in-symbol item))
-    (t
-     item)))
-
-(defun replace-dollar-sign-in-symbol (sym)
-  "Replace $n in a symbol with (nth n-1 expr)"
-  (let* ((symname (symbol-name sym)))
-    (if (not (eq (char symname 0) #\$))
-      sym
-      `(nth ,(1- (parse-integer (subseq symname 1))) expr))))
-
+(defun replace-special-variables (leaf)
+  "Replace $$n with (token-value (nth n-1 expr)) and $n with (nth n-1 expr)"
+  (if (symbolp leaf)
+    (let ((symname (symbol-name leaf)))
+      (cond
+        ((prefix-p symname "$$")
+         `(token-value (nth ,(1- (parse-integer (subseq symname 2))) expr)))
+        ((prefix-p symname "$")
+         `(nth ,(1- (parse-integer (subseq symname 1))) expr))
+        (t
+         leaf)))
+    leaf))

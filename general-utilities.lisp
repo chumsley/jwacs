@@ -31,6 +31,26 @@
    eg: (POSTPEND '(1 2) 3) ===> '(1 2 3)"
   (append list-arg (list atom-arg)))
 
+(defun maptree (fn tree)
+  "MAPTREE maps a function over a tree of cons cells.
+   If TREE is NIL, returns NIL.
+   If TREE is a cons cell, recursively calls MAPTREE on the CAR and CDR and returns a new cons cell
+   whose CAR and CDR are the results.
+   Otherwise, returns the result of applying FN to TREE."
+  (cond
+    ((consp tree)
+     (cons (maptree fn (car tree))
+           (maptree fn (cdr tree))))
+    ((null tree)
+     tree)
+    (t
+     (funcall fn tree))))
+
+(defun prefix-p (string prefix)
+  "return:  whether prefix is a prefix of the string."
+  (and (<= (length prefix) (length string))
+       (string= string prefix :end1 (length prefix))))
+
 ;;;; ======= File handling =========================================================================
 (defun pathnames-equal (path1 path2)
   "Return non-NIL if PATH1 and PATH2 are equivalent.  This function avoids some of the

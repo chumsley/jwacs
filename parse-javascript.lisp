@@ -39,7 +39,7 @@
   ;; Expressions
   ((primary-expression :this) (make-special-value :symbol :this))
   ((primary-expression :function_continuation) (make-special-value :symbol :function_continuation))
-  ((primary-expression :identifier) (make-identifier :name $1))
+  ((primary-expression :identifier) (make-identifier :name $$1))
   ((primary-expression literal) $1)
   ((primary-expression array-literal) $1)
   ((primary-expression object-literal) $1)
@@ -47,7 +47,7 @@
 
   ((primary-expression-no-lbf :this) (make-special-value :symbol :this))
   ((primary-expression-no-lbf :function_continuation) (make-special-value :symbol :function_continuation))
-  ((primary-expression-no-lbf :identifier) (make-identifier :name $1))
+  ((primary-expression-no-lbf :identifier) (make-identifier :name $$1))
   ((primary-expression-no-lbf literal) $1)
   ((primary-expression-no-lbf array-literal) $1)
   ((primary-expression-no-lbf :left-paren expression :right-paren) $2)
@@ -75,20 +75,20 @@
   ((property/value-list property-name :colon assignment-expression) (list (cons $1 $3)))
   ((property/value-list property/value-list :comma property-name :colon assignment-expression) (append $1 (list (cons $3 $5))))
 
-  ((property-name :identifier) (make-string-literal :value $1))
-  ((property-name :string-literal) (make-string-literal :value $1))
-  ((property-name :number) (make-numeric-literal :value $1))
+  ((property-name :identifier) (make-string-literal :value $$1))
+  ((property-name :string-literal) (make-string-literal :value $$1))
+  ((property-name :number) (make-numeric-literal :value $$1))
 
   ;; Pg 55
   ((member-expression primary-expression) $1)
   ((member-expression function-expression) $1)
   ((member-expression member-expression :left-bracket expression :right-bracket) (make-property-access :target $1 :field $3))
-  ((member-expression member-expression :dot :identifier) (make-property-access :target $1 :field (make-string-literal :value $3)))
+  ((member-expression member-expression :dot :identifier) (make-property-access :target $1 :field (make-string-literal :value $$3)))
   ((member-expression :new member-expression arguments) (make-new-expr :constructor $2 :args $3))
 
   ((member-expression-no-lbf primary-expression-no-lbf) $1)
   ((member-expression-no-lbf member-expression-no-lbf :left-bracket expression :right-bracket) (make-property-access :target $1 :field $3))
-  ((member-expression-no-lbf member-expression-no-lbf :dot :identifier) (make-property-access :target $1 :field (make-string-literal :value $3)))
+  ((member-expression-no-lbf member-expression-no-lbf :dot :identifier) (make-property-access :target $1 :field (make-string-literal :value $$3)))
   ((member-expression-no-lbf :new member-expression arguments) (make-new-expr :constructor $2 :args $3))
 
   ((new-expression member-expression) $1)
@@ -101,12 +101,12 @@
   ((call-expression member-expression arguments) (make-fn-call :fn $1 :args $2))
   ((call-expression call-expression arguments) (make-fn-call :fn $1 :args $2))
   ((call-expression call-expression :left-bracket expression :right-bracket) (make-property-access :target $1 :field $3))
-  ((call-expression call-expression :dot :identifier) (make-property-access :target $1 :field (make-string-literal :value $3)))
+  ((call-expression call-expression :dot :identifier) (make-property-access :target $1 :field (make-string-literal :value $$3)))
 
   ((call-expression-no-lbf member-expression-no-lbf arguments) (make-fn-call :fn $1 :args $2))
   ((call-expression-no-lbf call-expression-no-lbf arguments) (make-fn-call :fn $1 :args $2))
   ((call-expression-no-lbf call-expression-no-lbf :left-bracket expression :right-bracket) (make-property-access :target $1 :field $3))
-  ((call-expression-no-lbf call-expression-no-lbf :dot :identifier) (make-property-access :target $1 :field (make-string-literal :value $3)))
+  ((call-expression-no-lbf call-expression-no-lbf :dot :identifier) (make-property-access :target $1 :field (make-string-literal :value $$3)))
   
   
   ((arguments :left-paren :right-paren) nil)
@@ -311,18 +311,18 @@
        (make-binary-operator :op-symbol :assign :left-arg $1 :right-arg $3)
        (make-binary-operator :op-symbol op :left-arg $1 :right-arg $3))))
   
-  ((assignment-operator :equals) $1)
-  ((assignment-operator :times-equals) $1)
-  ((assignment-operator :divide-equals) $1)
-  ((assignment-operator :mod-equals) $1)
-  ((assignment-operator :plus-equals) $1)
-  ((assignment-operator :minus-equals) $1)
-  ((assignment-operator :lshift-equals) $1)
-  ((assignment-operator :rshift-equals) $1)
-  ((assignment-operator :urshift-equals) $1)
-  ((assignment-operator :and-equals) $1)
-  ((assignment-operator :xor-equals) $1)
-  ((assignment-operator :or-equals) $1)
+  ((assignment-operator :equals) $$1)
+  ((assignment-operator :times-equals) $$1)
+  ((assignment-operator :divide-equals) $$1)
+  ((assignment-operator :mod-equals) $$1)
+  ((assignment-operator :plus-equals) $$1)
+  ((assignment-operator :minus-equals) $$1)
+  ((assignment-operator :lshift-equals) $$1)
+  ((assignment-operator :rshift-equals) $$1)
+  ((assignment-operator :urshift-equals) $$1)
+  ((assignment-operator :and-equals) $$1)
+  ((assignment-operator :xor-equals) $$1)
+  ((assignment-operator :or-equals) $$1)
   
   ((expression assignment-expression) $1)
   ((expression expression :comma assignment-expression)
@@ -344,9 +344,9 @@
 
   ((literal :null) (make-special-value :symbol :null))
   ((literal boolean-literal) $1)
-  ((literal :number) (make-numeric-literal :value $1))
-  ((literal :string-literal) (make-string-literal :value $1))
-  ((literal :re-literal) (make-re-literal :pattern (car $1) :options (cdr $1)))
+  ((literal :number) (make-numeric-literal :value $$1))
+  ((literal :string-literal) (make-string-literal :value $$1))
+  ((literal :re-literal) (make-re-literal :pattern (car $$1) :options (cdr $$1)))
   
   ((boolean-literal :true) (make-special-value :symbol :true))
   ((boolean-literal :false) (make-special-value :symbol :false))  
@@ -402,11 +402,11 @@
   ((variable-decl-list-no-in variable-decl-no-in) (list $1))
   ((variable-decl-list-no-in variable-decl-list-no-in :comma variable-decl-no-in) (append $1 (list $3)))
 
-  ((variable-decl :identifier) (make-var-decl :name $1))
-  ((variable-decl :identifier :equals assignment-expression) (make-var-decl :name $1 :initializer $3))
+  ((variable-decl :identifier) (make-var-decl :name $$1))
+  ((variable-decl :identifier :equals assignment-expression) (make-var-decl :name $$1 :initializer $3))
 
-  ((variable-decl-no-in :identifier) (make-var-decl :name $1))
-  ((variable-decl-no-in :identifier :equals assignment-expression-no-in) (make-var-decl :name $1 :initializer $3))
+  ((variable-decl-no-in :identifier) (make-var-decl :name $$1))
+  ((variable-decl-no-in :identifier :equals assignment-expression-no-in) (make-var-decl :name $$1 :initializer $3))
 
   ;; Pg 75
   ((empty-statement :semicolon) nil)
@@ -493,11 +493,11 @@
   ((iteration-statement-no-if :for :left-paren :var variable-decl-no-in :in expression :right-paren statement-no-if)
    (make-for-in :binding (make-var-decl-statement :var-decls (list $4)) :collection $6 :body $8))
 
-  ((continue-statement :continue :no-line-terminator :identifier insertable-semicolon) (make-continue-statement :target-label $3))
+  ((continue-statement :continue :no-line-terminator :identifier insertable-semicolon) (make-continue-statement :target-label $$3))
   ((continue-statement :continue :no-line-terminator :semicolon) (make-continue-statement))
   ((continue-statement :continue :line-terminator) (make-continue-statement))
 
-  ((break-statement :break :no-line-terminator :identifier insertable-semicolon) (make-break-statement :target-label $3))
+  ((break-statement :break :no-line-terminator :identifier insertable-semicolon) (make-break-statement :target-label $$3))
   ((break-statement :break :no-line-terminator :semicolon) (make-break-statement))
   ((break-statement :break :line-terminator) (make-break-statement))
 
@@ -529,11 +529,11 @@
   ;; Pg 81
   ((labelled-statement :identifier :colon statement)
    (let ((elm $3))
-     (setf (source-element-label elm) $1)
+     (setf (source-element-label elm) $$1)
      elm))
   ((labelled-statement-no-if :identifier :colon statement-no-if)
    (let ((elm $3))
-     (setf (source-element-label elm) $1)
+     (setf (source-element-label elm) $$1)
      elm))
 
   ((throw-statement :throw :no-line-terminator expression insertable-semicolon) (make-throw-statement :value $3))
@@ -543,7 +543,7 @@
   ((try-statement :try block finally) (make-try :body (statement-block-statements $2) :finally-clause $3))
   ((try-statement :try block catch finally) (make-try :body (statement-block-statements $2) :catch-clause $3 :finally-clause $4))
 
-  ((catch :catch :left-paren :identifier :right-paren block) (make-catch-clause :binding $3 :body (statement-block-statements $5)))
+  ((catch :catch :left-paren :identifier :right-paren block) (make-catch-clause :binding $$3 :body (statement-block-statements $5)))
   ((finally :finally block) (make-finally-clause :body (statement-block-statements $2)))
 
   ;; jwacs extended syntax
@@ -553,29 +553,29 @@
 
   ;; Functions (Pg 83)
   ((function-decl :function :identifier :left-paren formal-parameter-list :right-paren function-body)
-   (make-function-decl :name $2 :parameters $4 :body $6))
+   (make-function-decl :name $$2 :parameters $4 :body $6))
   ((function-decl :function :identifier :left-paren :right-paren function-body)
-   (make-function-decl :name $2 :body $5))
+   (make-function-decl :name $$2 :body $5))
   
   ((function-expression :function :identifier :left-paren formal-parameter-list :right-paren function-body)
-   (make-function-expression :name $2 :parameters $4 :body $6))
+   (make-function-expression :name $$2 :parameters $4 :body $6))
   ((function-expression :function :identifier :left-paren :right-paren function-body)
-   (make-function-expression :name $2 :body $5))
+   (make-function-expression :name $$2 :body $5))
   ((function-expression :function :left-paren formal-parameter-list :right-paren function-body)
    (make-function-expression :parameters $3 :body $5))
   ((function-expression :function :left-paren :right-paren function-body)
    (make-function-expression :body $4))
 
-  ((formal-parameter-list :identifier) (list $1))
-  ((formal-parameter-list formal-parameter-list :comma :identifier) (append $1 (list $3)))
+  ((formal-parameter-list :identifier) (list $$1))
+  ((formal-parameter-list formal-parameter-list :comma :identifier) (append $1 (list $$3)))
 
   ((function-body :left-curly source-elements :right-curly) $2)
   ((function-body :left-curly :right-curly) nil)
 
   ((import-decl :import :identifier :string-literal insertable-semicolon)
-   (make-import-decl :type-symbol (intern (string-upcase $2) :jwacs)
+   (make-import-decl :type-symbol (intern (string-upcase $$2) :jwacs)
                      :uripath $3))
-  ((import-decl :import :string-literal insertable-semicolon) (make-import-decl :uripath $2))
+  ((import-decl :import :string-literal insertable-semicolon) (make-import-decl :uripath $$2))
 
   ((source-elements source-element) (list $1))
   ((source-elements source-elements source-element) (append $1 (list $2)))
@@ -614,8 +614,7 @@
 
 ;;;; ======= Public interface ======================================================================
 (define-condition syntax-error (error)
-  ((terminal :initarg :terminal :reader terminal)
-   (value :initarg :value :reader value)
+  ((token :initarg :token :reader token)
    (expected-terminals :initarg :expected-terminals :reader expected-terminals)
    (row :initarg :row :reader row)
    (column :initarg :column :reader column)))
@@ -623,12 +622,12 @@
 (defmethod print-object ((e syntax-error) s)
   (if *print-escape*
     (print-unreadable-object (e s :type t :identity nil)
-      (format s "(~D, ~D): Unexpected token ~S"
-              (row e) (column e) (terminal e)))
+      (format s "(~D, ~D): Unexpected terminal ~S"
+              (row e) (column e) (token-terminal (token e))))
     (format s "Encountered ~S (value: ~S)~@:_~
                         at line ~D, column ~D~%~
                         Expected one of: ~S"
-            (terminal e) (value e)
+            (token-terminal (token e)) (token-value (token e))
             (row e) (column e)
             (expected-terminals e))))
 
@@ -645,13 +644,13 @@
    Semicolon insertion is performed according to the ECMA-262 standard."
   (let ((lexer (make-instance 'javascript-lexer :text str)))
     (labels ((resignal (err)
-               (destructuring-bind (row . col) (prev-cursor-position lexer)
+               (destructuring-bind (row . col) (position-to-line/column
+                                                str
+                                                (token-start (yacc:yacc-parse-error-value err)))
                  (error (make-condition 'syntax-error
-                                        :terminal (yacc:yacc-parse-error-terminal err)
-                                        :value (yacc:yacc-parse-error-value err)
+                                        :token (yacc:yacc-parse-error-value err)
                                         :expected-terminals (yacc:yacc-parse-error-expected-terminals err)
-                                        :row row
-                                        :column col))))
+                                        :row row :column col))))
              (handle-yacc-error (err)
                (cond
 
@@ -662,8 +661,8 @@
                  ;; just a slash.  We then instruct the parser to throw away the RE
                  ;; literal and continue parsing.
                  ((and (eq :re-literal (yacc:yacc-parse-error-terminal err))
-                       (find :slash (yacc:yacc-parse-error-expected-terminals err))
-                       (restore-cursor lexer))
+                       (find :slash (yacc:yacc-parse-error-expected-terminals err)))
+                  (set-cursor lexer (token-start (yacc:yacc-parse-error-value err)))
                   (coerce-token lexer :slash)
                   (invoke-restart 'yacc:skip-terminal))
                  
@@ -675,7 +674,8 @@
                  ((or (encountered-line-terminator lexer)
                       (eq :right-curly (yacc:yacc-parse-error-terminal err))
                       (eq 'yacc:yacc-eof-symbol (yacc:yacc-parse-error-terminal err)))
-                  (invoke-restart 'yacc:insert-terminal :inserted-semicolon ";"))
+                  (invoke-restart 'yacc:insert-terminal :inserted-semicolon #s(token :terminal :inserted-semicolon
+                                                                                     :value ";")))
 
                  ;; Resignal as a jwacs error if we don't handle the yacc error
                  (t (resignal err)))))
