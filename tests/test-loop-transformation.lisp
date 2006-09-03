@@ -14,23 +14,23 @@
 
 (deftest canonicalize/while/basic :notes  loop-canonicalize
   (transform 'loop-canonicalize
-               (parse "x=0; while(x<4) { foo(); x++; }"))
-  #.(parse "x=0; while(true) { if(!(x<4)) break; foo(); x++; continue; }"))
+               (test-parse "x=0; while(x<4) { foo(); x++; }"))
+  #.(test-parse "x=0; while(true) { if(!(x<4)) break; foo(); x++; continue; }"))
 
 (deftest canonicalize/while/var-decl-in-body :notes  loop-canonicalize
     (transform 'loop-canonicalize
-               (parse "x=0; while(x<4) { var y=0; foo(); x++; }"))
-  #.(parse "x=0; { var y; while(true) { if(!(x<4)) break; y=0; foo(); x++; continue; } }"))
+               (test-parse "x=0; while(x<4) { var y=0; foo(); x++; }"))
+  #.(test-parse "x=0; { var y; while(true) { if(!(x<4)) break; y=0; foo(); x++; continue; } }"))
 
 (deftest canonicalize/while/nested-while :notes  loop-canonicalize
     (transform 'loop-canonicalize
-               (parse "while(x<4) { var y=0; foo(); while(y<5) { var z=0; bar(); } }"))
-    #.(parse "{ var y,z; while(true) { if(!(x<4)) break; y=0; foo(); while(true) { if(!(y<5)) break; z=0; bar(); continue; } continue; } }"))
+               (test-parse "while(x<4) { var y=0; foo(); while(y<5) { var z=0; bar(); } }"))
+    #.(test-parse "{ var y,z; while(true) { if(!(x<4)) break; y=0; foo(); while(true) { if(!(y<5)) break; z=0; bar(); continue; } continue; } }"))
 
 (deftest canonicalize/while/labelled :notes  loop-canonicalize
     (transform 'loop-canonicalize
-               (parse "x=0; labelled: while(x<4) { foo(); x++; }"))
-  #.(parse "x=0; labelled: while(true) { if(!(x<4)) break; foo(); x++; continue; }"))
+               (test-parse "x=0; labelled: while(x<4) { foo(); x++; }"))
+  #.(test-parse "x=0; labelled: while(true) { if(!(x<4)) break; foo(); x++; continue; }"))
 
 
 
@@ -41,27 +41,27 @@
 
 (deftest canonicalize/for/basic :notes loop-canonicalize
     (transform 'loop-canonicalize
-               (parse "for(var x=0; x<10; x++) { foo(); }"))
-    #.(parse "{ var x=0; while(true) { if(!(x<10)) break; foo(); x++; continue; } }"))
+               (test-parse "for(var x=0; x<10; x++) { foo(); }"))
+    #.(test-parse "{ var x=0; while(true) { if(!(x<10)) break; foo(); x++; continue; } }"))
 
 (deftest canonicalize/for/labelled :notes loop-canonicalize
     (transform 'loop-canonicalize
-               (parse "yar: for(var x=0; x<10; x++) { foo(); }"))
-    #.(parse "{ var x=0; yar: while(true) { if(!(x<10)) break; foo(); x++; continue; } }"))
+               (test-parse "yar: for(var x=0; x<10; x++) { foo(); }"))
+    #.(test-parse "{ var x=0; yar: while(true) { if(!(x<10)) break; foo(); x++; continue; } }"))
 
 
 (deftest canonicalize/for/var-decl-in-body :notes loop-canonicalize
     (transform 'loop-canonicalize 
-               (parse "for(var x=0; x<10; x++) { var y=0; foo();}"))
-    #.(parse "{ var y; var x=0; while(true) { if(!(x<10)) break; y=0; foo(); x++; continue; } }"))
+               (test-parse "for(var x=0; x<10; x++) { var y=0; foo();}"))
+    #.(test-parse "{ var y; var x=0; while(true) { if(!(x<10)) break; y=0; foo(); x++; continue; } }"))
 
 (deftest canonicalize/for/single-statement :notes loop-canonicalize
   (with-fresh-genvar
     (transform 'loop-canonicalize
-               (parse "
+               (test-parse "
         for(var x = 0; x < 10; x++)
           output(x);")))
-  #.(parse "
+  #.(test-parse "
         {
           var x = 0;
           while(true)
@@ -80,8 +80,8 @@
 (deftest canonicalize/do-while/var-decl-in-body :notes loop-canonicalize
   (with-fresh-genvar
     (transform 'loop-canonicalize
-               (parse "do { var x = rval; foo(); } while(test);")))
-    #.(parse "{
+               (test-parse "do { var x = rval; foo(); } while(test);")))
+    #.(test-parse "{
   var x, JW0 = true;
   while(true)
   {
@@ -101,8 +101,8 @@
 (deftest canonicalize/do-while/labelled :notes loop-canonicalize
   (with-fresh-genvar
     (transform 'loop-canonicalize
-               (parse "yar: do { var x = rval; foo(); } while(test);")))
-    #.(parse "{
+               (test-parse "yar: do { var x = rval; foo(); } while(test);")))
+    #.(test-parse "{
   var x, JW0 = true;
   yar:
   while(true)
@@ -127,8 +127,8 @@
 (deftest canonicalize/for-in/basic :notes loop-canonicalize
   (with-fresh-genvar
     (transform 'loop-canonicalize
-               (parse "for(var_x in some_collection) { foo(); }")))
-  #.(parse "{
+               (test-parse "for(var_x in some_collection) { foo(); }")))
+  #.(test-parse "{
   var JW0 = [], JW1 = 0, JW3 = 0;
   for(var JW2 in some_collection)
   {
@@ -147,8 +147,8 @@
 (deftest canonicalize/for-in/labelled :notes loop-canonicalize
   (with-fresh-genvar
     (transform 'loop-canonicalize
-               (parse "yar: for(var_x in some_collection) { foo(); }")))
-  #.(parse "{
+               (test-parse "yar: for(var_x in some_collection) { foo(); }")))
+  #.(test-parse "{
   var JW0 = [], JW1 = 0, JW3 = 0;
   for(var JW2 in some_collection)
   {

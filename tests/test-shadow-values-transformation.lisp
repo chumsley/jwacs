@@ -11,7 +11,7 @@
 
 (deftest shadow-values/fn-decl/arguments-referenced/1 :notes shadow-values
   (with-fresh-genvar
-    (test-transform 'shadow-values (parse "
+    (test-transform 'shadow-values (test-parse "
       function foo(a, b)
       {
         if(arguments.length < 2)
@@ -19,7 +19,7 @@
         else
           return arguments[0] + ',' + arguments[1];
       }")))
-  #.(parse "
+  #.(test-parse "
       function foo(a, b)
       {
         var arguments$0 = arguments;
@@ -31,14 +31,14 @@
 
 (deftest shadow-values/fn-decl/this-referenced/1 :notes shadow-values
   (with-fresh-genvar
-    (test-transform 'shadow-values (parse "
+    (test-transform 'shadow-values (test-parse "
       function foo(a, b)
       {
         this.foo = 'foo';
         if(!this.bar)
           this.bar = 'bar';
       }")))
-  #.(parse "
+  #.(test-parse "
       function foo(a, b)
       {
         var this$0 = this;
@@ -49,14 +49,14 @@
 
 (deftest shadow-values/fn-decl/both-referenced/1 :notes shadow-values
   (with-fresh-genvar
-    (test-transform 'shadow-values (parse "
+    (test-transform 'shadow-values (test-parse "
       function foo(a, b)
       {
         this.foo = arguments.length;
         if(!this.bar)
           this.bar = arguments[0];
       }")))
-  #.(parse "
+  #.(test-parse "
       function foo(a, b)
       {
         var arguments$0 = arguments;
@@ -68,12 +68,12 @@
 
 (deftest shadow-values/fn-decl/neither-referenced/1 :notes shadow-values
   (with-fresh-genvar
-    (test-transform 'shadow-values (parse "
+    (test-transform 'shadow-values (test-parse "
       function foo(a, b)
       {
         return 24;
       }")))
-  #.(parse "
+  #.(test-parse "
       function foo(a, b)
       {
         return 24;
@@ -81,7 +81,7 @@
 
 (deftest shadow-values/fn-expression/arguments-referenced/1 :notes shadow-values
   (with-fresh-genvar
-    (test-transform 'shadow-values (parse "
+    (test-transform 'shadow-values (test-parse "
       var foo = function(a, b)
       {
         if(arguments.length < 2)
@@ -89,7 +89,7 @@
         else
           return arguments[0] + ',' + arguments[1];
       };")))
-  #.(parse "
+  #.(test-parse "
       var foo = function(a, b)
       {
         var arguments$0 = arguments;
@@ -101,14 +101,14 @@
 
 (deftest shadow-values/fn-expression/this-referenced/1 :notes shadow-values
   (with-fresh-genvar
-    (test-transform 'shadow-values (parse "
+    (test-transform 'shadow-values (test-parse "
       var foo = function(a, b)
       {
         this.foo = 'foo';
         if(!this.bar)
           this.bar = 'bar';
       };")))
-  #.(parse "
+  #.(test-parse "
       var foo = function(a, b)
       {
         var this$0 = this;
@@ -119,14 +119,14 @@
 
 (deftest shadow-values/fn-expression/both-referenced/1 :notes shadow-values
   (with-fresh-genvar
-    (test-transform 'shadow-values (parse "
+    (test-transform 'shadow-values (test-parse "
       var foo = function(a, b)
       {
         this.foo = arguments.length;
         if(!this.bar)
           this.bar = arguments[0];
       };")))
-  #.(parse "
+  #.(test-parse "
       var foo = function(a, b)
       {
         var arguments$0 = arguments;
@@ -138,12 +138,12 @@
 
 (deftest shadow-values/fn-expression/neither-referenced/1 :notes shadow-values
   (with-fresh-genvar
-    (test-transform 'shadow-values (parse "
+    (test-transform 'shadow-values (test-parse "
       var foo = function(a, b)
       {
         return 24;
       };")))
-  #.(parse "
+  #.(test-parse "
       var foo = function(a, b)
       {
         return 24;

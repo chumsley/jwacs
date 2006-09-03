@@ -13,7 +13,7 @@
 ;;;; Tests 
 (deftest cps/factorial/1 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
        function factorial1(n)
        {
          if(n == 0)
@@ -52,7 +52,7 @@
                                                     :right-arg #s(numeric-literal :value 1))))))))))
 (deftest cps/symmetric-dangling-tail/1 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
       function doStuff(branch)
       {
         if(branch)
@@ -61,7 +61,7 @@
           bar();
         baz();
         }")))
-  #.(parse "
+  #.(test-parse "
       function doStuff($k, branch)
       {
         var ifK$0 = function()
@@ -76,7 +76,7 @@
 
 (deftest cps/asymmetric-dangling-tail/1 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
       function factorial2(n)
       {
         var retVal;
@@ -90,7 +90,7 @@
         }
         return retVal;
       }")))
-  #.(parse "
+  #.(test-parse "
       function factorial2($k, n)
       {
         var retVal;
@@ -114,7 +114,7 @@
   
 (deftest cps/if/unreachable-tail/1 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
       function foo(userK)
       {
         if(x)
@@ -123,7 +123,7 @@
           resume userK;
         output('this will never be seen');
       }")))
-  #.(parse "
+  #.(test-parse "
       function foo($k, userK)
       {
         if(x)
@@ -135,7 +135,7 @@
 
 (deftest cps/if/terminated-then-null-else/1 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
       function foo(userK)
       {
         if(x)
@@ -147,7 +147,7 @@
         }
         output('might see this');
       }")))
-  #.(parse "
+  #.(test-parse "
       function foo($k, userK)
       {
         if(x)
@@ -160,7 +160,7 @@
 
 (deftest cps/if/terminated-then-null-else/2 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
       function foo(x)
       {
         if(x)
@@ -170,7 +170,7 @@
         }
         output('no');
       }")))
-  #.(parse "
+  #.(test-parse "
       function foo($k, x)
       {
         if(x)
@@ -181,7 +181,7 @@
 
 (deftest cps/if/terminated-then-unterminated-else/1 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
       function foo(userK)
       {
         if(x)
@@ -195,7 +195,7 @@
           output('also this');
         output('might see this');
       }")))
-  #.(parse "
+  #.(test-parse "
       function foo($k, userK)
       {
         if(x)
@@ -212,7 +212,7 @@
       
 (deftest cps/if/unterminated-then-terminated-else/1 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
       function foo(userK)
       {
         if(x)
@@ -227,7 +227,7 @@
           
         output('might see this');
       }")))
-  #.(parse "
+  #.(test-parse "
       function foo($k, userK)
       {
         if(x)
@@ -245,7 +245,7 @@
 (deftest cps/post-function-dangling-tail/1 :notes cps
   (with-fresh-genvar
     (in-local-scope
-      (test-transform 'cps (parse "
+      (test-transform 'cps (test-parse "
       function foo(branch)
       {
         if(branch)
@@ -257,7 +257,7 @@
         }
       }
       foo(false);"))))
-  #.(parse "
+  #.(test-parse "
       function foo($k, branch)
       {
         if(branch)
@@ -269,13 +269,13 @@
 
 (deftest cps/post-function-dangling-tail/2 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
       function foo()
       {
         onEvent = function(e) { process(e); };
         bar();
       }")))
-  #.(parse "
+  #.(test-parse "
       function foo($k)
       {
         onEvent = function($k, e)
@@ -287,7 +287,7 @@
 
 (deftest cps/no-tail-after-if/1 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
       function foo(x)
       {
         if(x)
@@ -295,7 +295,7 @@
         else
           return 20;
       }")))
-  #.(parse "
+  #.(test-parse "
       function foo($k, x)
       {
         if(x)
@@ -306,7 +306,7 @@
         
 (deftest cps/switch-statement/1 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
       function foo(x)
       {
         switch(x)
@@ -321,7 +321,7 @@
 
         return baz();
       }")))
-  #.(parse "
+  #.(test-parse "
       function foo($k, x)
       {
         var switchK$0 = function()
@@ -339,7 +339,7 @@
 
 (deftest cps/switch-statement/2 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
       function foo(x)
       {
         switch(x)
@@ -350,7 +350,7 @@
         }
         return baz(x + 2);
       }")))
-  #.(parse "
+  #.(test-parse "
       function foo($k, x)
       {
         var switchK$0 = function()
@@ -368,7 +368,7 @@
 
 (deftest cps/switch-statement/3 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
       function foo(x)
       {
         switch(x)
@@ -378,7 +378,7 @@
         }
         return baz(x + 2);
       }")))
-  #.(parse "
+  #.(test-parse "
       function foo($k, x)
       {
         var switchK$0 = function()
@@ -396,7 +396,7 @@
 
 (deftest cps/switch-statement/4 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
       function foo(x)
       {
         switch(x)
@@ -409,7 +409,7 @@
         }
         return baz(x - 1);
       }")))
-  #.(parse "
+  #.(test-parse "
       function foo($k, x)
       {
         var switchK$0 = function()
@@ -430,7 +430,7 @@
         
 (deftest cps/labelled-switch/1 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
       function foo(x, y)
       {
         outer:
@@ -449,7 +449,7 @@
         }
         return doAlways();
       }")))
-  #.(parse "
+  #.(test-parse "
       function foo($k, x, y)
       {
         var switchK$0 = function()
@@ -477,7 +477,7 @@
 
 (deftest cps/labelled-switch/2 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
       function foo(x, y)
       {
         outer:
@@ -496,7 +496,7 @@
         }
         return doAlways();
       }")))
-  #.(parse "
+  #.(test-parse "
       function foo($k, x, y)
       {
         var switchK$0 = function()
@@ -525,7 +525,7 @@
 (deftest cps/simple-loop/1 :notes cps
   (with-fresh-genvar
     (in-local-scope
-      (test-transform 'cps (parse "
+      (test-transform 'cps (test-parse "
       while(true)
       {
         if(x++ > 10)
@@ -534,7 +534,7 @@
         continue;
       }
       return 10;"))))
-  #.(parse "
+  #.(test-parse "
       var break$0 = function()
       {
         return $k(10);
@@ -550,7 +550,7 @@
 (deftest cps/nested-loop/1 :notes cps
   (with-fresh-genvar
     (in-local-scope
-      (test-transform 'cps (parse "
+      (test-transform 'cps (test-parse "
       outer:
       while(true)
       {
@@ -566,7 +566,7 @@
         continue;
       }
       return 10;"))))
-  #.(parse "
+  #.(test-parse "
       var break$0 = function()
       {
         return $k(10);
@@ -589,7 +589,7 @@
 (deftest cps/nested-loop/2 :notes cps
   (with-fresh-genvar
     (in-local-scope
-      (test-transform 'cps (parse "
+      (test-transform 'cps (test-parse "
       outer:
       while(true)
       {
@@ -607,7 +607,7 @@
         continue outer;
       }
       return 10;"))))
-  #.(parse "
+  #.(test-parse "
       var break$0 = function()
       {
         return $k(10);
@@ -632,7 +632,7 @@
 (deftest cps/nested-loop/3 :notes cps
   (with-fresh-genvar
     (in-local-scope
-      (test-transform 'cps (parse "
+      (test-transform 'cps (test-parse "
       outer:
       while(true)
       {
@@ -650,7 +650,7 @@
         continue outer;
       }
       return 10;"))))
-  #.(parse "
+  #.(test-parse "
       var break$0 = function()
       {
         return $k(10);
@@ -675,21 +675,21 @@
 (deftest cps/tail-fn-call/1 :notes cps
   (with-fresh-genvar
     (in-local-scope
-      (transform 'cps (parse "
+      (transform 'cps (test-parse "
         return factorial(JW0);"))))
-  #.(parse "
+  #.(test-parse "
       return factorial($k, JW0);"))
 
 (deftest cps/inline-call-with-tail/1 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
       function foo() {}
       function bar()
       {
         foo();
         x += 10;
       }")))
-  #.(parse "
+  #.(test-parse "
       function foo($k) { return $k(); }
       function bar($k)
       {
@@ -701,7 +701,7 @@
 
 (deftest cps/object-literal/1 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
       var obj =
       {
         field: 44, 
@@ -716,7 +716,7 @@
         var y = obj.field + 1;
         obj.method(y);
       }")))
-  #.(parse "
+  #.(test-parse "
       var obj =
       {
         field: 44,
@@ -734,23 +734,23 @@
       }"))
 
 (deftest cps/implicit-return/1 :notes cps
-  (transform 'cps (parse "
+  (transform 'cps (test-parse "
     function foo()
     {
     }"))
-  #.(parse "
+  #.(test-parse "
     function foo($k)
     {
       return $k();
     }"))
 
 (deftest cps/implicit-return/2 :notes cps
-  (transform 'cps (parse "
+  (transform 'cps (test-parse "
     function foo()
     {
       x = 10;
     }"))
-  #.(parse "
+  #.(test-parse "
     function foo($k)
     {
       x = 10;
@@ -759,7 +759,7 @@
 
 (deftest cps/implicit-return/3 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
     function foo()
     {
       if(x)
@@ -768,7 +768,7 @@
         y = 10;
       z = 20;
     }")))
-  #.(parse "
+  #.(test-parse "
     function foo($k)
     {
       var ifK$0 = function()
@@ -791,51 +791,51 @@
 (deftest cps/function_continuation/1 :notes cps
   (in-local-scope
     (transform 'cps
-             (parse "x = function_continuation;")))
-  #.(parse "x = $k;"))
+             (test-parse "x = function_continuation;")))
+  #.(test-parse "x = $k;"))
 
 (deftest cps/void-new-expr-with-tail/1 :notes cps
   (in-local-scope
     (test-transform 'cps
-                    (parse "
+                    (test-parse "
         new Foo;
         bar(10);")))
-  #.(parse "
+  #.(test-parse "
         return new Foo(function() { return bar(function() { return $k(); }, 10); });"))
 
 (deftest cps/void-new-expr-with-tail/2 :notes cps
   (test-transform 'cps
-                  (parse "
+                  (test-parse "
         new Foo;
         bar(10);"))
-  #.(parse "
+  #.(test-parse "
         return new Foo(function() { return bar(function() { suspend; }, 10); });"))
 
 (deftest cps/new-expr-with-tail/1 :notes cps
   (in-local-scope
     (test-transform 'cps
-                    (parse "
+                    (test-parse "
         var x = new Foo(50);
         bar(x[10]);")))
-  #.(parse "
+  #.(test-parse "
         return new Foo(function(x) { return bar(function() { return $k();}, x[10]); }, 50);"))
 
 (deftest cps/new-expr-with-tail/2 :notes cps
   (test-transform 'cps
-                  (parse "
+                  (test-parse "
         var x = new Foo(50);
         bar(x[10]);"))
-  #.(parse "
+  #.(test-parse "
         return new Foo(function(x) { return bar(function() { suspend; }, x[10]); }, 50);"))
 
 (deftest cps/new-expr-tail-return/1 :notes cps
   (test-transform 'cps
-                  (parse "
+                  (test-parse "
       function foo()
       {
         return new bar(50);
       }"))
-  #.(parse "
+  #.(test-parse "
       function foo($k)
       {
         return new bar($k, 50);
@@ -843,12 +843,12 @@
 
 (deftest cps/new-expr-tail-return/2 :notes cps
   (test-transform 'cps
-                  (parse "
+                  (test-parse "
       function foo()
       {
         return new (function(n) { return n; }) (50);
       }"))
-  #.(parse "
+  #.(test-parse "
       function foo($k)
       {
         return new (function($k, n) { return $k(n); }) ($k, 50);
@@ -857,31 +857,31 @@
 (deftest cps/void-function-call-with-tail/1 :notes cps
   (in-local-scope
     (test-transform 'cps
-                    (parse "
+                    (test-parse "
         foo(10);
         bar(20);")))
-  #.(parse "
+  #.(test-parse "
         return foo(function() { return bar(function() { return $k(); }, 20); }, 10);"))
 
 (deftest cps/void-function-call-with-tail/2 :notes cps
   (test-transform 'cps
-                  (parse "
+                  (test-parse "
         foo(10);
         bar(20);"))
-  #.(parse "
+  #.(test-parse "
         return foo(function() { return bar(function() { suspend; }, 20); }, 10);"))
 
 (deftest cps/toplevel-function-call-with-tail/1 :notes cps
   (test-transform 'cps
-                  (parse "
+                  (test-parse "
         var x = foo(10);
         bar(x);"))
-  #.(parse "
+  #.(test-parse "
         return foo(function(x) { return bar(function() { suspend; }, x); }, 10);"))
 
 (deftest cps/strip-var-decls/function-decl/1 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
       function foo(narf)
       {
         if(narf)
@@ -889,7 +889,7 @@
         if(narf && intermediate == 'f')
           foo('m');
       }")))
-  #.(parse "
+  #.(test-parse "
       function foo($k, narf)
       {
         var intermediate;
@@ -911,7 +911,7 @@
 
 (deftest cps/strip-var-decls/function-decl/2 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
       if(monthOK)
       {
         var JW74 = day < 1;
@@ -920,7 +920,7 @@
       }
       if(monthOK && (JW74 || day > JW73))
         resume foo;")))
-  #.(parse "
+  #.(test-parse "
       var JW74;
       var JW73;
       var ifK$0 = function()
@@ -950,7 +950,7 @@
 
 (deftest cps/strip-var-decls/new-expr/1 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
       function foo()
       {
         try
@@ -968,7 +968,7 @@
         }
         catch(e) { }
       }")))
-  #.(parse "
+  #.(test-parse "
       function foo($k)
       {
         var http;
@@ -1023,7 +1023,7 @@
 
 (deftest cps/strip-var-decls/function-expression/1 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
       var foo = function(narf)
       {
         if(narf)
@@ -1031,7 +1031,7 @@
         if(narf && intermediate == 'f')
           foo('m');
       };")))
-  #.(parse "
+  #.(test-parse "
       var foo = function($k, narf)
       {
         var intermediate;
@@ -1053,7 +1053,7 @@
 
 (deftest cps/strip-var-decls/function-expression/2 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
       function bar()
       {
         var foo = function(narf)
@@ -1064,7 +1064,7 @@
             foo('m');
         };
       }")))
-  #.(parse "
+  #.(test-parse "
       function bar($k)
       {
         var foo = function($k, narf)
@@ -1090,7 +1090,7 @@
 
 (deftest cps/strip-var-decls/switch/1 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (transform 'explicitize (parse "
+    (test-transform 'cps (transform 'explicitize (test-parse "
       function foo()
       {
         switch(narf && narf.charAt(0))
@@ -1103,7 +1103,7 @@
         }
         bar();
       }"))))
-  #.(parse "
+  #.(test-parse "
       function foo($k)
       {
         var JW0;
@@ -1134,7 +1134,7 @@
             
 (deftest cps/strip-var-decls/while/1 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (transform 'explicitize (parse "
+    (test-transform 'cps (transform 'explicitize (test-parse "
       function loopy()
       {
         var x = 0;
@@ -1147,7 +1147,7 @@
         }
         return baz();
       }"))))
-  #.(parse "
+  #.(test-parse "
       function loopy($k)
       {
         var JW1;
@@ -1177,12 +1177,12 @@
 
 (deftest cps/strip-var-decls/toplevel/1 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
       if(narf)
         var intermediate = narf_charAt(0); 
       if(narf && intermediate == 'f')
         foo('m');")))
-  #.(parse "
+  #.(test-parse "
       var intermediate;
       var ifK$0 = function() {
         var ifK$1 = function() {
@@ -1201,7 +1201,7 @@
         resume ifK$0;"))
 
 (deftest cps/find-free-variables/1 :notes cps
-  (find-free-variables (parse "
+  (find-free-variables (test-parse "
       x = 10;
       x += 2;
       var x;
@@ -1216,7 +1216,7 @@
 
 (deftest cps/find-free-variables/2 :notes cps
   (sort 
-   (find-free-variables (parse "
+   (find-free-variables (test-parse "
       x = 10;
       x += 2;
       var x = JW0 && x;
@@ -1233,7 +1233,7 @@
 
 (deftest cps/try-catch/1 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
       function boo()
       {
         try
@@ -1247,7 +1247,7 @@
         }
         return quux();
       }")))
-  #.(parse "
+  #.(test-parse "
       function boo($k)
       {
         var tryK$1 = function() {
@@ -1271,7 +1271,7 @@
 
 (deftest cps/try-catch/2 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
       function boo()
       {
         try
@@ -1289,7 +1289,7 @@
         }
         return quux();
       }")))
-  #.(parse "
+  #.(test-parse "
       function boo($k)
       {
         var tryK$1 = function() {
@@ -1319,7 +1319,7 @@
 
 (deftest cps/try-catch/3 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
       function boo()
       {
         try
@@ -1335,7 +1335,7 @@
         }
         return quux();
       }")))
-  #.(parse "
+  #.(test-parse "
       function boo($k)
       {
         var catchK$0 = function(e) {
@@ -1358,7 +1358,7 @@
 
 (deftest cps/try-catch/4 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
       function boo()
       {
         try
@@ -1382,7 +1382,7 @@
         }
         return quux();
       }")))
-  #.(parse "
+  #.(test-parse "
       function boo($k)
       {
         var tryK$1 = function() {
@@ -1420,7 +1420,7 @@
 
 (deftest cps/try-catch/5 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
       function boo()
       {
         outer:
@@ -1451,7 +1451,7 @@
           continue outer;
         }
       }")))
-  #.(parse "
+  #.(test-parse "
       function boo($k)
       {
         var break$0 = function() {
@@ -1487,7 +1487,7 @@
 
 (deftest cps/try-catch/6 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
      function boo(x)
      {
        try
@@ -1501,7 +1501,7 @@
        }
        return null;
      }")))
-  #.(parse "
+  #.(test-parse "
      function boo($k, x)
      {
        var catchK$0 = function(e) {
@@ -1522,7 +1522,7 @@
 
 (deftest cps/try-catch/7 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
      function boo(x)
      {
        try
@@ -1537,7 +1537,7 @@
          return null;
        }
      }")))
-  #.(parse "
+  #.(test-parse "
      function boo($k, x)
      {
        var catchK$0 = function(e) {
@@ -1559,7 +1559,7 @@
 
 (deftest cps/try-catch/8 :notes cps
   (with-fresh-genvar
-    (test-transform 'cps (parse "
+    (test-transform 'cps (test-parse "
       function foo()
       {
         try
@@ -1578,7 +1578,7 @@
           return x;
         }
       }")))
-  #.(parse "
+  #.(test-parse "
       function foo($k)
       {
         var catchK$0 = function(x) {

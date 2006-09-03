@@ -113,7 +113,9 @@
                 make-remove-handler
                 
                 ;; structure management
+                get-constructor
                 structure-slots
+                make-keyword
 
                 ;; pretty-printer-specific symbols
                 pretty-print

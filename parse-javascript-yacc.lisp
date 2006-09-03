@@ -74,6 +74,10 @@
   (if (symbolp leaf)
     (let ((symname (symbol-name leaf)))
       (cond
+        ((string= symname "$S")
+         `(element-start (first expr)))
+        ((string= symname "$E")
+         `(element-end (car (last expr))))
         ((prefix-p symname "$$")
          `(token-value (nth ,(1- (parse-integer (subseq symname 2))) expr)))
         ((prefix-p symname "$")

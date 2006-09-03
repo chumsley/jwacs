@@ -11,18 +11,18 @@
 
 (deftest trampoline/inlined-result/1 :notes trampoline
   (transform 'trampoline
-             (parse "return 50;"))
-  #.(parse "return {done: true, result: 50};"))
+             (test-parse "return 50;"))
+  #.(test-parse "return {done: true, result: 50};"))
 
 (deftest trampoline/inlined-result/2 :notes trampoline
   (transform 'trampoline
-             (parse "return x[50];"))
-  #.(parse "return {done: true, result: x[50]};"))
+             (test-parse "return x[50];"))
+  #.(test-parse "return {done: true, result: x[50]};"))
 
 (deftest trampoline/inlined-thunk/1 :notes trampoline
   (test-transform 'trampoline
-             (parse "return fn(4);"))
-  #.(parse "return {done: false,
+             (test-parse "return fn(4);"))
+  #.(test-parse "return {done: false,
                     thunk: function($e) {
                         return fn(4);
                     }};"))
@@ -30,7 +30,7 @@
 ;; Verify that the correct administrative source-element gets created
 (deftest trampoline/inlined-thunk/2 :notes trampoline
   (transform 'trampoline
-             (parse "return fn(4);"))
+             (test-parse "return fn(4);"))
   (#s(return-statement
       :arg
       #S(object-literal :properties
@@ -47,17 +47,17 @@
 (deftest trampoline/inlined-thunk/3 :notes trampoline
   (let ((jw::*debug-mode* t))
     (test-transform 'trampoline
-                    (parse "return fn(4);")))
-  #.(parse "return {done: false,
+                    (test-parse "return fn(4);")))
+  #.(test-parse "return {done: false,
                       thunk: function($e, $localEvalArg) {
                           if($localEvalArg) return $id(eval($localEvalArg));
                           return fn(4);
                       }};"))
   
 (deftest trampoline/new-expr/1 :notes trampoline
-  (test-transform 'trampoline (parse "
+  (test-transform 'trampoline (test-parse "
         return new Object;"))
-  #.(parse "
+  #.(test-parse "
         return {done: false,
                 thunk: function($e) {
                         return new Object;
@@ -65,9 +65,9 @@
                };"))
         
 (deftest trampoline/new-expr/2 :notes trampoline
-  (test-transform 'trampoline (parse "
+  (test-transform 'trampoline (test-parse "
         return new Foo($k, 10);"))
-  #.(parse "
+  #.(test-parse "
         return {done: false,
                 thunk: function($e) {
                         return new Foo($k, 10);
@@ -75,9 +75,9 @@
                };"))
 
 (deftest trampoline/function-expression-recursion/1 :notes trampoline
-  (test-transform 'trampoline (parse "
+  (test-transform 'trampoline (test-parse "
         return factorial(function(JW0) { return $k(n * JW0); }, n-1);"))
-  #.(parse "
+  #.(test-parse "
         return {done: false,
                 thunk: function($e) {
                         return factorial(function(JW0) {
@@ -87,12 +87,12 @@
     
 (deftest trampoline/suspend/1 :notes trampoline
   (in-local-scope
-    (test-transform 'trampoline (parse "
+    (test-transform 'trampoline (test-parse "
     if(flag)
       suspend;
     else
       return 50;")))
-  #.(parse "
+  #.(test-parse "
     if(flag)
       return {done: true};
     else
@@ -103,17 +103,17 @@
 ;; since it should already be trampoline boxed by the continuation iteself.
 (deftest trampoline/resume/1 :notes trampoline
   (in-local-scope
-    (test-transform 'trampoline (parse "
+    (test-transform 'trampoline (test-parse "
       resume foo[bar];")))
-  #.(parse "
+  #.(test-parse "
       return {replaceHandlers: foo[bar].$exHandlers, done: false, thunk: function($e) {
         return foo[bar](); }};"))
 
 (deftest trampoline/resume/2 :notes trampoline
   (in-local-scope
-    (test-transform 'trampoline (parse "
+    (test-transform 'trampoline (test-parse "
       resume foo[bar] <- baz;")))
-  #.(parse "
+  #.(test-parse "
       return {replaceHandlers: foo[bar].$exHandlers, done: false, thunk: function($e) {
         return foo[bar](baz); }};"))
 
@@ -121,29 +121,29 @@
 ;; isn't any different from the in-local-scope version anymore.  I'm keeping these
 ;; tests around in case I change my mind about where to resolve toplevel issues.
 (deftest trampoline/resume/toplevel/1 :notes trampoline
-  (test-transform 'trampoline (parse "
+  (test-transform 'trampoline (test-parse "
       resume foo;"))
-  #.(parse "
+  #.(test-parse "
       return {replaceHandlers: foo.$exHandlers, done: false, thunk: function($e) {
         return foo(); }};"))
 
 (deftest trampoline/resume/toplevel/2 :notes trampoline
-  (test-transform 'trampoline (parse "
+  (test-transform 'trampoline (test-parse "
       resume foo <- bar;"))
-  #.(parse "
+  #.(test-parse "
       return {replaceHandlers: foo.$exHandlers, done: false, thunk: function($e) {
         return foo(bar); }};"))
 
 (deftest trampoline/throw/1 :notes trampoline
-  (transform 'trampoline (parse "
+  (transform 'trampoline (test-parse "
       throw 100;"))
-  #.(parse "
+  #.(test-parse "
       throw 100;"))
 
 (deftest trampoline/throw/2 :notes trampoline
-  (test-transform 'trampoline (parse "
+  (test-transform 'trampoline (test-parse "
       throw 100 -> k;"))
-  #.(parse "
+  #.(test-parse "
       return {replaceHandlers: k.$exHandlers, done: false, thunk: function($e) {
         throw 100;
       }};"))

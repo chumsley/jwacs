@@ -10,7 +10,7 @@
 (defnote shift-decls "Tests for the shift-decls transformation")
 
 (deftest shift-decls/1 :notes shift-decls
-  (transform 'shift-decls (parse "
+  (transform 'shift-decls (test-parse "
     var global1, global2 = 20;
     WScript.echo(global2);
     function foo()
@@ -25,7 +25,7 @@
     }
     var global3 = /h/g;
     function bar() { return -88; }"))
-  #.(parse "
+  #.(test-parse "
     var global1;
     var global2;
     var global3;
@@ -46,7 +46,7 @@
 
 
 (deftest shift-decls/2 :notes shift-decls
-  (transform 'shift-decls (parse "
+  (transform 'shift-decls (test-parse "
     function foo()
     {
       var a = 1;
@@ -61,7 +61,7 @@
         var c = 100;
       }
     }"))
-  #.(parse "
+  #.(test-parse "
     function foo()
     {
       var a = 1;
@@ -78,13 +78,13 @@
     }"))
 
 (deftest shift-decls/3 :notes shift-decls
-  (transform 'shift-decls (parse "
+  (transform 'shift-decls (test-parse "
       var obj = { field: 44, method: function() { return this.field * 2; }};
       function fn()
       {
         obj.method(obj.field);
       }"))
-  #.(parse "
+  #.(test-parse "
       var obj;
       function fn()
       {
@@ -93,7 +93,7 @@
       obj = { field: 44, method: function() { return this.field * 2; }};"))
 
 (deftest shift-decls/nested-var-decls/1 :notes shift-decls
-  (transform 'shift-decls (parse "
+  (transform 'shift-decls (test-parse "
       foo();
       var x = 10;
       try
@@ -104,7 +104,7 @@
       {
         bar(e);
       }"))
-  #.(parse "
+  #.(test-parse "
       var x;
       var y;
       foo();
@@ -119,7 +119,7 @@
       }"))
 
 (deftest shift-decls/nested-var-decls/2 :notes shift-decls
-  (transform 'shift-decls (parse "
+  (transform 'shift-decls (test-parse "
       foo();
       var x = 10;
       try
@@ -131,7 +131,7 @@
         var z;
         bar(e);
       }"))
-  #.(parse "
+  #.(test-parse "
       var x;
       var y;
       var z;

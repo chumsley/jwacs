@@ -53,15 +53,15 @@
   "new (foo(bar))(baz)")
 
 (deftest pretty-print/new-expr/5 :notes pretty-print
-  (pretty-string (parse "new new new foo;"))
+  (pretty-string (test-parse "new new new foo;"))
   "new new new foo;")
 
 (deftest pretty-print/new-expr/6 :notes pretty-print
-  (pretty-string (parse "new new foo(20);"))
+  (pretty-string (test-parse "new new foo(20);"))
   "new new foo(20);")
 
 (deftest pretty-print/new-expr/7 :notes pretty-print
-  (pretty-string (parse "(new new foo)(20);"))
+  (pretty-string (test-parse "(new new foo)(20);"))
   "(new new foo)(20);")
 
 (deftest pretty-print/special-value/1 :notes pretty-print
@@ -523,25 +523,25 @@ finally
   "resume foo.bar <- baz;")
 
 (deftest pretty-print/null-in-list/1 :notes pretty-print
-  (pretty-string (parse "function foo() {}"))
+  (pretty-string (test-parse "function foo() {}"))
   "function foo()
 {
 }")
 
 (deftest pretty-print/null-in-then/1 :notes pretty-print
-  (pretty-string (parse "if(foo) ; else bar();"))
+  (pretty-string (test-parse "if(foo) ; else bar();"))
   "if(foo)
   ;
 else
   bar();")
 
 (deftest pretty-print-null-in-else/1 :notes pretty-print
-  (pretty-string (parse "if(foo) bar();"))
+  (pretty-string (test-parse "if(foo) bar();"))
   "if(foo)
   bar();")
 
 (deftest pretty-print-null-in-while/1 :notes pretty-print
-  (pretty-string (parse "while(x++ < 10);"))
+  (pretty-string (test-parse "while(x++ < 10);"))
   "while(x++ < 10)
   ;")
 
@@ -599,9 +599,9 @@ suspend;")
 
 ;;;; Some round-trip tests
 (deftest parse-print/round-trip/1 :notes (pretty-print parser)
-  (parse (pretty-string (parse "\"string \\\"literal\\\"\"")))
-  #.(parse "\"string \\\"literal\\\"\""))
+  (test-parse (pretty-string (test-parse "\"string \\\"literal\\\"\"")))
+  #.(test-parse "\"string \\\"literal\\\"\""))
 
 (deftest parse-print/round-trip/2 :notes (pretty-print parser)
-  (parse (pretty-string (parse "var endTag = /<\\/[^>]+>/;")))
-  #.(parse "var endTag = /<\\/[^>]+>/;"))
+  (test-parse (pretty-string (test-parse "var endTag = /<\\/[^>]+>/;")))
+  #.(test-parse "var endTag = /<\\/[^>]+>/;"))

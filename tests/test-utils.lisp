@@ -65,6 +65,29 @@
   (transform 'remove-administratives
              (transform xform elm)))
 
+(defmethod transform ((xform (eql 'remove-positions)) (elm source-element))
+  (apply
+   (get-constructor elm)
+   (loop for slot in (structure-slots elm)
+         collect (make-keyword slot)
+         collect (if (or (eq slot 'jw::start) (eq slot 'jw::end))
+                     nil
+                     (transform xform (slot-value elm slot))))))
+
+(defmethod transform ((xform (eql 'remove-positions)) (elm object-literal))
+  (make-object-literal
+   :properties
+   (loop for (prop-name . prop-value) in (jw::object-literal-properties elm)
+         collect (cons
+                  (transform xform prop-name)
+                  (transform xform prop-value)))))
+
+(defun test-parse (str)
+  (let ((elm (parse str)))
+    (transform 'remove-positions elm)))
+
+;;; compilation helpers
+
 (defun compile-lang-tests (&key debug-mode)
   "Compile the language tests"
   (let* ((jw::*debug-mode* debug-mode)

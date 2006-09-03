@@ -25,37 +25,37 @@
 (deftest ugly-print/var-decl/1 :notes ugly-print
   (with-fresh-genvar
     (in-local-scope
-      (ugly-string (parse "var x = 3;"))))
+      (ugly-string (test-parse "var x = 3;"))))
     "var JW0=3;")
 
 (deftest ugly-print/function-decl/1 :notes ugly-print
   (with-fresh-genvar
     (in-local-scope
-      (ugly-string (parse "function FOO(){;}"))))
+      (ugly-string (test-parse "function FOO(){}"))))
   "function JW0(){}")
 
 (deftest ugly-print/function-decl/2 :notes ugly-print
   (with-fresh-genvar
     (in-local-scope
-      (ugly-string (parse "function FOO(x){;}"))))
+      (ugly-string (test-parse "function FOO(x){}"))))
   "function JW0(JW1){}")
 
 (deftest ugly-print/function-decl/3 :notes ugly-print
   (with-fresh-genvar
-    (ugly-string (parse "function FOO(x){ var y = x; }")))
+    (ugly-string (test-parse "function FOO(x){ var y = x; }")))
   "function FOO(JW0){var JW1=JW0;}")
 
 (deftest ugly-print/function-decl/4 :notes ugly-print
   (with-fresh-genvar
     (in-local-scope
-      (ugly-string (parse "function FOO(){ FOO(); }"))))
+      (ugly-string (test-parse "function FOO(){ FOO(); }"))))
   "function JW0(){JW0();}")
 
 (deftest ugly-print/function-decl/5 :notes ugly-print
   (with-fresh-genvar
     (in-local-scope
       (let ((jw::*pretty-mode* nil))
-        (jw::uglify-vars (parse "
+        (jw::uglify-vars (test-parse "
           function recursiveCount(i, n)
           {
             if(i > n)
@@ -66,7 +66,7 @@
               return recursiveCount(i + 1, n);
             }
           }")))))
-  #.(parse "
+  #.(test-parse "
       function JW0(JW1, JW2)
       {
         if(JW1 > JW2)
@@ -88,19 +88,19 @@
 ;;
 (deftest ugly-print/function-decl-arg-shadow/1 :notes ugly-print
   (with-fresh-genvar
-    (ugly-string (parse "function FOO(x){ var x = 3; }")))
+    (ugly-string (test-parse "function FOO(x){ var x = 3; }")))
   "function FOO(JW0){var JW1=3;}")
     
 
 (deftest ugly-print/function-decl-arg-shadow/2 :notes ugly-print
   (with-fresh-genvar
     (in-local-scope
-      (ugly-string (parse "function FOO(x){ var x = 3; FOO(x);}"))))
+      (ugly-string (test-parse "function FOO(x){ var x = 3; FOO(x);}"))))
   "function JW0(JW1){var JW2=3;JW0(JW2);}")
 
 (deftest ugly-print/function-in-function/1 :notes ugly-print
   (with-fresh-genvar
-    (ugly-string (parse "function FOO(x) {
+    (ugly-string (test-parse "function FOO(x) {
                           function BAR(z) {
                              return z + y;
                           }
@@ -111,7 +111,7 @@
 
 (deftest ugly-print/function-in-function/2 :notes ugly-print
   (with-fresh-genvar
-    (ugly-string (parse "function FOO(x) {
+    (ugly-string (test-parse "function FOO(x) {
                           var y = 3;
                           function BAR(z) {
                              return z + y;
@@ -122,7 +122,7 @@
 
 (deftest ugly-print/function-in-function-in-function/1 :notes ugly-print
   (with-fresh-genvar
-    (ugly-string (parse "function FOO(x) {
+    (ugly-string (test-parse "function FOO(x) {
                           function BAR(z) {
                             function BAZ(xz) {
                                 return 3 + y;
@@ -137,7 +137,7 @@
 (deftest ugly-print/blocks/1 :notes ugly-print
  (with-fresh-genvar
    (in-local-scope
-     (ugly-string (parse "{ var y = 3;
+     (ugly-string (test-parse "{ var y = 3;
                              {
                                 var x = 1;
                              }
@@ -148,13 +148,13 @@
 (deftest ugly-print/free-variables/1 :notes ugly-print
   (with-fresh-genvar
     (in-local-scope
-      (ugly-string (parse "var x = 10;
+      (ugly-string (test-parse "var x = 10;
                            var y = x + z;"))))
     "var JW0=10;var JW1=JW0+z;")
 
 (deftest ugly-print/free-variables/2 :notes ugly-print
   (with-fresh-genvar
-    (ugly-string (parse "var x = foo;
+    (ugly-string (test-parse "var x = foo;
                          function bar(m)
                          {
                            var y=m*2;
@@ -168,14 +168,14 @@
 (deftest ugly-print/pretty-variable/1 :notes ugly-print
   (with-fresh-genvar
     (let ((jw::*pretty-mode* t))
-      (jw::uglify-vars (parse "
+      (jw::uglify-vars (test-parse "
         function fn(arg1, arg2)
         {
           function bar() { return 7; }
           var foo = 10;
           WScript.echo(foo + arg2);
         }"))))
-  #.(parse "
+  #.(test-parse "
         function fn(arg1$0, arg2$1)
         {
           function bar$3() { return 7; }
@@ -185,7 +185,7 @@
 
 (deftest ugly-print/for-loop-does-not-create-new-scope/1 :notes ugly-print
   (with-fresh-genvar
-    (ugly-string (parse "
+    (ugly-string (test-parse "
         var top = 10;
         for(var top = 0; top < 100; top++)
         {
@@ -195,7 +195,7 @@
 
 (deftest ugly-print/for-loop-does-not-create-new-scope/2 :notes ugly-print
   (with-fresh-genvar
-    (ugly-string (parse "
+    (ugly-string (test-parse "
         var top = 10;
         for(var top in topVars)
         {
@@ -205,7 +205,7 @@
 
 (deftest ugly-print/case-sensitivity/1 :notes ugly-print
   (with-fresh-genvar
-    (ugly-string (parse "
+    (ugly-string (test-parse "
         function Counter() {}
         function foo()
         {
@@ -215,7 +215,7 @@
 
 (deftest ugly-print/case-sensitivity/2 :notes ugly-print
   (with-fresh-genvar
-    (ugly-string (parse "
+    (ugly-string (test-parse "
         function Counter() {}
         var counter = new Counter;")))
   "function Counter(){}var counter=new Counter;") ; Toplevel identifiers (including the `counter` var) should not be changed

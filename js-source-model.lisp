@@ -24,7 +24,9 @@
 
 (defelement source-element
   "A common base type for all source elements"
-  (label nil :type (or string null)))
+  (label nil :type (or string null))
+  (start nil :type (or number null))
+  (end nil :type (or number null)))
 
 (defelement (expression (:include source-element))
   "A common base type for all source elements that can be expressions.

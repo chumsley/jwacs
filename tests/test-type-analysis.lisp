@@ -17,38 +17,38 @@
 (deftest type-analysis/simple-assignment/1 :notes type-analysis
   (type-names
    (compute-types #s(identifier :name "x")
-                  (type-analyze (parse "x = 5 / '2.5'; y = 'str'; y = x;"))))
+                  (type-analyze (test-parse "x = 5 / '2.5'; y = 'str'; y = x;"))))
   ("Number"))
 
 (deftest type-analysis/simple-assignment/2 :notes type-analysis
   (type-names
    (compute-types #s(identifier :name "y")
-                  (type-analyze (parse "x = 5 / '2.5'; y = 'str'; y = x;"))))
+                  (type-analyze (test-parse "x = 5 / '2.5'; y = 'str'; y = x;"))))
    ("Number" "String"))
 
 (deftest type-analysis/simple-assignment/3 :notes type-analysis
   (type-names
    (compute-types #s(identifier :name "non-existo")
-                  (type-analyze (parse "var x = 10; var y = str; y = x;"))))
+                  (type-analyze (test-parse "var x = 10; var y = str; y = x;"))))
   ("undefined"))
 
 (deftest type-analysis/var-decl/1 :notes type-analysis
     (type-names
      (compute-types #s(identifier :name "y")
-                    (type-analyze (parse "var x; x = 5 / '2.5'; y = 'str'; y = x;"))))
+                    (type-analyze (test-parse "var x; x = 5 / '2.5'; y = 'str'; y = x;"))))
     ("Number" "String" "undefined"))
 
 (deftest type-analysis/var-decl/2 :notes type-analysis
   (type-names
    (compute-types #s(identifier :name "y")
-                  (type-analyze (parse "var x = 5 / '2.5', y = 'str'; y = x;"))))
+                  (type-analyze (test-parse "var x = 5 / '2.5', y = 'str'; y = x;"))))
   ("Number" "String"))
 
 (deftest type-analysis/function-parameters/1 :notes type-analysis
   (type-names
    (compute-types
     #s(identifier :name "a")
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      function foo()
      {
        var x = 20;
@@ -66,7 +66,7 @@
   (type-names
    (compute-types
     #s(identifier :name "b")
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      function foo()
      {
        var x = 20;
@@ -85,7 +85,7 @@
   (type-names
    (compute-types
     #s(identifier :name "x")
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      function foo()
      {
        var x = bar(10);
@@ -101,7 +101,7 @@
   (type-names
    (compute-types
     #s(identifier :name "x")
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      function foo()
      {
        var x = bar(10);
@@ -119,7 +119,7 @@
   (type-names
    (compute-types
     #s(identifier :name "x")
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      function foo()
      {
        WScript.echo('hello world');
@@ -131,7 +131,7 @@
   (type-names
    (compute-types
     #s(identifier :name "x")
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      var foo = function()
      {
        WScript.echo('hello world');
@@ -143,7 +143,7 @@
   (type-names
    (compute-types
     #s(identifier :name "x")
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      function foo(a)
      {
        WScript.echo('hello world');
@@ -157,7 +157,7 @@
   (type-names
    (compute-types
     #s(identifier :name "x")
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      var foo = function(a)
      {
        WScript.echo('hello world');
@@ -171,7 +171,7 @@
   (type-names
    (compute-types
     #s(identifier :name "x")
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      function foo(a)
      {
        WScript.echo('hello world');
@@ -184,7 +184,7 @@
   (type-names
    (compute-types
     #s(property-access :target #s(identifier :name "x") :field #s(string-literal :value "foo"))
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      var x = new Object;
      x.foo = 20;"))))
   ("Number"))
@@ -193,7 +193,7 @@
   (type-names
    (compute-types
     #s(property-access :target #s(identifier :name "x") :field #s(string-literal :value "foo"))
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      var x = new Object;
      x.foo = 20;
      var y = x;
@@ -204,7 +204,7 @@
   (type-names
    (compute-types
     #s(property-access :target #s(identifier :name "x") :field #s(string-literal :value "foo"))
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      function Foo()
      {
         this.foo = 55;
@@ -223,7 +223,7 @@
    (compute-types
     #s(property-access :target #s(identifier :name "foo")
                        :field #s(string-literal :value "bar"))
-    (type-analyze (parse "
+    (type-analyze (test-parse "
       var foo = new Object;
       var x = 'hey';
       foo.bar = 10;
@@ -236,7 +236,7 @@
    (compute-types
     #s(property-access :target #s(identifier :name "foo")
                        :field #s(identifier :name "quux"))
-    (type-analyze (parse "
+    (type-analyze (test-parse "
       var foo = new Object;
       var x = 'hey';
       foo.bar = 10;
@@ -248,7 +248,7 @@
   (type-names
    (compute-types
     #s(identifier :name "x")
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      var ctors = new Object;
      ctors.num = Number;
      ctors.str = String;
@@ -260,7 +260,7 @@
   (type-names
    (compute-types
     #s(identifier :name "x")
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      function randCtor()
      {
         if(rand() % 2)
@@ -275,7 +275,7 @@
   (type-names
    (compute-types
     #s(identifier :name "x")
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      function id(a)
      {
         return a;
@@ -289,7 +289,7 @@
    (compute-types
     #s(property-access :target #s(identifier :name "x")
                        :field #s(string-literal :value "foo"))
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      var x = new FooObj(55);
      var y = new FooObj('str');
      function FooObj(arg)
@@ -303,7 +303,7 @@
    (compute-types
     #s(property-access :target #s(identifier :name "x")
                        :field #s(string-literal :value "foo"))
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      var x = new (FooFactory(80))('str');
      function FooFactory(ctor)
      {
@@ -329,7 +329,7 @@
     #s(property-access :target #s(property-access :target #s(identifier :name "x")
                                                   :field #s(string-literal :value "foo"))
                        :field #s(string-literal :value "a"))
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      var x = new Object;
      x.foo = {a: null, b: 20};"))))
   ("null"))
@@ -340,7 +340,7 @@
     #s(property-access :target #s(property-access :target #s(identifier :name "x")
                                                   :field #s(string-literal :value "foo"))
                        :field #s(string-literal :value "b"))
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      var x = new Object;
      x.foo = {a: null, b: 20};"))))
   ("Number"))
@@ -350,7 +350,7 @@
    (compute-types
     #s(property-access :target #s(identifier :name "y")
                        :field #s(numeric-literal :value 0))
-    (type-analyze (parse "
+    (type-analyze (test-parse "
         var x = null;
         var y = ['str', x, 100];"))))
   ("String"))
@@ -360,7 +360,7 @@
    (compute-types
     #s(property-access :target #s(identifier :name "y")
                        :field #s(numeric-literal :value 1))
-    (type-analyze (parse "
+    (type-analyze (test-parse "
         var x = null;
         var y = ['str', x, 100];
         y[1] = /foo/g;"))))
@@ -371,7 +371,7 @@
    (compute-types
     #s(property-access :target #s(identifier :name "y")
                        :field #s(string-literal :value "a"))
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      x.foo = function() { return {a: null, b: 20}; };
      y = x.foo();"))))
   ("null"))
@@ -381,7 +381,7 @@
    (compute-types
     #s(property-access :target #s(identifier :name "y")
                        :field #s(string-literal :value "a"))
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      x.foo = function() { return {a: null, b: 20}; };
      y = x.foo();"))))
   ("null"))
@@ -393,7 +393,7 @@
                                                                   :field #s(string-literal :value "foo"))
                                            :args nil)
                        :field #s(string-literal :value "a"))
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      var x = new Object;
      x.foo = function() { return {a: null, b: 20}; };"))))
   ("null"))
@@ -405,7 +405,7 @@
                                                                   :field #s(string-literal :value "foo"))
                                            :args nil)
                        :field #s(string-literal :value "non-existo"))
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      var x = new Object;
      x.foo = function() { return {a: null, b: 20}; };"))))
   ("undefined"))
@@ -414,7 +414,7 @@
   (type-names
    (compute-types
     #s(identifier :name "w")
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      x = 50;
      x = y;
      y = 'str';
@@ -428,7 +428,7 @@
 (deftest type-analysis/cycle/2 :notes type-analysis
   (length
    (jw::location-node-assignments
-    (gethash "x" (type-analyze (parse "
+    (gethash "x" (type-analyze (test-parse "
                      x = 50;
                      x = y;
                      y = 'str';
@@ -460,7 +460,7 @@
    (compute-types #s(binary-operator :left-arg #s(identifier :name "x")
                                      :right-arg #s(numeric-literal :value 10)
                                      :op-symbol :add)
-                  (type-analyze (parse "var x = 10;"))))
+                  (type-analyze (test-parse "var x = 10;"))))
   ("Number"))
 
 (deftest type-analysis/simple-binary/4 :notes type-analysis
@@ -468,7 +468,7 @@
    (compute-types #s(binary-operator :left-arg #s(identifier :name "x")
                                      :right-arg #s(numeric-literal :value 10)
                                      :op-symbol :add)
-                  (type-analyze (parse "var x = 'ten';"))))
+                  (type-analyze (test-parse "var x = 'ten';"))))
   ("Number" "String"))
 
 (deftest type-analysis/simple-binary/5 :notes type-analysis
@@ -476,7 +476,7 @@
    (compute-types #s(binary-operator :left-arg #s(identifier :name "x")
                                      :right-arg #s(string-literal :value "fifteen")
                                      :op-symbol :add)
-                  (type-analyze (parse "var x = 'ten';"))))
+                  (type-analyze (test-parse "var x = 'ten';"))))
   ("String"))
 
 (deftest type-analysis/simple-unary/1 :notes type-analysis
@@ -497,7 +497,7 @@
   (type-names
    (compute-types #s(property-access :target #s(identifier :name "x")
                                      :field #s(string-literal :value "foo"))
-                  (type-analyze (parse "
+                  (type-analyze (test-parse "
         function MyType() {}
         MyType.prototype.foo = 100;
         var x = new MyType();"))))
@@ -507,7 +507,7 @@
   (type-names
    (compute-types #s(property-access :target #s(identifier :name "y")
                                      :field #s(string-literal :value "foo"))
-                  (type-analyze (parse "
+                  (type-analyze (test-parse "
         var x = new Object;
         var y = new Object;
         x.foo = 'str';
@@ -518,7 +518,7 @@
   (type-names
    (compute-types #s(property-access :target #s(identifier :name "x")
                                      :field #s(string-literal :value "bar"))
-                  (type-analyze (parse "
+                  (type-analyze (test-parse "
         function MyType()
         {
           this.bar = /bar/gi;
@@ -530,7 +530,7 @@
   (type-names
    (compute-types #s(property-access :target #s(identifier :name "x")
                                      :field #s(string-literal :value "bar"))
-                  (type-analyze (parse "
+                  (type-analyze (test-parse "
         function MyType()
         {
           this.bar = /bar/gi;
@@ -543,7 +543,7 @@
 
 (deftest type-analysis/this-context/3 :notes type-analysis
   (type-names
-   (let ((graph (type-analyze (parse "
+   (let ((graph (type-analyze (test-parse "
         function foo()
         {  }
         var x = new Object;
@@ -559,7 +559,7 @@
 
 (deftest type-analysis/this-context/4 :notes type-analysis
   (type-names
-   (let ((graph (type-analyze (parse "
+   (let ((graph (type-analyze (test-parse "
         function foo()
         {  }
         var x = new Object;
@@ -576,7 +576,7 @@
 
 (deftest type-analysis/this-context/5 :notes type-analysis
   (type-names
-   (let ((graph (type-analyze (parse "
+   (let ((graph (type-analyze (test-parse "
         function foo()
         {  }
         var x = new Object;
@@ -596,7 +596,7 @@
 (deftest type-analysis/switch-statement/1 :notes type-analysis
   (type-names
    (compute-types #s(identifier :name "x")
-                  (type-analyze (parse "
+                  (type-analyze (test-parse "
         var x = 20;
         switch(y)
         {
@@ -615,7 +615,7 @@
 (deftest type-analysis/switch-statement/2 :notes type-analysis
   (type-names
    (compute-types #s(identifier :name "y")
-                  (type-analyze (parse "
+                  (type-analyze (test-parse "
         function top()
         {
           var y = null;
@@ -630,7 +630,7 @@
 (deftest type-analysis/function_continuation/1 :notes type-analysis
   (type-names
    (compute-types #s(identifier :name "x")
-                  (type-analyze (parse "
+                  (type-analyze (test-parse "
         var b = null;
         function id(a)
         {
@@ -645,7 +645,7 @@
 (deftest type-analysis/function_continuation/2 :notes type-analysis
   (type-names
    (compute-types #s(identifier :name "b")
-                  (type-analyze (parse "
+                  (type-analyze (test-parse "
         var b = null;
         function id(a)
         {
@@ -658,7 +658,7 @@
   ("$continuation" "null"))
         
 (deftest type-analysis/function_continuation/3 :notes type-analysis
-  (let ((graph (type-analyze (parse "
+  (let ((graph (type-analyze (test-parse "
         function foo()
         {
           return 30;
@@ -672,7 +672,7 @@
 (deftest type-analysis/fn-call/too-few-args/1 :notes type-analysis
   (type-names
    (compute-types #s(identifier :name "x")
-                  (type-analyze (parse "
+                  (type-analyze (test-parse "
         function foo(x)
         {
           return x + 2;
@@ -684,7 +684,7 @@
 (deftest type-analysis/fn-call/too-many-args/1 :notes type-analysis
   (type-names
    (compute-types #s(identifier :name "x")
-                  (type-analyze (parse "
+                  (type-analyze (test-parse "
         function foo(x)
         {
           return x + 2;
@@ -696,7 +696,7 @@
 (deftest type-analysis/with-statement/1 :notes type-analysis
   (type-names
    (compute-types #s(identifier :name "x")
-                  (type-analyze (parse "
+                  (type-analyze (test-parse "
         var bar = null;
         function extract(obj)
         {
@@ -714,7 +714,7 @@
 (deftest type-analysis/try-catch/1 :notes type-analysis
   (type-names
    (compute-types #s(identifier :name "x")
-                  (type-analyze (parse "
+                  (type-analyze (test-parse "
         function foo(num)
         {
           if(num)
@@ -742,7 +742,7 @@
                                                            #s(numeric-literal :value 10)
                                                            #s(identifier :name "foo")))
                        :field #s(numeric-literal :value 0))
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      var foo = /regexp/;"))))
   ("String"))
 
@@ -753,7 +753,7 @@
                                                            #s(numeric-literal :value 10)
                                                            #s(identifier :name "foo")))
                        :field #s(numeric-literal :value 2))
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      var foo = /regexp/;"))))
   ("RegExp"))
 
@@ -764,7 +764,7 @@
                                                            #s(numeric-literal :value 10)
                                                            #s(identifier :name "foo")))
                        :field #s(numeric-literal :value 8))
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      var foo = /regexp/;"))))
   ("undefined"))
 
@@ -775,7 +775,7 @@
                                                            #s(numeric-literal :value 10)
                                                            #s(identifier :name "foo")))
                        :field #s(identifier :name "nonexisto"))
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      var foo = /regexp/;"))))
   ("Number" "RegExp" "String"))
 
@@ -785,7 +785,7 @@
     #s(property-access :target #s(object-literal :properties
                                                  ((#s(string-literal :value "foo") . #s(identifier :name "bar"))))
                        :field #s(string-literal :value "foo"))
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      var bar = 88;"))))
   ("Number"))
 
@@ -795,7 +795,7 @@
     #s(property-access :target #s(object-literal :properties
                                                  ((#s(string-literal :value "foo") . #s(identifier :name "bar"))))
                        :field #s(string-literal :value "jaerb"))
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      var bar = 88;"))))
   ("undefined"))
 
@@ -806,7 +806,7 @@
                                                  ((#s(string-literal :value "foo") . #s(identifier :name "bar"))
                                                   (#s(string-literal :value "baz") . #s(special-value :symbol :null))))
                        :field #s(identifier :name "bar"))
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      var bar = 88;"))))
   ("Number" "null"))
 
@@ -817,7 +817,7 @@
                                                                 ((#s(string-literal :value "foo") . #s(identifier :name "bar"))))
                                       :field #s(string-literal :value "foo"))
                :args (#s(numeric-literal :value 20)))
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      function bar(x)
      {
        return x;
@@ -851,7 +851,7 @@
                                                                 ((#s(string-literal :value "foo") . #s(identifier :name "bar"))))
                                        :field #s(string-literal :value "foo"))
                :args (#s(string-literal :value "str")))
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      function bar(x)
      {
        return x;
@@ -869,14 +869,14 @@
 (deftest type-analysis/compute-types/function-expression/2 :notes type-analysis
   (type-names
    (compute-types
-    #s(fn-call :fn #s(function-expression :name "snrg" :parameters ("x") :body #.(parse "return x + 2;"))
+    #s(fn-call :fn #s(function-expression :name "snrg" :parameters ("x") :body #.(test-parse "return x + 2;"))
                :args (#s(numeric-literal :value 3)))
-    (type-analyze (parse "
+    (type-analyze (test-parse "
      var y = function snrg(x) {return x + 2;} (7);"))))
   ("Number"))
 
 (defun %make-property-cycle (&optional (n 1000))
-  (append (parse "x0.foo = x1; x0 = x1;")
+  (append (test-parse "x0.foo = x1; x0 = x1;")
                       (loop for idx from 1 upto (1- n)
-                            append (parse (format nil "x~D=new Object;x~D.foo~D = x~D; x~D = x~D;" idx idx idx (1+ idx) idx (1+ idx))))
-                      (parse (format nil "x~D = x0; x~D.foo = x0;" n n))))
+                            append (test-parse (format nil "x~D=new Object;x~D.foo~D = x~D; x~D = x~D;" idx idx idx (1+ idx) idx (1+ idx))))
+                      (test-parse (format nil "x~D = x0; x~D.foo = x0;" n n))))

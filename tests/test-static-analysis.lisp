@@ -11,7 +11,7 @@
 
 (deftest static-analysis/explicitly-terminated-p/1 :notes static-analysis
   (explicitly-terminated-p
-   (parse "
+   (test-parse "
       x = 10;
       y = 20;
       return 15;")
@@ -20,7 +20,7 @@
 
 (deftest static-analysis/explicitly-terminated-p/2 :notes static-analysis
   (explicitly-terminated-p
-   (parse "
+   (test-parse "
       x = 10;
       y = 20;
       if(x > 10)
@@ -32,7 +32,7 @@
 
 (deftest static-analysis/explicitly-terminated-p/3 :notes static-analysis
   (explicitly-terminated-p
-   (parse "
+   (test-parse "
       if(x)
         return;
       else
@@ -42,7 +42,7 @@
 
 (deftest static-analysis/explicitly-terminated-p/4 :notes static-analysis
   (explicitly-terminated-p
-   (parse "
+   (test-parse "
       while(true)
       {
         if(x)
@@ -56,7 +56,7 @@
 
 (deftest static-analysis/explicitly-terminated-p/5 :notes static-analysis
   (explicitly-terminated-p
-   (parse "
+   (test-parse "
       foo:
       while(true)
       {
@@ -71,7 +71,7 @@
 
 (deftest static-analysis/explicitly-terminated-p/6 :notes static-analysis
   (explicitly-terminated-p
-   (parse "
+   (test-parse "
       foo:
       while(true)
       {
@@ -86,7 +86,7 @@
 
 (deftest static-analysis/explicitly-terminated-p/7 :notes static-analysis
   (explicitly-terminated-p
-   (parse "
+   (test-parse "
       while(true)
       {
         if(x)
@@ -100,7 +100,7 @@
 
 (deftest static-analysis/explicitly-terminated-p/8 :notes static-analysis
   (explicitly-terminated-p
-   (parse "
+   (test-parse "
       x = 50;
       // Although a human can tell that the loop's body is guaranteed to execute
       // at least once, EXPLICITLY-TERMINATED-P can't, because we're not doing
@@ -117,7 +117,7 @@
 
 (deftest static-analysis/explicitly-terminated-p/9 :notes static-analysis
   (explicitly-terminated-p
-   (parse "
+   (test-parse "
       x = 20;
       foo:
       while(true)
@@ -129,7 +129,7 @@
 
 (deftest static-analysis/explicitly-terminated-p/nested-throw/1 :notes static-analysis
   (explicitly-terminated-p
-   (parse "
+   (test-parse "
       foo();
       bar();
       try
@@ -148,7 +148,7 @@
 
 (deftest static-analysis/explicitly-terminated-p/nested-throw/2 :notes static-analysis
   (explicitly-terminated-p
-   (parse "
+   (test-parse "
       foo();
       bar();
       try
@@ -168,7 +168,7 @@
 
 (deftest static-analysis/explicitly-terminated-p/nested-throw/3 :notes static-analysis
   (explicitly-terminated-p
-   (parse "
+   (test-parse "
       foo();
       bar();
       try
@@ -196,7 +196,7 @@
 
 (deftest static-analysis/explicitly-terminated-p/nested-throw/4 :notes static-analysis
   (explicitly-terminated-p
-   (parse "
+   (test-parse "
       foo();
       bar();
       try
