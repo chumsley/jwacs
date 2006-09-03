@@ -636,15 +636,17 @@
 
 (defun element-end (element)
   "Returns the end position of source-element or token ELEMENT."
-  (etypecase element
+  (typecase element
     (token
      (token-end element))
     (source-element
      (source-element-end element))
     (cons
-     (element-end (car (last element))))
-    (null
-     nil)))
+     (loop for elm in (reverse element)
+           for elm-end = (element-end elm)
+           unless (null elm-end)
+           do (return elm-end)))
+    (t nil)))
 
 ;;;; ======= Public interface ======================================================================
 (define-condition syntax-error (error)
