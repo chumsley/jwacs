@@ -10,6 +10,6 @@
   (:use :cl :cl-ppcre)
   (:nicknames :jw)
   (:export
-   #:parse #:parse-only #:strict-parse
+   #:parse
    #:process #:build-app
    #:syntax-error))

@@ -23,19 +23,6 @@
   "The name of the executable to create when dumping a binary")
 
 ;;;; ======= Compilation configuration =============================================================
-(defparameter *use-yacc* t              ; TODO When we implement semicolon insertion for the Lispworks parser, go back to using parsergen when available
-;  #+lispworks nil
-;  #-lispworks t
-  "When t, use cl-yacc to generate a parser.  Otherwise, use the Lispworks parsergen.")
-
-(if *use-yacc*
-  (pushnew :use-yacc *features*)
-  (setf *features* (remove :use-yacc *features*)))
-
-#-use-yacc
-(require "parsergen")
-
-#+use-yacc
 (defparameter *muffle-conflicts* t
   "When T, yacc warnings about Shift/Reduce and Reduce/Reduce conflicts will be muffled.
    When NIL, all such conflicts will be reported.
@@ -77,7 +64,7 @@
                (:file "lexer-macros")
                (:file "lex-javascript")
                (:file "js-source-model")
-               #+use-yacc (:file "parse-javascript-yacc")
+               (:file "parse-javascript-yacc")
                (:file "parse-javascript")
                (:file "pretty-print")
                (:file "source-transformations")

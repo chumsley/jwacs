@@ -12,19 +12,12 @@
 ;;;
 (in-package :jwacs)
 
-;;;; Cross-compiler configuration
-(defmacro defparser-generic (&rest args)
-  "Use this macro instead of DEFPARSER.  It evaluates to an invocation of either
-   PARSERGEN:DEFPARSER or JWACS::DEFPARSER depending on the use-yacc feature."
-  #+use-yacc `(jwacs::defparser ,@args)
-  #-use-yacc `(parsergen:defparser ,@args))
-
 ;;;; Parser
 
 (defparameter undefined-id (make-identifier :name "undefined")
   "Contains the `undefined` identifier")
 
-(defparser-generic javascript-script
+(defparser javascript-script
     
     ((program source-elements) $1) ; Starting production
 
@@ -667,14 +660,6 @@
             (row e) (column e)
             (expected-terminals e))))
 
-;; TODO should signal SYNTAX-ERROR
-(defun strict-parse (str)
-  "Parse a string as a Javascript script, returning a list of statements.
-   Semicolon insertion will /not/ be performed."
-  #+use-yacc (yacc:parse-with-lexer (make-lexer-function (make-instance 'javascript-lexer :text str)))
-  #-use-yacc (javascript-script (make-lexer-function (make-instance 'javascript-lexer :text str))))
-
-#+use-yacc
 (defun parse (str)
   "Parse STR as a Javascript script, returning a list of statements.
    Semicolon insertion is performed according to the ECMA-262 standard."
@@ -718,17 +703,6 @@
                     
       (handler-bind ((yacc:yacc-parse-error #'handle-yacc-error))
         (yacc:parse-with-lexer (make-lexer-function lexer) javascript-script)))))
-
-#-use-yacc
-(defun parse (str)
-  "Parse STR as a Javascript script, returning a list of statements."
-  ;; TODO Lispworks semicolon insertion
-  (warn "Semicolon-insertion is not yet implemented under Lispworks")
-  (multiple-value-bind (ast error-p)
-      (strict-parse str)
-    (if error-p
-      (error "Lispworks parse failed")
-      ast)))
 
 (defun parse-file (path)
   "Load the file at PATH and parse it into a js/jw source model"
