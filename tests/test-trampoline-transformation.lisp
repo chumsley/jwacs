@@ -147,3 +147,5 @@
       return {replaceHandlers: k.$exHandlers, done: false, thunk: function($e) {
         throw 100;
       }};"))
+
+;;TODO position-preservation unit tests

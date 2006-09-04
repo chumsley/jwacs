@@ -48,15 +48,19 @@
                     :label (source-element-label elm)
                     :condition (make-special-value :symbol :true)
                     :body (single-statement
-                           (list (make-if-statement 
-                                  :condition (make-unary-operator :op-symbol :logical-not :arg (while-condition elm))
-                                  :then-statement (make-break-statement :target-label nil)))
+                           (make-if-statement 
+                            :condition (make-unary-operator :op-symbol :logical-not :arg (while-condition elm)
+                                                            :start (source-element-start (while-condition elm))
+                                                            :end (source-element-end (while-condition elm)))
+                            :then-statement (make-break-statement :target-label nil))
                            (transform 'loop-canonicalize 
                                       (transform 'loop-canonicalize-in-body 
                                                  (while-body elm)))
-                           (make-continue-statement :target-label nil)))))
+                           (make-continue-statement :target-label nil))
+                    :start (source-element-start elm)
+                    :end (source-element-end elm))))
     (if new-decls
-      (single-statement (make-var-decl-statement :var-decls new-decls) new-while)
+      (combine-statements (make-var-decl-statement :var-decls new-decls) new-while)
       new-while)))
 
 
@@ -118,8 +122,10 @@
                                               :right-arg (make-special-value :symbol :false)))
 
                             (transform 'loop-canonicalize (transform 'loop-canonicalize-in-body (do-statement-body elm)))
-                            (make-continue-statement :label nil)))))
-    (single-statement ;; TODO Use COMBINE-STATEMENTS instead?
+                            (make-continue-statement :label nil))
+                     :start (source-element-start elm)
+                     :end (source-element-end elm))))
+    (combine-statements
      (make-var-decl-statement :var-decls new-decls)
      new-while)))
 
@@ -163,8 +169,10 @@
                                       :then-statement (make-break-statement :target-label nil))
                                      (transform 'loop-canonicalize (transform 'loop-canonicalize-in-body (for-body elm)))
                                      (for-step elm)
-                                     (make-continue-statement :target-label nil)))))
-   (single-statement ;TODO Use COMBINE-STATEMENTS instead?
+                                     (make-continue-statement :target-label nil))
+                              :start (source-element-start elm)
+                              :end (source-element-end elm))))
+   (combine-statements
     new-header-statements
     new-loop))) 
 
@@ -181,9 +189,11 @@
   (let ((assignments (mapcar (lambda (var-decl) (awhen (var-decl-initializer var-decl)
                                                   (make-binary-operator :op-symbol :assign
                                                                         :left-arg (make-identifier :name (var-decl-name var-decl))
-                                                                        :right-arg it)))
+                                                                        :right-arg it
+                                                                        :start (source-element-start var-decl)
+                                                                        :end (source-element-end var-decl))))
                              (var-decl-statement-var-decls elm))))
-    (single-statement assignments)))
+    (combine-statements assignments)))
 
 
 ;; ===================
@@ -234,9 +244,11 @@
                                                         :field (make-string-literal :value "length")))
                                 :body (single-statement
                                        (make-forin-assign elm new-array new-count-rec)
-                                       (for-in-body elm)))))
+                                       (for-in-body elm))
+                                :start (source-element-start elm)
+                                :end (source-element-end elm))))
                                                 
-    (single-statement ;TODO Use COMBINE-STATEMENTS instead?
+    (combine-statements
      (make-var-decl-statement 
       :var-decls (list (make-var-decl :name new-array :initializer (make-array-literal :elements nil))
                        (make-var-decl :name new-count :initializer (make-numeric-literal :value 0))
@@ -263,15 +275,14 @@
    from the for-in a value from our new array of values, which we are iterating through using a while loop and the variable
    new-count-rec"
   (let ((prop-access
-	 (make-property-access :target (make-identifier :name new-array)
-			       :field (make-unary-operator :op-symbol :post-incr
-							   :arg (make-identifier :name new-count-rec))))
-	(binding (for-in-binding elm)))
+         (make-property-access :target (make-identifier :name new-array)
+                               :field (make-unary-operator :op-symbol :post-incr
+                                                           :arg (make-identifier :name new-count-rec))))
+        (binding (for-in-binding elm)))
     (cond ((identifier-p binding)
-	   (make-binary-operator :op-symbol :assign
-				 :left-arg binding
-				 :right-arg prop-access))
-	  ((var-decl-statement-p binding)
-	   (let ((vardecl (car (var-decl-statement-var-decls binding))))
-       (make-var-init (var-decl-name vardecl) prop-access)))
-	  (t nil))))
+           (make-binary-operator :op-symbol :assign
+                                 :left-arg binding
+                                 :right-arg prop-access))
+          ((var-decl-statement-p binding)
+           (let ((vardecl (car (var-decl-statement-var-decls binding))))
+             (make-var-init (var-decl-name vardecl) prop-access))))))

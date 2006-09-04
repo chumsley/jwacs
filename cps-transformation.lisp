@@ -148,7 +148,9 @@
        (make-function-decl :name (function-decl-name elm)
                            :parameters new-parameters
                            :body (append bare-var-decls
-                                         tx-body))
+                                         tx-body)
+                           :start (source-element-start elm)
+                           :end (source-element-end elm))
        nil))))
 
 (defmethod tx-cps ((elm function-expression) statement-tail)
@@ -167,7 +169,9 @@
      (make-function-expression :name (function-expression-name elm)
                                 :parameters new-parameters
                                 :body (append bare-var-decls
-                                              tx-body))
+                                              tx-body)
+                                :start (source-element-start elm)
+                                :end (source-element-end elm))
      nil))))
 
 (defun make-tail-call-continuation (cont-id lexically-active-handlers)
@@ -200,7 +204,9 @@
                                                                            *lexically-active-handlers*)
                                               (mapcar (lambda (item)
                                                         (tx-cps item nil))
-                                                      (fn-call-args arg))))))
+                                                      (fn-call-args arg))))
+               :start (source-element-start elm)
+               :end (source-element-end elm)))
 
              ;; Tail call to $new0
              ((new-expr-p arg)
@@ -210,7 +216,9 @@
                                                                             *lexically-active-handlers*)
                                                (mapcar (lambda (item)
                                                          (tx-cps item nil))
-                                                       (new-expr-args arg))))))
+                                                       (new-expr-args arg))))
+               :start (source-element-start elm)
+               :end (source-element-end elm)))
               
              
              
@@ -223,7 +231,9 @@
                       :initial-value (make-return-statement
                                       :arg (make-fn-call :fn *cont-id*
                                                          :args (unless (null arg)
-                                                                 (list (tx-cps arg nil)))))
+                                                                 (list (tx-cps arg nil))))
+                                      :start (source-element-start elm)
+                                      :end (source-element-end elm))
                       :from-end t))
 
              ;; Simple return
@@ -231,7 +241,9 @@
               (make-return-statement
                :arg (make-fn-call :fn *cont-id*
                                   :args (unless (null arg)
-                                          (list (tx-cps arg nil)))))))))
+                                          (list (tx-cps arg nil))))
+               :start (source-element-start elm)
+               :end (source-element-end elm))))))
       (values new-ret nil))))
       
 
@@ -271,7 +283,9 @@
             :args (cons (make-void-continuation *cont-id*)
                         (mapcar (lambda (item)
                                   (tx-cps item nil))
-                                (fn-call-args elm))))
+                                (fn-call-args elm)))
+            :start (source-element-start elm)
+            :end (source-element-end elm))
 
            ;; Call w/statement-tail
            (make-fn-call
@@ -281,7 +295,9 @@
                                                             (tx-cps statement-tail nil)))
                           (mapcar (lambda (item)
                                     (tx-cps item nil))
-                                  (fn-call-args elm)))))))
+                                  (fn-call-args elm)))
+            :start (source-element-start elm)
+            :end (source-element-end elm)))))
     (values (make-return-statement :arg new-fn-call) t)))
 
 (defmethod tx-cps ((elm new-expr) statement-tail)
@@ -302,7 +318,9 @@
                                                             (tx-cps statement-tail nil)))
                         (mapcar (lambda (item)
                                   (tx-cps item nil))
-                                (new-expr-args elm)))))))
+                                (new-expr-args elm)))
+            :start (source-element-start elm)
+            :end (source-element-end elm)))))
     (values (make-return-statement :arg tx-expr) t)))
 
 ;; TODO if we really cared, we could make a predicate to tell us whether every control
@@ -375,7 +393,9 @@
                                               (make-continuation-function :parameters (list k-param-name)
                                                                           :body (in-local-scope
                                                                                   (tx-cps augmented-statement-tail nil)))
-                                              (fn-call-args initializer)))))
+                                              (fn-call-args initializer))
+                                       :start (source-element-start initializer)
+                                       :end (source-element-end initializer))))
            (values (make-return-statement :arg new-call) t)))
 
         ;; eg: var x = new Foo;
@@ -385,7 +405,9 @@
                                                        (make-continuation-function :parameters (list k-param-name)
                                                                                    :body (in-local-scope
                                                                                            (tx-cps augmented-statement-tail nil)))
-                                                       (new-expr-args initializer)))))
+                                                       (new-expr-args initializer))
+                                                :start (source-element-start initializer)
+                                                :end (source-element-end initializer))))
            (values (make-return-statement :arg new-construction) t)))
 
         ;; eg: var x = 20;
@@ -397,7 +419,9 @@
                    statement-tail) 
            (multiple-value-bind (new-decl consumed)
                (tx-cps (car var-decls) statement-tail)
-             (values (make-var-decl-statement :var-decls (list new-decl))
+             (values (make-var-decl-statement :var-decls (list new-decl)
+                                              :start (source-element-start elm)
+                                              :end (source-element-end elm))
                      consumed))))
 
         ;; eg: var x;
@@ -411,7 +435,10 @@
 (defmethod tx-cps ((elm special-value) statement-tail)
   (if (eq :function_continuation
           (special-value-symbol elm))
-    (values *cont-id* nil)
+    (values (make-identifier :name (identifier-name *cont-id*)
+                             :start (source-element-start elm)
+                             :end (source-element-end elm))
+            nil)
     (call-next-method)))
 
 ;;;; ======= loop transformation ===================================================================
@@ -513,7 +540,9 @@
                          (find-binding (concatenate 'string it "$break"))
                          *nearest-break*)))
     (values
-     (make-resume-statement :target (make-identifier :name break-name))
+     (make-resume-statement :target (make-identifier :name break-name)
+                            :start (source-element-start elm)
+                            :end (source-element-end elm))
      nil)))
 
 (defmethod tx-cps ((elm continue-statement) statement-tail)
@@ -522,7 +551,9 @@
                             (find-binding (concatenate 'string it "$continue"))
                             *nearest-continue*)))
     (values
-     (make-resume-statement :target (make-identifier :name continue-name))
+     (make-resume-statement :target (make-identifier :name continue-name)
+                            :start (source-element-start elm)
+                            :end (source-element-end elm))
      nil)))
 
 ;;;; ======= Branch statements =====================================================================
@@ -548,7 +579,9 @@
           ((and then-terminated (null else-statement))
            (values
               (make-if-statement :condition (tx-cps condition nil)
-                                 :then-statement (single-statement (tx-cps then-statement nil)))
+                                 :then-statement (single-statement (tx-cps then-statement nil))
+                                 :start (source-element-start elm)
+                                 :end (source-element-end elm))
               nil))
 
           ;; In the case where one branch is terminated and the other isn't, the unterminated
@@ -560,7 +593,9 @@
              (values
               (make-if-statement :condition (tx-cps condition nil)
                                  :then-statement (single-statement (tx-cps then-statement nil))
-                                 :else-statement (single-statement tx-else))
+                                 :else-statement (single-statement tx-else)
+                                 :start (source-element-start elm)
+                                 :end (source-element-end elm))
               else-consumed)))
           
           ((and (not then-terminated) else-terminated)
@@ -569,7 +604,9 @@
              (values
               (make-if-statement :condition (tx-cps condition nil)
                                  :then-statement (single-statement tx-then)
-                                 :else-statement (single-statement (tx-cps else-statement nil)))
+                                 :else-statement (single-statement (tx-cps else-statement nil))
+                                 :start (source-element-start elm)
+                                 :end (source-element-end elm))
               then-consumed)))
           
           ;; In the case where both branches are terminated, we don't consume the statement-tail
@@ -584,7 +621,9 @@
                (values
                 (make-if-statement :condition (tx-cps condition nil)
                                    :then-statement (single-statement tx-then)
-                                   :else-statement (single-statement tx-else))
+                                   :else-statement (single-statement tx-else)
+                                   :start (source-element-start elm)
+                                   :end (source-element-end elm))
                 (or then-consumed else-consumed)))))
 
           ;; When neither branch is terminated we need to generate a labelled continuation.
@@ -604,7 +643,9 @@
                                                            nil))
                                   :else-statement (single-statement
                                                    (tx-cps (combine-statements else-statement if-k-resume)
-                                                           nil))))
+                                                           nil))
+                                  :start (source-element-start elm)
+                                  :end (source-element-end elm)))
               t))))))))
 
 (defmethod tx-cps ((elm switch) statement-tail)
@@ -622,7 +663,9 @@
         (make-switch :value (tx-cps (switch-value elm) nil)
                      :clauses (mapcar (lambda (elm)
                                         (tx-cps elm nil))
-                                      terminated-clauses)))
+                                      terminated-clauses)
+                     :start (source-element-start elm)
+                     :end (source-element-end elm)))
        t))))
                                                                   
 (defun compute-terminated-clauses (clause-list)
@@ -683,8 +726,12 @@
           count (default-clause-p clause) into defaults-encountered
           collect (if (case-clause-p clause)
                     (make-case-clause :value (case-clause-value clause)
-                                      :body extended-body)
-                    (make-default-clause :body extended-body))
+                                      :body extended-body
+                                      :start (source-element-start clause)
+                                      :end (source-element-end clause))
+                    (make-default-clause :body extended-body
+                                         :start (source-element-start clause)
+                                         :end (source-element-end clause)))
           when (and (null (cdr clause-tail))
                     (zerop defaults-encountered))
           collect (make-default-clause :body (list (make-break-statement :target-label nil))))))
@@ -821,5 +868,7 @@
        (make-object-literal :properties
                             (loop for (prop-name . prop-value) in (object-literal-properties elm)
                                   collect (cons (slot-tx prop-name)
-                                                (slot-tx prop-value))))
+                                                (slot-tx prop-value)))
+                            :start (source-element-start elm)
+                            :end (source-element-end elm))
        consumed))))

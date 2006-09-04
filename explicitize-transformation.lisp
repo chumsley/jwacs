@@ -155,7 +155,9 @@
             (nested-explicitize (fn-call-fn elm))
           (let ((new-stmts (append call-prereqs new-stmts)) ; The new binding uses the old binding
                 (new-elm (make-fn-call :fn call-proxy
-                                       :args new-args)))
+                                       :args new-args
+                                       :start (source-element-start elm)
+                                       :end (source-element-end elm))))
             (if *nested-context*
               (let ((new-var (genvar)))
                 (return (values (make-identifier :name new-var)
@@ -173,7 +175,9 @@
             (nested-explicitize (new-expr-constructor elm))
           (let ((new-stmts (append ctor-prereqs new-stmts))
                 (new-elm (make-new-expr :constructor ctor-proxy
-                                        :args new-args)))
+                                        :args new-args
+                                        :start (source-element-start elm)
+                                        :end (source-element-end elm))))
             ;; A new expression is an implicit function call to the constructor
             ;; which we make explicit through a call to $new,
             ;; so we need to pull it out of nested contexts.
@@ -189,7 +193,9 @@
     (multiple-value-bind (arg-proxy arg-prereqs)
         (nested-explicitize (resume-statement-arg elm))
       (values (make-resume-statement :target target-proxy
-                                     :arg arg-proxy)
+                                     :arg arg-proxy
+                                     :start (source-element-start elm)
+                                     :end (source-element-end elm))
               (append target-prereqs
                       arg-prereqs)))))
 
@@ -199,18 +205,24 @@
     (multiple-value-bind (target-proxy target-prereqs)
         (nested-explicitize (throw-statement-target elm))
       (values (make-throw-statement :value value-proxy
-                                    :target target-proxy)
+                                    :target target-proxy
+                                    :start (source-element-start elm)
+                                    :end (source-element-end elm))
               (append value-prereqs
                       target-prereqs)))))
 
 (defmethod tx-explicitize ((elm var-decl-statement))
   (if (> (length (var-decl-statement-var-decls elm)) 1)
     (tx-explicitize (mapcar (lambda (decl)
-                                      (make-var-decl-statement :var-decls (list decl)))
+                                      (make-var-decl-statement :var-decls (list decl)
+                                                               :start (source-element-start decl)
+                                                               :end (source-element-end decl)))
                                     (var-decl-statement-var-decls elm)))
     (multiple-value-bind (proxy prereqs)
         (tx-explicitize (first (var-decl-statement-var-decls elm)))
-      (values (make-var-decl-statement :var-decls (list proxy))
+      (values (make-var-decl-statement :var-decls (list proxy)
+                                       :start (source-element-start elm)
+                                       :end (source-element-end elm))
               prereqs))))
 
 ;; We need to override the default handling to ensure that the pre-statments for the
@@ -226,7 +238,9 @@
           (unnested-explicitize (if-statement-else-statement elm))
         (values (make-if-statement :condition cond-proxy
                                    :then-statement (single-statement then-prereqs then-proxy)
-                                   :else-statement (single-statement else-prereqs else-proxy))
+                                   :else-statement (single-statement else-prereqs else-proxy)
+                                   :start (source-element-start elm)
+                                   :end (source-element-end elm))
                 cond-prereqs)))))
 
 (defmethod tx-explicitize ((elm switch))
@@ -236,7 +250,9 @@
      (make-switch :value cond-proxy
                   :clauses (mapcar (lambda (clause) ; Clauses never have prereqs, so a simple mapcar is fine
                                      (unnested-explicitize clause))
-                                   (switch-clauses elm)))
+                                   (switch-clauses elm))
+                  :start (source-element-start elm)
+                  :end (source-element-end elm))
      cond-prereqs)))
 
 (defmethod tx-explicitize ((elm case-clause))
@@ -251,7 +267,9 @@
                         ((listp body-proxy)
                          (append body-prereqs body-proxy))
                         (t
-                         (postpend body-prereqs body-proxy))))))
+                         (postpend body-prereqs body-proxy)))
+                      :start (source-element-start elm)
+                      :end (source-element-end elm))))
 
 (defmethod tx-explicitize ((elm while))
   (assert (idempotent-expression-p (while-condition elm))) ; LOOP-CANONICALIZATION should reduce all while loops to idempotent conditions (viz. `true`)
@@ -259,7 +277,9 @@
       (unnested-explicitize (while-body elm))
     (values (make-while :label (source-element-label elm)
                         :condition (while-condition elm)
-                        :body (single-statement body-prereqs body-proxy))
+                        :body (single-statement body-prereqs body-proxy)
+                        :start (source-element-start elm)
+                        :end (source-element-end elm))
             nil)))
 
 (defmethod tx-explicitize ((elm for-in))
@@ -269,7 +289,9 @@
         (unnested-explicitize (for-in-body elm))
       (values (make-for-in :binding (for-in-binding elm)
                            :collection collection-proxy
-                           :body (single-statement body-prereqs body-proxy))
+                           :body (single-statement body-prereqs body-proxy)
+                           :start (source-element-start elm)
+                           :end (source-element-end elm))
               collection-prereqs))))
 
 (defmethod tx-explicitize ((elm conditional))
@@ -286,14 +308,18 @@
                 (null else-prereqs))
            (values (make-conditional :condition cond-proxy
                                      :true-arg then-proxy
-                                     :false-arg else-proxy)
+                                     :false-arg else-proxy
+                                     :start (source-element-start elm)
+                                     :end (source-element-end elm))
                    cond-prereqs))
           ;; If the cond-proxy is idempotent, then we can just wrap the
           ;; non-guaranteed prereqs in an if-statement and be done with it
           ((idempotent-expression-p cond-proxy)
            (values (make-conditional :condition cond-proxy
                                      :true-arg then-proxy
-                                     :false-arg else-proxy)
+                                     :false-arg else-proxy
+                                     :start (source-element-start elm)
+                                     :end (source-element-end elm))
                    (postpend cond-prereqs
                              ;;TODO make an if with a negated conditional if there are only else-prereqs
                              (make-if-statement :condition cond-proxy
@@ -307,8 +333,10 @@
                                           (make-var-init cond-proxy-name cond-proxy)))
                   (cond-proxy (make-identifier :name cond-proxy-name)))
              (values (make-conditional :condition cond-proxy
-                                     :true-arg then-proxy
-                                     :false-arg else-proxy)
+                                       :true-arg then-proxy
+                                       :false-arg else-proxy
+                                       :start (source-element-start elm)
+                                       :end (source-element-end elm))
                      (postpend cond-prereqs
                                ;;TODO make an if with a negated conditional if there are only else-prereqs
                                (make-if-statement :condition cond-proxy
@@ -337,14 +365,18 @@
           ((null right-prereqs)
            (values (make-binary-operator :op-symbol (binary-operator-op-symbol elm)
                                          :left-arg left-proxy
-                                         :right-arg right-proxy)
+                                         :right-arg right-proxy
+                                         :start (source-element-start elm)
+                                         :end (source-element-end elm))
                    left-prereqs))
           ;; If the right arg has prereqs, they need to be wrapped in an if.
           ;; If the left arg's proxy is idempotent, then we needn't add a variable initialization for it
           ((idempotent-expression-p left-proxy)
            (values (make-binary-operator :op-symbol (binary-operator-op-symbol elm)
                                          :left-arg left-proxy
-                                         :right-arg right-proxy)
+                                         :right-arg right-proxy
+                                         :start (source-element-start elm)
+                                         :end (source-element-end elm))
                    (postpend left-prereqs
                              (make-if-wrapper left-proxy right-prereqs))))
           ;; If the right arg has prereqs and the left proxy is not idempotent, we need to
@@ -356,7 +388,9 @@
                   (left-proxy (make-identifier :name left-proxy-name)))
              (values (make-binary-operator :op-symbol (binary-operator-op-symbol elm)
                                            :left-arg left-proxy
-                                           :right-arg right-proxy)
+                                           :right-arg right-proxy
+                                           :start (source-element-start elm)
+                                           :end (source-element-end elm))
                      (postpend left-prereqs
                                (make-if-wrapper left-proxy right-prereqs))))))))))
 
@@ -376,7 +410,10 @@
       (nested-explicitize (property-access-target elm))
     (multiple-value-bind (field-proxy field-prereqs)
         (nested-explicitize (property-access-field elm))
-      (values (make-property-access :target target-proxy :field field-proxy)
+      (values (make-property-access :target target-proxy
+                                    :field field-proxy
+                                    :start (source-element-start elm)
+                                    :end (source-element-end elm))
               (append target-prereqs field-prereqs)))))
 
 (defmethod tx-explicitize ((elm comma-expr))
@@ -384,7 +421,9 @@
         for (expr-proxy expr-prereqs) = (multiple-value-list (nested-explicitize expr))
         append expr-prereqs into prereqs
         collect expr-proxy into proxies
-        finally (return (values (make-comma-expr :exprs proxies)
+        finally (return (values (make-comma-expr :exprs proxies
+                                                 :start (source-element-start elm)
+                                                 :end (source-element-end elm))
                                 prereqs))))
       
 (defmethod tx-explicitize ((elm object-literal))
@@ -392,7 +431,9 @@
         for (val-proxy val-prereqs) = (multiple-value-list (nested-explicitize prop-val))
         collect (cons prop-name val-proxy) into props
         append val-prereqs into prereqs
-        finally (return (values (make-object-literal :properties props)
+        finally (return (values (make-object-literal :properties props
+                                                     :start (source-element-start elm)
+                                                     :end (source-element-end elm))
                                 prereqs))))
 
 (defmethod tx-explicitize ((elm-list list))
@@ -417,7 +458,6 @@
            collect proxy
            do (setf pre-stmts (append pre-stmts prereqs))))
      pre-stmts)))
-
 
 (defmethod tx-explicitize (elm)
   elm)

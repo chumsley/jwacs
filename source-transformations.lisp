@@ -214,4 +214,6 @@
    (loop for (prop-name . prop-value) in (object-literal-properties elm)
          collect (cons
                   (transform xform prop-name)
-                  (transform xform prop-value)))))
+                  (transform xform prop-value)))
+   :start (source-element-start elm)
+   :end (source-element-end elm)))

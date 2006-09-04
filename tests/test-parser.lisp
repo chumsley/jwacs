@@ -660,3 +660,9 @@
   (test-parse "a = b
           ++c")
   #.(test-parse "a = b; ++c;"))
+
+(deftest parser/position/1 :notes parser
+  (parse "x.y")
+  (#s(property-access :target #s(identifier :name "x" :start 0 :end 1)
+                      :field #s(string-literal :value "y" :start 2 :end 3)
+                      :start 0 :end 3)))

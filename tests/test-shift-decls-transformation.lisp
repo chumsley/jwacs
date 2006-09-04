@@ -145,3 +145,16 @@
       {
         bar(e);
       }"))
+
+(deftest shift-decls/position-preservation/1 :notes shift-decls
+  (transform 'shift-decls (parse "foo(); var x = bar();"))
+  (#s(var-decl-statement :var-decls (#s(var-decl :name "x")))
+   #s(fn-call :fn #s(identifier :name "foo" :start 0 :end 3)
+              :args nil
+              :start 0 :end 3)
+   #s(binary-operator :left-arg #s(identifier :name "x")
+                      :op-symbol :assign
+                      :right-arg #s(fn-call :fn #s(identifier :name "bar" :start 15 :end 18)
+                                            :args nil
+                                            :start 15 :end 18)
+                      :start 11 :end 18)))

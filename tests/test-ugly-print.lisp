@@ -19,9 +19,11 @@
   `(let* ((*genvar-counter* 0))
     ,@body))
 
-;;;; Test category
+;;;; Test categories
 (defnote ugly-print "tests for the ugly printer")
+(defnote uniquify "tests for the uniquify transformation")
 
+;;;; Ugly-printer tests
 (deftest ugly-print/var-decl/1 :notes ugly-print
   (with-fresh-genvar
     (in-local-scope
@@ -219,3 +221,20 @@
         function Counter() {}
         var counter = new Counter;")))
   "function Counter(){}var counter=new Counter;") ; Toplevel identifiers (including the `counter` var) should not be changed
+
+;;;; Uniquify tests
+
+(deftest uniquify/position-preservation/1 :notes uniquify
+  (with-fresh-genvar
+    (transform 'uniquify (parse "function foo(x) { var x = 10; x = 5;}")))
+  (#s(function-decl :name "foo" :parameters ("x$0")
+                    :body (#s(var-decl-statement :var-decls (#s(var-decl :name "x$1"
+                                                                         :initializer #s(numeric-literal :value 10 :start 26 :end 28)
+                                                                         :start 22 :end 28))
+                                                 :start 18 :end 29)
+                           #s(binary-operator :op-symbol :assign
+                                              :left-arg #s(identifier :name "x$1"
+                                                                      :start 30 :end 31)
+                                              :right-arg #s(numeric-literal :value 5 :start 34 :end 35)
+                                              :start 30 :end 35))
+                    :start 0 :end 35)))

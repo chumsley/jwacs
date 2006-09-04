@@ -125,7 +125,9 @@
     ;; If the identifier is defined in this script, use its unique name.
     ;; Otherwise, return it unmodified (to account for system globals like document or XmlHttpRequest)
     (if new-name
-      (make-identifier :name new-name)
+      (make-identifier :name new-name
+                       :start (source-element-start elm)
+                       :end (source-element-end elm))
       elm)))
 
 (defmethod transform ((xform (eql 'uniquify)) (elm function-decl))
@@ -141,7 +143,9 @@
       (let ((new-params (mapcar #'ensure-unique-binding (function-decl-parameters elm))))
         (make-function-decl :name (find-binding (function-decl-name elm))
                             :parameters new-params
-                            :body (transform-in-scope (function-decl-body elm)))))))
+                            :body (transform-in-scope (function-decl-body elm))
+                            :start (source-element-start elm)
+                            :end (source-element-end elm))))))
   
 (defmethod transform ((xform (eql 'uniquify)) (elm function-expression))
   (with-added-environment
@@ -150,10 +154,14 @@
              (new-params (mapcar #'ensure-unique-binding (function-expression-parameters elm))))
         (make-function-expression :name new-name
                                   :parameters new-params
-                                  :body (transform-in-scope (function-expression-body elm)))))))
+                                  :body (transform-in-scope (function-expression-body elm))
+                                  :start (source-element-start elm)
+                                  :end (source-element-end elm))))))
   
 (defmethod transform ((xform (eql 'uniquify)) (elm var-decl))
   (unless (find-binding (var-decl-name elm))
     (ensure-unique-binding (var-decl-name elm)))
   (make-var-decl :name (find-binding (var-decl-name elm))
-                 :initializer (transform xform (var-decl-initializer elm))))
+                 :initializer (transform xform (var-decl-initializer elm))
+                 :start (source-element-start elm)
+                 :end (source-element-end elm)))

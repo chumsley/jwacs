@@ -148,4 +148,21 @@
       {
         return 24;
       };"))
-  
+
+(deftest shadow-values/position-preservation/1 :notes shadow-values
+  (with-fresh-genvar
+    (transform 'shadow-values (parse "function foo() { this.x = 10; return arguments; }")))
+  (#s(function-decl :name "foo" :parameters nil
+                    :body (#s(var-decl-statement :var-decls
+                                                 (#s(var-decl :name "arguments$0" :initializer #s(special-value :symbol :arguments))))
+                           #s(var-decl-statement :var-decls
+                                                 (#s(var-decl :name "this$1" :initializer #s(special-value :symbol :this))))
+                           #s(binary-operator :op-symbol :assign
+                                              :left-arg #s(property-access :target #s(identifier :name "this$1" :start 17 :end 21)
+                                                                           :field #s(string-literal :start 22 :end 23 :value "x")
+                                                                           :start 17 :end 23)
+                                              :right-arg #s(numeric-literal :start 26 :end 28 :value 10)
+                                              :start 17 :end 28)
+                           #s(return-statement :arg #s(identifier :start 37 :end 46 :name "arguments$0")
+                                               :start 30 :end 47 ))
+                    :start 0 :end 47)))

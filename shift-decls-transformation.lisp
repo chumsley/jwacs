@@ -75,7 +75,9 @@
 (defmethod transform ((xform (eql 'shift-decls)) (elm var-decl-statement))
   (make-var-decl-statement :var-decls (mapcar (lambda (decl)
                                                 (transform 'shift-decls decl))
-                                              (var-decl-statement-var-decls elm))))
+                                              (var-decl-statement-var-decls elm))
+                           :start (source-element-start elm)
+                           :end (source-element-end elm)))
 
 (defmethod transform ((xform (eql 'shift-decls)) (elm function-decl))
   (in-local-scope
@@ -99,7 +101,9 @@
         unless (null initializer)
         collect (make-binary-operator :op-symbol :assign
                                       :left-arg (make-identifier :name name)
-                                      :right-arg initializer)))
+                                      :right-arg initializer
+                                      :start (source-element-start decl)
+                                      :end (source-element-end decl))))
 
 ;; Don't recurse into functions (that's the "in-scope" part)
 (defmethod transform ((xform (eql 'strip-var-decls-in-scope)) (elm function-decl))

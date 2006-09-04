@@ -112,6 +112,10 @@
                 make-add-handler
                 make-remove-handler
                 
+                ;; frequently-used accessors
+                source-element-start
+                source-element-end
+                
                 ;; structure management
                 get-constructor
                 structure-slots

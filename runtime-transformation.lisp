@@ -8,6 +8,11 @@
 ;;;
 (in-package :jwacs)
 
+;;; XXX Note that the runtime transformation does not preserve source-position
+;;; information.  The only reason for that is that the trampoline transformation is where
+;;; we grab that data and make it available for debuggers, which happens before the
+;;; runtime transformation is applied.
+
 ;;;; ======= Constants =============================================================================
 
 (defparameter *transformed-property* (make-string-literal :value "$jw")

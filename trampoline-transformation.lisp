@@ -122,20 +122,24 @@
   (with-slots (arg) elm
     (if (or (fn-call-p arg)
             (new-expr-p arg)) ; new expressions are "effective function calls", because the runtime transform will turn them into calls to `$new`.
-      (make-return-statement :arg (make-boxed-thunk (make-return-statement :arg (transform 'trampoline arg))))
-      (make-return-statement :arg (make-boxed-result (transform 'trampoline arg))))))
+      (make-return-statement :arg (make-boxed-thunk (make-return-statement :arg (transform 'trampoline arg)
+                                                                           :start (source-element-start elm)
+                                                                           :end (source-element-end elm))))
+      (make-return-statement :arg (make-boxed-result (transform 'trampoline arg))
+                             :start (source-element-start elm)
+                             :end (source-element-end elm)))))
 
 ;;;; ------- handler stack operations --------------------------------------------------------------
 
 (defmethod transform ((xform (eql 'trampoline)) (elm add-handler))
   (make-return-statement
-   :arg (make-boxed-thunk (transform xform (add-handler-thunk-body elm))
+   :arg (make-boxed-thunk (transform 'trampoline (add-handler-thunk-body elm))
                           *add-handler-prop*
                           (add-handler-handler elm))))
 
 (defmethod transform ((xform (eql 'trampoline)) (elm remove-handler))
   (make-return-statement
-   :arg (make-boxed-thunk (transform xform (remove-handler-thunk-body elm))
+   :arg (make-boxed-thunk (transform 'trampoline (remove-handler-thunk-body elm))
                           *remove-handler-prop*
                           (remove-handler-handler elm))))
 
@@ -144,16 +148,22 @@
 (defmethod transform ((xform (eql 'trampoline)) (elm suspend-statement))
   ;; We don't bother with a replace-handler operation here since we will be exiting
   ;; the $trampoline function right away.
-  (make-return-statement :arg (make-boxed-result nil)))
+  (make-return-statement :arg (make-boxed-result nil)
+                         :start (source-element-start elm)
+                         :end (source-element-end elm)))
 
 (defmethod transform ((xform (eql 'trampoline)) (elm resume-statement))
   (with-slots (target arg) elm
     (let ((new-call (make-continuation-call :fn (transform 'trampoline target)
                                             :args (when arg
-                                                    (list arg)))))
+                                                    (list arg))
+                                            :start (source-element-start elm)
+                                            :end (source-element-end elm))))
       (make-return-statement
        :arg (make-boxed-thunk
-             (make-return-statement :arg new-call)
+             (make-return-statement :arg new-call
+                                    :start (source-element-start elm)
+                                    :end (source-element-end elm))
              *replace-handler-stack-prop*
              (make-property-access :target (transform 'trampoline target)
                                    :field *handler-stack-k-prop*))))))
@@ -165,8 +175,12 @@
     (if target
       (make-return-statement
        :arg (make-boxed-thunk
-             (make-throw-statement :value (transform 'trampoline value))
+             (make-throw-statement :value (transform 'trampoline value)
+                                   :start (source-element-start elm)
+                                   :end (source-element-end elm))
              *replace-handler-stack-prop*
              (make-property-access :target (transform 'trampoline target)
                                    :field *handler-stack-k-prop*)))
-      (make-throw-statement :value (transform 'trampoline value)))))
+      (make-throw-statement :value (transform 'trampoline value)
+                            :start (source-element-start elm)
+                            :end (source-element-end elm)))))

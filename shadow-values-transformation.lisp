@@ -2,7 +2,7 @@
 ;;;
 ;;; Defines the shadow-values transformation, which replaces references to
 ;;; `this` and `arguments` (which don't behave as expected when you're at
-;;; the bottom of three levels continuation) with references to "shadow
+;;; the bottom of three levels of continuation) with references to "shadow
 ;;; values", which are variable that have been set to point to the /correct/
 ;;; versions of `this` and arguments at the beginning of a function.
 ;;;
@@ -23,13 +23,17 @@
 (defmethod transform ((xform (eql 'shadow-values)) (elm identifier))
   (if (and *shadowed-arguments-name*
            (equal (identifier-name elm) *arguments-name*))
-    (make-identifier :name *shadowed-arguments-name*)
+    (make-identifier :name *shadowed-arguments-name*
+                     :start (source-element-start elm)
+                     :end (source-element-end elm))
     (call-next-method)))
 
 (defmethod transform ((xform (eql 'shadow-values)) (elm special-value))
   (if (and *shadowed-this-name*
            (eq :this (special-value-symbol elm)))
-    (make-identifier :name *shadowed-this-name*)
+    (make-identifier :name *shadowed-this-name*
+                     :start (source-element-start elm)
+                     :end (source-element-end elm))
     (call-next-method)))
 
 (defun tx-shadow-values-body (body)
@@ -74,9 +78,13 @@
 (defmethod transform ((xform (eql 'shadow-values)) (elm function-decl))
   (make-function-decl :name (function-decl-name elm)
                       :parameters (function-decl-parameters elm)
-                      :body (tx-shadow-values-body (function-decl-body elm))))
+                      :body (tx-shadow-values-body (function-decl-body elm))
+                      :start (source-element-start elm)
+                      :end (source-element-end elm)))
 
 (defmethod transform ((xform (eql 'shadow-values)) (elm function-expression))
   (make-function-expression :name (function-expression-name elm)
                             :parameters (function-expression-parameters elm)
-                            :body (tx-shadow-values-body (function-expression-body elm))))
+                            :body (tx-shadow-values-body (function-expression-body elm))
+                            :start (source-element-start elm)
+                            :end (source-element-end elm)))

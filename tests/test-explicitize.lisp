@@ -474,3 +474,13 @@
       var JW0 = bar.fetchK();
       var JW1 = foo();
       resume JW0 <- JW1;"))
+
+(deftest explicitize/position-preservation/1 :notes explicitize
+  (with-fresh-genvar
+    (transform 'explicitize (parse "resume foo();")))
+  (#s(var-decl-statement :var-decls (#s(var-decl :name "JW0"
+                                                 :initializer #s(fn-call :fn #s(identifier :name "foo"
+                                                                                           :start 7 :end 10)
+                                                                         :start 7 :end 10))))
+   #s(resume-statement :target #s(identifier :name "JW0")
+                       :start 0 :end 13)))
