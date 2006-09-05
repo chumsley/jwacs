@@ -47,8 +47,9 @@
 (deftest trampoline/inlined-thunk/3 :notes trampoline
   (let ((jw::*debug-mode* t))
     (test-transform 'trampoline
-                    (test-parse "return fn(4);")))
-  #.(test-parse "return {done: false,
+                    (parse "return fn(4);")))
+  #.(test-parse "return {startPos: 0, endPos: 13,
+                      done: false,
                       thunk: function($e, $localEvalArg) {
                           if($localEvalArg) return $id(eval($localEvalArg));
                           return fn(4);

@@ -44,6 +44,12 @@
 (defparameter *replace-handler-stack-prop* (make-string-literal :value "replaceHandlers")
   "property name for the 'replace exception handler stack' operation field of a boxed result object")
 
+(defparameter *start-pos-prop* (make-string-literal :value "startPos")
+  "property name for the start-position debug property on boxed thunks")
+
+(defparameter *end-pos-prop* (make-string-literal :value "endPos")
+  "property name for the end-position debug property on boxed thunks")
+
 (defparameter *handler-stack-k-prop* (make-string-literal :value "$exHandlers")
   "Name of the property on continuations that contains the handler stack to use")
 
@@ -76,6 +82,14 @@
      (make-object-literal :properties (list
                                        (cons stack-op stack-op-arg)
                                        (cons *done-prop* (make-special-value :symbol :false))
+                                       (cons *start-pos-prop*
+                                             (aif (source-element-start body-elm)
+                                               (make-numeric-literal :value it)
+                                               undefined-id))
+                                       (cons *end-pos-prop*
+                                             (aif (source-element-end body-elm)
+                                               (make-numeric-literal :value it)
+                                               undefined-id))
                                        (cons *thunk-prop*
                                              (make-thunk-function :parameters (list *handler-stack-var-name*
                                                                                     *debug-eval-var-name*)
@@ -91,6 +105,14 @@
                                                                   :body (combine-statements body-elm))))))
     (*debug-mode*
      (make-object-literal :properties (list
+                                       (cons *start-pos-prop*
+                                             (aif (source-element-start body-elm)
+                                               (make-numeric-literal :value it)
+                                               undefined-id))
+                                       (cons *end-pos-prop*
+                                             (aif (source-element-end body-elm)
+                                               (make-numeric-literal :value it)
+                                               undefined-id))
                                        (cons *done-prop* (make-special-value :symbol :false))
                                        (cons *thunk-prop*
                                              (make-thunk-function :parameters (list *handler-stack-var-name*
