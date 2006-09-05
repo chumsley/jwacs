@@ -13,7 +13,6 @@
                 javascript-lexer
                 make-lexer-function
                 regexp-re
-                eoi
                 token
                 token-terminal token-value token-start token-end
                 next-token

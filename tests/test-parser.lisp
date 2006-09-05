@@ -666,3 +666,9 @@
   (#s(property-access :target #s(identifier :name "x" :start 0 :end 1)
                       :field #s(string-literal :value "y" :start 2 :end 3)
                       :start 0 :end 3)))
+
+(deftest parser/eoi-handling/1 :notes parser
+  (expect-error (parse "foo(")
+                syntax-error)
+  t)
+  

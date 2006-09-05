@@ -21,7 +21,8 @@
     `(multiple-value-bind (,gret ,gerr)
         (ignore-errors ,form)
       (declare (ignore ,gret))
-      (typep ,gerr ',condition-type))))
+      (or (typep ,gerr ',condition-type)
+          ,gerr))))
 
 ;;; The REMOVE-POSITIONS transformation strips source positions from a source
 ;;; tree.  TEST-PARSE and TEST-TRANSFORM both use it so that we can check

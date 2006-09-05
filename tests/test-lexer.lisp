@@ -49,7 +49,7 @@
    token, and the CDR is the source text."
   (loop with l = (make-lexer-function (make-instance 'javascript-lexer :text js-string))
         for x = (multiple-value-list (funcall l))
-        while (not (eq (first x) eoi))
+        until (null (first x))
         collect (list (first x) (token-value (second x)))))
 
 (deftest lexer/1 :notes lexer
@@ -184,7 +184,7 @@ Line number 2
 
 Line 4")))
     (loop for token = (next-token lexer)
-          until (null token)
+          until (null (token-terminal token))
           collect (position-to-line/column (jw::text lexer) (token-start token))))
   ((1 . 1) (1 . 6)
    (2 . 1) (2 . 6) (2 . 13)
@@ -196,7 +196,7 @@ Line number 2
 
 Line 4")))
     (loop for token = (next-token lexer)
-          until (null token)
+          until (null (token-terminal token))
           collect (position-to-line/column (jw::text lexer) (token-end token))))
   ((1 . 5) (1 . 7)
    (2 . 5) (2 . 12) (2 . 14)
@@ -206,6 +206,6 @@ Line 4")))
   (let ((lexer (make-instance 'javascript-lexer :text "})
                                                        return 10;")))
     (loop for token = (next-token lexer)
-          until (null token)
+          until (null (token-terminal token))
           collect (not (null (encountered-line-terminator lexer)))))
   (nil nil t nil nil nil))

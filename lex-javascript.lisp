@@ -74,10 +74,6 @@
 (setf (gethash :return *restricted-tokens*) :post)
 (setf (gethash :throw *restricted-tokens*) :post)
 
-;; end of input
-(defconstant eoi nil
-  "The token to return on end-of-input")
-
 ;; Compound assignment operators
 (deftoken :times-equals   "*=" :operator-token)
 (deftoken :divide-equals  "/=" :operator-token)
@@ -366,8 +362,8 @@
 
 (defun next-token (lexer)
   "Returns a token structure containing the next token in the lexing operation
-   represented by LEXER, or EOI at end of stream.  The next token will be fetched
-   from the unget-stack if that stack is non-empty."
+   represented by LEXER.  This token will have a terminal of NIL at end of stream.
+   The next token will be fetched from the unget-stack if that stack is non-empty."
 
   ;; If we've pushed other input, then return that instead
   (when-let (cell (pop (unget-stack lexer)))
@@ -468,11 +464,11 @@
   "Reads the next token from LEXER's source text (where 'next' is determined by
    the value of LEXER's cursor).  The cursor is assumed to point to a non-whitespace
    character on entry; on exit points to the first character after the consumed token.
-   Returns either a token structure or EOI."
+   Returns a token structure.  The token's terminal will be NIL on end of input"
   (with-slots (text cursor) lexer
     (re-cond (text :start cursor)
        ("^$"
-        eoi)
+        (make-token :terminal nil :start (length text) :end (length text)))
        (floating-re
         (set-cursor lexer %e)
         (make-token :terminal :number :start %s :end %e
