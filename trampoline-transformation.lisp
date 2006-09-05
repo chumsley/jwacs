@@ -83,11 +83,11 @@
                                        (cons stack-op stack-op-arg)
                                        (cons *done-prop* (make-special-value :symbol :false))
                                        (cons *start-pos-prop*
-                                             (aif (source-element-start body-elm)
+                                             (aif (element-start body-elm)
                                                (make-numeric-literal :value it)
                                                undefined-id))
                                        (cons *end-pos-prop*
-                                             (aif (source-element-end body-elm)
+                                             (aif (element-end body-elm)
                                                (make-numeric-literal :value it)
                                                undefined-id))
                                        (cons *thunk-prop*
