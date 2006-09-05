@@ -12,8 +12,8 @@
 (deftest runtime/continuation/1 :notes runtime
   (with-fresh-genvar
     (let ((jw::*function-decls-in-scope* '("bar" "baz")))
-      (transform 'runtime
-                 (transform 'cps (test-parse "
+      (test-transform 'runtime
+                      (transform 'cps (parse "
         function foo()
         {
             bar();
@@ -63,8 +63,8 @@
 
 (deftest runtime/indirected-call/1 :notes runtime
   (with-fresh-genvar
-    (transform 'runtime
-               (transform 'cps (test-parse "
+    (test-transform 'runtime
+                    (transform 'cps (parse "
         function bar(x) { return x; }
         function foo()
         {
@@ -92,8 +92,8 @@
 
 (deftest runtime/indirected-call/2 :notes runtime
   (with-fresh-genvar
-    (transform 'runtime
-               (transform 'cps (test-parse "
+    (test-transform 'runtime
+                    (transform 'cps (parse "
         function bar(x) { return x; }
         function foo()
         {
@@ -121,8 +121,8 @@
 
 (deftest runtime/indirected-call/3 :notes runtime
   (with-fresh-genvar
-    (transform 'runtime
-               (transform 'cps (test-parse "
+    (test-transform 'runtime
+                    (transform 'cps (parse "
         function foo()
         {
           return Foo.Bar.Baz(10, 20);
@@ -141,7 +141,7 @@
     (in-local-scope
       (let ((jw::*current-handler-stack-reference* jw::*in-function-handler-stack-reference*))
         (test-transform 'runtime
-                        (transform 'cps (test-parse "
+                        (transform 'cps (parse "
         function bar(z) { return z; }
         var x = new Foo(50, 55);
         return bar(x);"))))))
@@ -161,7 +161,7 @@
     (in-local-scope
       (let ((jw::*current-handler-stack-reference* jw::*in-function-handler-stack-reference*))
         (test-transform 'runtime
-                        (transform 'cps (test-parse "
+                        (transform 'cps (parse "
         function bar(z) { return z; }
         var x = new Foo(1,2,3,4,5,6,7,8,9,10,11,12);
         return bar(x);"))))))
@@ -180,7 +180,7 @@
   (with-fresh-genvar
     (test-transform 'runtime
                     (transform 'shadow-values
-                               (transform 'cps (test-parse "
+                               (transform 'cps (parse "
       function foo()
       {
         return arguments;
@@ -198,7 +198,7 @@
 (deftest runtime/arguments/2 :notes runtime
   (test-transform 'runtime
                   (transform 'shadow-values
-                             (transform 'cps (test-parse "
+                             (transform 'cps (parse "
       function foo()
       {
         var arguments = 99;
@@ -217,12 +217,12 @@
 (deftest runtime/arguments/3 :notes runtime
   (test-transform 'runtime
                   (transform 'shadow-values
-                             (transform 'cps (test-parse "
+                             (transform 'cps (parse "
       var x = arguments;"))))
   #.(test-parse "var x = arguments;"))
 
 (deftest runtime/toplevel/resume/1 :notes runtime
-  (test-transform 'runtime (transform 'trampoline (transform 'cps (test-parse "
+  (test-transform 'runtime (transform 'trampoline (transform 'cps (parse "
       resume foo;"))))
   #.(test-parse "
       $trampoline(function($e) {
@@ -234,7 +234,7 @@
 (deftest runtime/toplevel/indirect-call/1 :notes runtime
   (test-transform 'runtime
                   (transform 'trampoline
-                             (transform 'cps (test-parse "
+                             (transform 'cps (parse "
       foo(10);
       bar(20);"))))
   #.(test-parse "
@@ -253,7 +253,7 @@
 (deftest runtime/toplevel/indirect-new/1 :notes runtime
   (test-transform 'runtime
                   (transform 'trampoline
-                             (transform 'cps (test-parse "
+                             (transform 'cps (parse "
       new foo(10);
       new bar(20);"))))
   #.(test-parse "
@@ -272,14 +272,14 @@
 (deftest runtime/makeK-argument/toplevel/1 :notes runtime
   (test-transform 'runtime
                   (list
-                   (jw::make-continuation-function :body (test-parse "return {done: true};"))))
+                   (jw::make-continuation-function :body (parse "return {done: true};"))))
   #.(test-parse "
         $makeK(function() { return {done: true}; }, null);"))
 
 (deftest runtime/makeK-argument/in-function/1 :notes runtime
   (test-transform 'runtime
                   (transform 'trampoline
-                             (transform 'cps (test-parse "
+                             (transform 'cps (parse "
       function foo()
       {
         foo();
@@ -304,7 +304,7 @@
   (with-fresh-genvar
     (test-transform 'runtime
                     (transform 'trampoline
-                               (transform 'cps (test-parse "
+                               (transform 'cps (parse "
       function foo()
       {
         if(x)

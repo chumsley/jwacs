@@ -11,7 +11,7 @@
 
 (deftest shadow-values/fn-decl/arguments-referenced/1 :notes shadow-values
   (with-fresh-genvar
-    (test-transform 'shadow-values (test-parse "
+    (test-transform 'shadow-values (parse "
       function foo(a, b)
       {
         if(arguments.length < 2)
@@ -31,7 +31,7 @@
 
 (deftest shadow-values/fn-decl/this-referenced/1 :notes shadow-values
   (with-fresh-genvar
-    (test-transform 'shadow-values (test-parse "
+    (test-transform 'shadow-values (parse "
       function foo(a, b)
       {
         this.foo = 'foo';
@@ -49,7 +49,7 @@
 
 (deftest shadow-values/fn-decl/both-referenced/1 :notes shadow-values
   (with-fresh-genvar
-    (test-transform 'shadow-values (test-parse "
+    (test-transform 'shadow-values (parse "
       function foo(a, b)
       {
         this.foo = arguments.length;
@@ -68,7 +68,7 @@
 
 (deftest shadow-values/fn-decl/neither-referenced/1 :notes shadow-values
   (with-fresh-genvar
-    (test-transform 'shadow-values (test-parse "
+    (test-transform 'shadow-values (parse "
       function foo(a, b)
       {
         return 24;
@@ -81,7 +81,7 @@
 
 (deftest shadow-values/fn-expression/arguments-referenced/1 :notes shadow-values
   (with-fresh-genvar
-    (test-transform 'shadow-values (test-parse "
+    (test-transform 'shadow-values (parse "
       var foo = function(a, b)
       {
         if(arguments.length < 2)
@@ -101,7 +101,7 @@
 
 (deftest shadow-values/fn-expression/this-referenced/1 :notes shadow-values
   (with-fresh-genvar
-    (test-transform 'shadow-values (test-parse "
+    (test-transform 'shadow-values (parse "
       var foo = function(a, b)
       {
         this.foo = 'foo';
@@ -119,7 +119,7 @@
 
 (deftest shadow-values/fn-expression/both-referenced/1 :notes shadow-values
   (with-fresh-genvar
-    (test-transform 'shadow-values (test-parse "
+    (test-transform 'shadow-values (parse "
       var foo = function(a, b)
       {
         this.foo = arguments.length;
@@ -138,7 +138,7 @@
 
 (deftest shadow-values/fn-expression/neither-referenced/1 :notes shadow-values
   (with-fresh-genvar
-    (test-transform 'shadow-values (test-parse "
+    (test-transform 'shadow-values (parse "
       var foo = function(a, b)
       {
         return 24;

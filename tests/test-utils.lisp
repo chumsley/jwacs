@@ -23,11 +23,40 @@
       (declare (ignore ,gret))
       (typep ,gerr ',condition-type))))
 
-;;; The REMOVE-ADMINISTRATIVES transformation translates administrative source-elements
-;;; (such as CONTINUATION-FUNCTIONs) to their non-administrative equivalents (eg FUNCTION-EXPRESSION).
-;;; This transformation is used by the TEST-TRANSFORM function to ensure that the results of a
-;;; transformation are the same as what would be parsed from their pretty-printed representation
-;;; (so that we can write unit tests by providing JWACS code instead of ASTs)
+;;; The REMOVE-POSITIONS transformation strips source positions from a source
+;;; tree.  TEST-PARSE and TEST-TRANSFORM both use it so that we can check
+;;; generated Javascript code in unit tests without having to ensure that we
+;;; provide the correct source positions (which is in many cases impossible,
+;;; since transformation often moves source elements to different parts of the
+;;; code while preserving their original position information).
+(defmethod transform ((xform (eql 'remove-positions)) (elm source-element))
+  (apply
+   (get-constructor elm)
+   (loop for slot in (structure-slots elm)
+         collect (make-keyword slot)
+         collect (if (or (eq slot 'jw::start) (eq slot 'jw::end))
+                     nil
+                     (transform xform (slot-value elm slot))))))
+
+(defmethod transform ((xform (eql 'remove-positions)) (elm object-literal))
+  (make-object-literal
+   :properties
+   (loop for (prop-name . prop-value) in (jw::object-literal-properties elm)
+         collect (cons
+                  (transform xform prop-name)
+                  (transform xform prop-value)))))
+
+(defun test-parse (str)
+  "Parse STR into a source model representation that does not include source positions"
+  (let ((elm (parse str)))
+    (transform 'remove-positions elm)))
+
+;;; The REMOVE-ADMINISTRATIVES transformation translates administrative
+;;; source-elements (such as CONTINUATION-FUNCTIONs) to their non-administrative
+;;; equivalents (eg FUNCTION-EXPRESSION).  This transformation is used by the
+;;; TEST-TRANSFORM function to ensure that the results of a transformation are
+;;; the same as what would be parsed from their pretty-printed representation
+;;; (so that we can write unit tests by providing JWACS code instead of ASTs).
 (defmethod transform ((xform (eql 'remove-administratives)) (elm thunk-function))
   (make-function-expression :name (jw::function-expression-name elm)
                             :parameters (jw::function-expression-parameters elm)
@@ -61,30 +90,10 @@
 
 (defun test-transform (xform elm)
   "Return the results of applying XFORM to ELM with any administrative source-elements
-   converted to their non-administrative equivalents"
+   converted to their non-administrative equivalents and with source positions removed."
   (transform 'remove-administratives
-             (transform xform elm)))
-
-(defmethod transform ((xform (eql 'remove-positions)) (elm source-element))
-  (apply
-   (get-constructor elm)
-   (loop for slot in (structure-slots elm)
-         collect (make-keyword slot)
-         collect (if (or (eq slot 'jw::start) (eq slot 'jw::end))
-                     nil
-                     (transform xform (slot-value elm slot))))))
-
-(defmethod transform ((xform (eql 'remove-positions)) (elm object-literal))
-  (make-object-literal
-   :properties
-   (loop for (prop-name . prop-value) in (jw::object-literal-properties elm)
-         collect (cons
-                  (transform xform prop-name)
-                  (transform xform prop-value)))))
-
-(defun test-parse (str)
-  (let ((elm (parse str)))
-    (transform 'remove-positions elm)))
+             (transform 'remove-positions
+                        (transform xform elm))))
 
 ;;; compilation helpers
 
