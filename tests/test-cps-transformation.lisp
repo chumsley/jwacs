@@ -1608,7 +1608,9 @@
                     :body (#s(return-statement :arg #s(fn-call :start 25 :end 28 :fn #s(identifier :start 25 :end 28 :name "bar")
                                                                :args (#s(continuation-function :parameters ("x")
                                                                                                :body (#s(return-statement :arg #s(fn-call :start 32 :end 35 :fn #s(identifier :start 32 :end 35 :name "baz")
-                                                                                                                                          :args (#s(continuation-function :body (#s(return-statement :arg #s(fn-call :fn #s(identifier :name "$k") :args nil)))))))))))))
+                                                                                                                                          :args (#s(continuation-function :body (#s(return-statement :arg #s(fn-call :fn #s(identifier :name "$k") :args nil))))))
+                                                                                                                          :start 32 :end 35)))))
+                                               :start 25 :end 28))
                     :start 0 :end 35)))
 
 (deftest cps/position-preservation/2 :notes cps
@@ -1618,5 +1620,6 @@
                     :body (#s(return-statement :arg #s(fn-call :start 17 :end 20 :fn #s(identifier :start 17 :end 20 :name "bar")
                                                                :args (#s(continuation-function :body (#s(return-statement :start 24 :end 37
                                                                                                                           :arg #s(fn-call :fn #s(identifier :start 31 :end 34 :name "baz")
-                                                                                                                                          :args (#s(identifier :name "$k")))))))))))))
+                                                                                                                                          :args (#s(identifier :name "$k"))))))))
+                                               :start 17 :end 20)))))
   

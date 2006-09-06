@@ -298,7 +298,10 @@
                                   (fn-call-args elm)))
             :start (source-element-start elm)
             :end (source-element-end elm)))))
-    (values (make-return-statement :arg new-fn-call) t)))
+    (values (make-return-statement :arg new-fn-call
+                                   :start (source-element-start new-fn-call)
+                                   :end (source-element-end new-fn-call))
+            t)))
 
 (defmethod tx-cps ((elm new-expr) statement-tail)
   (let ((tx-expr
@@ -396,7 +399,10 @@
                                               (fn-call-args initializer))
                                        :start (source-element-start initializer)
                                        :end (source-element-end initializer))))
-           (values (make-return-statement :arg new-call) t)))
+           (values (make-return-statement :arg new-call
+                                          :start (element-start new-call)
+                                          :end (element-end new-call))
+                   t)))
 
         ;; eg: var x = new Foo;
         ((new-expr-p initializer)
@@ -408,7 +414,10 @@
                                                        (new-expr-args initializer))
                                                 :start (source-element-start initializer)
                                                 :end (source-element-end initializer))))
-           (values (make-return-statement :arg new-construction) t)))
+           (values (make-return-statement :arg new-construction
+                                          :start (element-start new-construction)
+                                          :end (element-end new-construction))
+                   t)))
 
         ;; eg: var x = 20;
         (initializer
