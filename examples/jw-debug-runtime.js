@@ -490,7 +490,7 @@ function $trampoline(origThunk, origStack)
   var ret = new Object;
 	ret.done = false;
 	ret.thunk = origThunk;
-  var latestThunk = null;
+  var latestResult = null;
   
   function popHandler(expected)
   {
@@ -522,7 +522,7 @@ function $trampoline(origThunk, origStack)
     // Do the work
     try
     {
-      latestThunk = ret.thunk;
+      latestResult = ret;
       ret = ret.thunk(handlerStack);
     }
     catch(e)
@@ -533,7 +533,7 @@ function $trampoline(origThunk, origStack)
       {
         var currentHook = $exHook;
         $exHook = null;
-        var hookResult = currentHook(e, handler, handlerStack, latestStack, latestThunk);
+        var hookResult = currentHook(e, handler, handlerStack, latestStack, latestResult);
         $exHook = currentHook;
         return hookResult;
       }
@@ -560,11 +560,4 @@ function $localEval(thunk, handlerStack, $s)
   return ret.result;
 }
 
-var $exHook = function(e, handler, handlerStack, latestStack, latestThunk)
-{
-  if(handler)
-    return $trampoline(function() { return handler(e); }, handlerStack);
-  else
-    alert("Uncaught exception yo:" + e);
-};
-
+var $exHook;

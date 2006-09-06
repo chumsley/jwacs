@@ -103,21 +103,42 @@ function doCompile()
 var appWindow = null;
 function doRun()
 {
-  var appURI = doCompile();
+  var appText = doCompile();
+  if(!appText)
+    return;
+  
+  // Insert code to set the $exHook at the very beginning of the script before loading it
+  // into the appWindow
+  appText = appText.replace(/<script/, "<script>var $exHook=window.opener.hookHandler;</script>" +
+                            "<script");
+
+  //TEST
+  var pre = document.getElementById('appSourcePre');
+  if(!pre)
+  {
+    pre = document.createElement("PRE");
+    document.body.appendChild(pre);
+  }
+  pre.innerHTML = appText.replace(/</g, "&lt;");
+  
   if(appWindow)
     appWindow.close();
-  appWindow = window.open(appURI, "appWindow");
+
+  appWindow = window.open("about:blank", "appWindow");
+	var doc = appWindow.document.open();
+  doc.write(appText);
+  doc.close();
+  appWindow.$exHook = hookHandler;
   appWindow.focus();
 }
 
 function doEval()
 {
   var elm = document.getElementById('evalInput');
-  $globalEval(elm.value);
+  appWindow.$globalEval(elm.value);
 }
 
-var $exHook = hookHandler;
-function hookHandler(e, handler, handlerStack, latestStack, latestThunk)
+function hookHandler(e, handler, handlerStack, latestStack, latestBox)
 {
   var parent = document.getElementById('exceptions');
   
@@ -132,7 +153,7 @@ function hookHandler(e, handler, handlerStack, latestStack, latestThunk)
   {
     Event.stop(evt);
     parent.removeChild(div);
-    $trampoline(latestThunk, latestStack);
+    appWindow.$trampoline(latestBox.thunk, latestStack);
   };
   div.appendChild(document.createElement("BR"));
   div.appendChild(restartThunk);
@@ -146,7 +167,7 @@ function hookHandler(e, handler, handlerStack, latestStack, latestThunk)
     {
       Event.stop(evt);
       parent.removeChild(div);
-      resume handler <- e;
+      appWindow.$trampoline(function() { resume handler <- e; });
     };
   
     div.appendChild(document.createTextNode(" | "));
@@ -159,14 +180,14 @@ function hookHandler(e, handler, handlerStack, latestStack, latestThunk)
     evalForm.onsubmit = function(evt) {
       Event.stop(evt);
       var evalArg = evalInput.value;
-      alert("evalArg = " + evalArg); //TEST
-      var result = $localEval(latestThunk, latestStack, evalArg);
+      var result = appWindow.$localEval(latestBox.thunk, latestStack, evalArg);
       evalInput.value = "";
     };
   
     div.appendChild(document.createTextNode(" |  Eval in local scope: "));
     div.appendChild(evalForm);
   }
+  div.appendChild(document.createTextNode("start=" + latestBox.startPos + ", end=" + latestBox.endPos));
   parent.appendChild(div);
 };
 
@@ -175,28 +196,3 @@ function dateStr(date)
   return date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate() + " " +
     date.getHours() + ":" + date.getMinutes() + ":" + date.getSeconds();
 }
-    
-
-//TEST from here down
-var shouldThrow = true;
-function doCatchable()
-{
-  var secret = shouldThrow;
-  try
-  {
-    if(secret)
-      throw "catchable exception";
-    else
-      alert("not throwing catchable");
-  }
-  catch(e)
-  {
-    alert("I'm handling '" + e + "'!");
-  }
-}
-doCatchable();
-
-if(shouldThrow)
-  throw "No-handlers exception";
-else
-  alert("not throwing no-handlers");
