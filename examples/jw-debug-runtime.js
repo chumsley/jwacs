@@ -123,11 +123,12 @@ function $call(f, k, thisObj, args)
 // more arguments must use `$call` instead.
 function $call0(f, k, thisObj, a1, a2, a3, a4, a5, a6, a7, a8)
 {
-  try
+  var r;
+  if(thisObj)
   {
-    if(thisObj)
+    if($isTransformed(f, thisObj))
     {
-      if($isTransformed(f, thisObj))
+      try
       {
         switch(arguments.length)
         {
@@ -153,36 +154,63 @@ function $call0(f, k, thisObj, a1, a2, a3, a4, a5, a6, a7, a8)
           throw "too many/few arguments to $call0";
         }
       }
-      else
+      catch(e)
       {
-        switch(arguments.length)
-        {
-        case 3:
-          return k(thisObj[f]());
-        case 4:
-          return k(thisObj[f](a1));
-        case 5:
-          return k(thisObj[f](a1, a2));
-        case 6:
-          return k(thisObj[f](a1, a2, a3));
-        case 7:
-          return k(thisObj[f](a1, a2, a3, a4));
-        case 8:
-          return k(thisObj[f](a1, a2, a3, a4, a5));
-        case 9:
-          return k(thisObj[f](a1, a2, a3, a4, a5, a6));
-        case 10:
-          return k(thisObj[f](a1, a2, a3, a4, a5, a6, a7));
-        case 11:
-          return k(thisObj[f](a1, a2, a3, a4, a5, a6, a7, a8));
-        default:
-          throw "too many/few arguments to $call0";
-        }
+        // Make errors say more than just "in $call0"
+        throw new Error("during $call0 of " + thisObj + "." + f + ": " + getExceptionDesc(e));
       }
     }
     else
     {
-      if($isTransformed(f))
+      try
+      {
+        switch(arguments.length)
+        {
+        case 3:
+          r = thisObj[f]();
+          break;
+        case 4:
+          r = thisObj[f](a1);
+          break;
+        case 5:
+          r = thisObj[f](a1, a2);
+          break;
+        case 6:
+          r = thisObj[f](a1, a2, a3);
+          break;
+        case 7:
+          r = thisObj[f](a1, a2, a3, a4);
+          break;
+        case 8:
+          r = thisObj[f](a1, a2, a3, a4, a5);
+          break;
+        case 9:
+          r = thisObj[f](a1, a2, a3, a4, a5, a6);
+          break;
+        case 10:
+          r = thisObj[f](a1, a2, a3, a4, a5, a6, a7);
+          break;
+        case 11:
+          r = thisObj[f](a1, a2, a3, a4, a5, a6, a7, a8);
+          break;
+        default:
+          throw "too many/few arguments to $call0";
+        }
+      }
+      catch(e)
+      {
+        // Make errors say more than just "in $call0"
+        throw new Error("during $call0 of " + thisObj + "." + f + ": " + getExceptionDesc(e));
+      }
+      
+      return k(r);
+    }
+  }
+  else
+  {
+    if($isTransformed(f))
+    {
+      try
       {
         switch(arguments.length)
         {
@@ -208,41 +236,56 @@ function $call0(f, k, thisObj, a1, a2, a3, a4, a5, a6, a7, a8)
           throw "too many/few arguments to $call0";
         }
       }
-      else
+      catch(e)
+      {
+        // Make errors say more than just "in $call0"
+        throw new Error("during $call0 of " + f + ": " + getExceptionDesc(e));
+      }
+    }
+    else
+    {
+      try
       {
         switch(arguments.length)
         {
         case 3:
-          return k(f());
+          r = f();
+          break;
         case 4:
-          return k(f(a1));
+          r = f(a1);
+          break;
         case 5:
-          return k(f(a1, a2));
+          r = f(a1, a2);
+          break;
         case 6:
-          return k(f(a1, a2, a3));
+          r = f(a1, a2, a3);
+          break;
         case 7:
-          return k(f(a1, a2, a3, a4));
+          r = f(a1, a2, a3, a4);
+          break;
         case 8:
-          return k(f(a1, a2, a3, a4, a5));
+          r = f(a1, a2, a3, a4, a5);
+          break;
         case 9:
-          return k(f(a1, a2, a3, a4, a5, a6));
+          r = f(a1, a2, a3, a4, a5, a6);
+          break;
         case 10:
-          return k(f(a1, a2, a3, a4, a5, a6, a7));
+          r = f(a1, a2, a3, a4, a5, a6, a7);
+          break;
         case 11:
-          return k(f(a1, a2, a3, a4, a5, a6, a7, a8));
+          r = f(a1, a2, a3, a4, a5, a6, a7, a8);
+          break;
         default:
           throw "too many/few arguments to $call0";
         }
       }
+      catch(e)
+      {
+        // Make errors say more than just "in $call0"
+        throw new Error("during $call0 of " + f + ": " + getExceptionDesc(e));
+      }
+      return k(r);
     }
-  }
-  catch(e)
-  {
-    // As errors fly past we want to insert some extra information to make them less mysterious
-    if(thisObj)
-      throw new Error("Error during $call0 of " + thisObj + "." + f + ": " + getExceptionDesc(e));
-    else
-      throw new Error("Error during $call0 of " + f + ": " + getExceptionDesc(e));
   }
 }
 
@@ -370,7 +413,7 @@ function $new0(ctor, k, a1, a2, a3, a4, a5, a6, a7, a8)
       return obj.$init(augmentedK, a1, a2, a3, a4, a5, a6, a7, a8);
       break;
     default:
-      throw "too many/few arguments to $new";
+      throw "too many/few arguments to $new0";
     }
   }
   else
@@ -405,7 +448,7 @@ function $new0(ctor, k, a1, a2, a3, a4, a5, a6, a7, a8)
       return k(new ctor(a1, a2, a3, a4, a5, a6, a7, a8));
       break;
     default:
-      throw "too many/few arguments to $new";
+      throw "too many/few arguments to $new0";
     }
   }
 }
