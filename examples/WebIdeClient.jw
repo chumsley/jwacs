@@ -65,9 +65,6 @@ function doCompile()
   var textElm = document.getElementById("sourceText");
   var errElm = document.getElementById('errorText');
   
-  // TODO only save if unsaved
-  doSave();
-  
   try
   {
     var http = JwacsLib.sendRequest("POST", "/jwacs/demos/web-ide/compile/" + sourceNameElm.value,
@@ -124,6 +121,10 @@ function doRun()
   if(appWindow)
     appWindow.close();
 
+  // We're about to throw away the running app, so none of its frames are valid anymore
+  var exceptions = document.getElementById('exceptions');
+  exceptions.innerHTML = "<br>"; 
+
   appWindow = window.open("about:blank", "appWindow");
 	var doc = appWindow.document.open();
   doc.write(appText);
@@ -153,7 +154,7 @@ function hookHandler(e, handler, handlerStack, latestStack, latestBox)
   {
     Event.stop(evt);
     parent.removeChild(div);
-    appWindow.$trampoline(latestBox.thunk, latestStack);
+    appWindow.$trampoline(latestBox, latestStack);
   };
   div.appendChild(document.createElement("BR"));
   div.appendChild(restartThunk);

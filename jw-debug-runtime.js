@@ -472,74 +472,20 @@ function HandlerStackEntry(k, next)
   this.next = next;
 }
 
-// DEL replaced in debug-mode runtime
-// // "Pogo-stick" function for running a call to a trampoline-style
-// // function.
-// function $trampoline(origThunk)
-// {
-//   var handlerStack = null; // The handler stack for this thread
-//   var ret = new Object;
-// 	ret.done = false;
-// 	ret.thunk = origThunk;
-
-//   function popHandler(expected)
-//   {
-//     var top = handlerStack;
-
-//     // TEST
-//     if(expected && (!top || top.k != expected))
-//       alert("assertion failure: expected handler " + expected + ", got " + top);
-
-//     if(top)
-//     {
-//       handlerStack = top.next;
-//       return top.k;
-//     }
-    
-//     return null;
-//   }
-  
-//   while(!ret.done)
-// 	{
-//     // Perform handler management
-//     if(ret.addHandler)
-//       handlerStack = new HandlerStackEntry(ret.addHandler, handlerStack);
-//     else if(ret.removeHandler)
-//       popHandler(ret.removeHandler);
-//     else if(ret.replaceHandlers)
-//       handlerStack = ret.replaceHandlers;
-    
-//     // Do the work
-//     try
-//     {
-//       ret = ret.thunk(handlerStack);
-//     }
-//     catch(e)
-//     {
-//       var handler = popHandler();
-//       if(handler)
-//         ret = {done: false, thunk: function() { return handler(e); } };
-//       else
-//         throw e;
-//     }
-//   }
-// 	return ret.result;
-// }
-
-
 function $trampoline(origThunk, origStack)
 {
   var handlerStack = origStack ? origStack : null; // The handler stack for this thread
-  var ret = new Object;
-	ret.done = false;
-	ret.thunk = origThunk;
   var latestResult = null;
-  
+  var ret = typeof origThunk == 'function' ? {done: false, thunk: origThunk} :
+            typeof origThunk == 'object' ? origThunk : null;
+
+  if(typeof origThunk != 'function' && typeof origThunk != 'object')
+    throw "$trampoline: origThunk is neither a function nor an object";
+
   function popHandler(expected)
   {
     var top = handlerStack;
 
-    // TEST
     if(expected && (!top || top.k != expected))
       alert("assertion failure: expected handler " + expected + ", got " + top);
 
