@@ -57,6 +57,7 @@
                         ((:file "yacc")))
                ;;TODO Should these three non-Lisp files go into a separate module?
                (:js-file "jw-runtime")
+               (:js-file "jw-debug-runtime")
                (:html-file "default-template")
                (:html-file "default-iframe")
                (:file "package")

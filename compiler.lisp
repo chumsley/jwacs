@@ -47,15 +47,17 @@
                                         (list (module-path main-module)))
             main-module))
 
-(defun make-main-module (main-pathname)
+(defun make-main-module (main-pathname inline-text)
   "Constructs a module for the file located at PATH, assuming that the uripath '.'
-   points to PATH's directory."
+   points to MAIN-PATHNAME's directory.  If INLINE-TEXT is non-NIL, the module will
+   be an in-memory module."
   (let ((uripath (if (null (pathname-type main-pathname))
                    (pathname-name main-pathname)
                    (format nil "~A.~A" (pathname-name main-pathname) (pathname-type main-pathname)))))
     (make-module :type 'jw
                  :path main-pathname
-                 :uripath uripath)))
+                 :uripath uripath
+                 :text inline-text)))
 
 ;;;; ======= URIPATH handling ==========================================================================
 
@@ -311,13 +313,21 @@
       (with-module-output (out target-module :append t)
         (write-string text out)
         (terpri out)))))
-  
+
 ;;;; ======= Cached defaults =======================================================================
 ;; These strings will be used to generate default versions of missing files.
 
-(defparameter *runtime-text* (with-output-to-string (str)
-                               (pretty-print (parse (read-asdf-component-text '(:jwacs "jw-runtime"))) str))
-  "The text of the jwacs runtime, stripped of comments etc.")
+(defparameter *runtime-text* (read-asdf-component-text '(:jwacs "jw-runtime"))
+  "The text of the jwacs runtime")
+
+(defparameter *debug-runtime-text* (read-asdf-component-text '(:jwacs "jw-debug-runtime"))
+  "The text of the debug-mode jwacs runtime")
+
+(defparameter *cached-runtimes* (list (cons "jw-runtime" *runtime-text*)
+                                      (cons "jw-rt" *runtime-text*)
+                                      (cons "jw-debug-runtime" *debug-runtime-text*)
+                                      (cons "jw-d-rt" *debug-runtime-text*))
+  "A lookup table for generating the appropriate runtime depending upon the specified name")
 
 (defparameter *default-template* (read-asdf-component-text '(:jwacs "default-template"))
   "The text of the default application template")
@@ -325,13 +335,31 @@
 (defparameter *default-iframe* (read-asdf-component-text '(:jwacs "default-iframe"))
   "The text of the hidden iframe for bookmark handling")
 
+(defun generate-runtime (runtime-module compress-mode combine-mode)
+  "Generate a runtime at the location pointed to by RUNTIME-MODULE.  Only specially-named
+   runtimes will be generated.  If COMBINE-MODE is non-NIL, an inline module will be generated;
+   otherwise a module will be emitted to disk."
+  (let ((runtime-text (cdr (assoc (pathname-name (module-path runtime-module))
+                                  *cached-runtimes*
+                                  :test 'equalp))))
+    (unless runtime-text
+      (warn "Unrecognized runtime module ~S" (pathname-name (module-path runtime-module)))
+      (return-from generate-runtime))
+    
+    (if combine-mode
+      (setf (module-text runtime-module) runtime-text)
+      (with-open-file (out (module-path runtime-module) :direction :output :if-exists :supersede)
+        (if compress-mode
+          (emit-elms (parse runtime-text) out :pretty-output (not compress-mode))
+          (format out "~A" runtime-text))))))
+
 ;;;; ======= Exported API ==========================================================================
 
 (defun build-app (main-module-path
-                   &key template-uripath output-uripath prefix-lookup runtime-uripath
-                        debug-mode (compress-mode (not debug-mode)) (combine-mode (not debug-mode))
-                        inline-output-stream)
-  "Build a wrapper html file for a jwacs application.  COMBINE-MODE is force to T if an
+                   &key debug-mode (compress-mode (not debug-mode)) (combine-mode (not debug-mode))
+                        template-uripath output-uripath prefix-lookup (runtime-uripath (if debug-mode "jw-debug-runtime" "jw-rt"))
+                        inline-output-stream inline-main-text)
+  "Build a wrapper html file for a jwacs application.  COMBINE-MODE is forced to T if an
    INLINE-OUTPUT-STREAM is provided."
   (flet ((get-path (param-uripath path-name path-type)
            "If PARAM-PATH is non-NIL, return it.
@@ -344,13 +372,9 @@
           (template-path (get-path template-uripath nil "template"))
           (output-path (get-path output-uripath nil "html"))
           (iframe-path (get-path nil "blank" "html"))
-          (runtime-module (if (null runtime-uripath)
-                            (make-module :type 'js
-                                         :path (get-path nil "jw-rt" "js")
-                                         :uripath "jw-rt.js")
-                            (make-module :type 'js
-                                         :path (resolve-import-uripath main-module-path runtime-uripath prefix-lookup)
-                                         :uripath runtime-uripath))))
+          (runtime-module (make-module :type 'js
+                                       :path (resolve-import-uripath main-module-path runtime-uripath prefix-lookup)
+                                       :uripath runtime-uripath)))
       (let ((template-string (if (probe-file template-path)
                                (read-entire-file template-path)
                                *default-template*)))
@@ -362,17 +386,13 @@
       
         ;; If no runtime file exists, generate one
         (when (null (probe-file (module-path runtime-module)))
-;;TEST      (when t
-          (with-open-file (out (module-path runtime-module) :direction :output :if-exists :supersede)
-            (if compress-mode
-              (emit-elms (parse *runtime-text*) out :pretty-output (not compress-mode))
-              (format out "~A" *runtime-text*))))
+          (generate-runtime runtime-module compress-mode (or combine-mode inline-output-stream)))
 
         ;; Wrap the modules.  Note that we force the runtime onto the front of the list
         ;; of imports.
         (let* ((module-list (cons runtime-module
                                   (remove (module-path runtime-module)
-                                          (determine-modules (make-main-module main-module-path) prefix-lookup)
+                                          (determine-modules (make-main-module main-module-path inline-main-text) prefix-lookup)
                                           :key 'module-path
                                           :test 'pathnames-equal)))
                (transformed-modules (transform-modules module-list :compress-mode compress-mode :inline-mode inline-output-stream))
