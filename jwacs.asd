@@ -62,6 +62,7 @@
                (:html-file "default-iframe")
                (:file "package")
                (:file "general-utilities")
+               (:file "conditions")
                (:file "lexer-macros")
                (:file "lex-javascript")
                (:file "js-source-model")

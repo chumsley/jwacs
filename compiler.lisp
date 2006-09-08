@@ -7,37 +7,105 @@
 ;;;
 (in-package :jwacs)
 
-;;;; ======= Dependency checks =====================================================================
+;;;; ======= Module datatype =======================================================================
+(defstruct module
+  "Represents a single module of a jwacs application"
+  type
+  path
+  uripath
+  import-elm                            ; The import statement that caused this module to be added
+  parent-module                         ; The module that imported this module
+  compressed-p
+  text
+  inline-stream)
 
+(defmacro with-module-output ((stream-name module &key append) &body body)
+  "Outputs to a module, optionally appending"
+  (let ((gmodule (gensym)))
+    `(let ((,gmodule ,module))
+      (if (module-inline-stream ,gmodule)
+        (let ((,stream-name (module-inline-stream ,gmodule)))
+          ,@body)
+        (with-open-file (,stream-name (module-path ,gmodule)
+                                      :direction :output
+                                      :if-does-not-exist :create
+                                      :if-exists ,(if append :append :supersede))
+          ,@body)))))
+
+(defun get-module-text (module)
+  "Reads the entire text of a module."
+  (with-slots (inline-stream text) module
+    (cond
+      (text
+       text)
+      (inline-stream
+       (get-output-stream-string inline-stream))
+      (t
+       (read-entire-file (module-path module))))))
+
+(defun parse-module (module)
+  "Parse the source text contained in MODULE and return a js/jw source-model"
+  (parse (get-module-text module)))
+  
+(defun lookup-module-type (raw-type)
+  "Converts a 'raw' module type into a canonical type symbol.
+   A warning will be signalled for unrecognized raw types.
+   RAW-TYPE should be either a string or a symbol.
+
+   The recognized types are:
+
+      Symbol | Description            | Extensions
+      -------|------------------------|------------------
+      'JW    | jwacs source           | .jw, .jwa, .jwacs
+      'JS    | Javascript source      | .js"
+  
+  (let ((type-symbol (if (stringp raw-type)
+                            (intern (string-upcase raw-type) :jwacs)
+                            raw-type)))
+    (case type-symbol
+      ((jw jwa jwacs)
+       'jw)
+      (js
+       'js)
+      (otherwise
+       (warn "Unrecognized import type ~A" type-symbol)
+       type-symbol))))
+
+;;;; ======= Dependency checks =====================================================================
 (defun determine-imported-modules (main-module prefix-lookup &optional already-imported)
   "Determines the modules imported by MAIN-MODULE.  Modules whose pathnames are elements of
-   ALREADY-IMPORTED will not be included."
+   ALREADY-IMPORTED will not be included.  Nonexistent files return an empty list of modules."
   (with-slots ((main-pathname path)) main-module
-    (labels ((import-decl-to-module (elm)
-               (with-slots (uripath) elm
-                 (if (null (import-decl-type-symbol elm))
-                   (make-module :type (lookup-module-type (pathname-type (pathname uripath)))
-                                :path (resolve-import-uripath main-pathname uripath prefix-lookup)
-                                :uripath uripath)
-                   (make-module :type (lookup-module-type (import-decl-type-symbol elm))
-                                :path (resolve-import-uripath main-pathname uripath prefix-lookup)
-                                :uripath uripath))))
-             (elms-to-modules (elm-list)
-               (loop for elm in elm-list
-                     when (import-decl-p elm)
-                     collect (import-decl-to-module elm))))
-      (let* ((queue (elms-to-modules (parse-module main-module)))
-             (own-already-imported (union (mapcar 'module-path queue)
-                                          already-imported
-                                          :test 'pathnames-equal)))
-        (loop for module in queue
-              unless (find (module-path module) already-imported :test 'pathnames-equal)
-              append (if (eq (module-type module) 'jw)
-                       (postpend (determine-imported-modules module
-                                                             prefix-lookup
-                                                             own-already-imported)
-                                 module)
-                       (list module)))))))
+    (when (probe-file main-pathname)
+      (labels ((import-decl-to-module (elm)
+                 (with-slots (uripath) elm
+                   (if (null (import-decl-type-symbol elm))
+                     (make-module :type (lookup-module-type (pathname-type (pathname uripath)))
+                                  :path (resolve-import-uripath main-pathname uripath prefix-lookup)
+                                  :import-elm elm
+                                  :parent-module main-module
+                                  :uripath uripath)
+                     (make-module :type (lookup-module-type (import-decl-type-symbol elm))
+                                  :path (resolve-import-uripath main-pathname uripath prefix-lookup)
+                                  :import-elm elm
+                                  :parent-module main-module
+                                  :uripath uripath))))
+               (elms-to-modules (elm-list)
+                 (loop for elm in elm-list
+                       when (import-decl-p elm)
+                       collect (import-decl-to-module elm))))
+        (let* ((queue (elms-to-modules (parse-module main-module)))
+               (own-already-imported (union (mapcar 'module-path queue)
+                                            already-imported
+                                            :test 'pathnames-equal)))
+          (loop for module in queue
+                unless (find (module-path module) already-imported :test 'pathnames-equal)
+                append (if (eq (module-type module) 'jw)
+                         (postpend (determine-imported-modules module
+                                                               prefix-lookup
+                                                               own-already-imported)
+                                   module)
+                         (list module))))))))
 
 (defun determine-modules (main-module prefix-lookup)
   "Using MAIN-MODULE as the main module, determine a list of modules that need
@@ -108,68 +176,6 @@
       (regex-replace "\\.[^\\.]*$" search-uripath (format nil ".~A" new-extension)))
     (format nil "~A.~A" uripath new-extension)))
 
-;;;; ======= Module datatype =======================================================================
-(defstruct module
-  "Represents a single module of a jwacs application"
-  type
-  path
-  uripath
-  compressed-p
-  text
-  inline-stream)
-
-(defmacro with-module-output ((stream-name module &key append) &body body)
-  "Outputs to a module, optionally appending"
-  (let ((gmodule (gensym)))
-    `(let ((,gmodule ,module))
-      (if (module-inline-stream ,gmodule)
-        (let ((,stream-name (module-inline-stream ,gmodule)))
-          ,@body)
-        (with-open-file (,stream-name (module-path ,gmodule)
-                                      :direction :output
-                                      :if-does-not-exist :create
-                                      :if-exists ,(if append :append :supersede))
-          ,@body)))))
-
-(defun get-module-text (module)
-  "Reads the entire text of a module."
-  (with-slots (inline-stream text) module
-    (cond
-      (text
-       text)
-      (inline-stream
-       (get-output-stream-string inline-stream))
-      (t
-       (read-entire-file (module-path module))))))
-
-(defun parse-module (module)
-  "Parse the source text contained in MODULE and return a js/jw source-model"
-  (parse (get-module-text module)))
-  
-(defun lookup-module-type (raw-type)
-  "Converts a 'raw' module type into a canonical type symbol.
-   A warning will be signalled for unrecognized raw types.
-   RAW-TYPE should be either a string or a symbol.
-
-   The recognized types are:
-
-      Symbol | Description            | Extensions
-      -------|------------------------|------------------
-      'JW    | jwacs source           | .jw, .jwa, .jwacs
-      'JS    | Javascript source      | .js"
-  
-  (let ((type-symbol (if (stringp raw-type)
-                            (intern (string-upcase raw-type) :jwacs)
-                            raw-type)))
-    (case type-symbol
-      ((jw jwa jwacs)
-       'jw)
-      (js
-       'js)
-      (otherwise
-       (warn "Unrecognized import type ~A" type-symbol)
-       type-symbol))))
-
 ;;;; ======= Source transformation =================================================================
 
 (defparameter *compiler-pipeline*
@@ -216,9 +222,16 @@
            (unless (or (module-text module)
                        (module-inline-stream module)
                        (probe-file (module-path module)))
-             (if (eq (module-type module) 'jw)
-               (error "Cannot read '~A' (specified by URI path '~A')" (module-path module) (module-uripath module))
-               (warn "Cannot read '~A' (specified by URI path '~A')" (module-path module) (module-uripath module))))))
+             (let* ((pos (element-start (module-import-elm module)))
+                    (parent (module-parent-module module))
+                    (parent-text (when parent
+                                   (get-module-text parent)))
+                    (row/col (when (and pos parent-text)
+                               (position-to-line/column parent-text pos)))
+                    (err (make-condition 'missing-import :pos pos :row (car row/col) :column (cdr row/col)
+                                         :parent-uripath (module-uripath parent)
+                                         :import-uripath (module-uripath module))))
+                 (error err)))))
     
     (loop for module in module-list
           do (confirm-file module)

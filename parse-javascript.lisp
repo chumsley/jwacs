@@ -650,36 +650,19 @@
     (t nil)))
 
 ;;;; ======= Public interface ======================================================================
-(define-condition syntax-error (error)
-  ((token :initarg :token :reader token)
-   (expected-terminals :initarg :expected-terminals :reader expected-terminals)
-   (row :initarg :row :reader row)
-   (column :initarg :column :reader column)))
-
-(defmethod print-object ((e syntax-error) s)
-  (if *print-escape*
-    (print-unreadable-object (e s :type t :identity nil)
-      (format s "(~D, ~D): Unexpected terminal ~S"
-              (row e) (column e) (token-terminal (token e))))
-    (format s "Encountered ~S (value: ~S)~@:_~
-                        at line ~D, column ~D~%~
-                        Expected one of: ~S"
-            (token-terminal (token e)) (token-value (token e))
-            (row e) (column e)
-            (expected-terminals e))))
-
 (defun parse (str)
   "Parse STR as a Javascript script, returning a list of statements.
    Semicolon insertion is performed according to the ECMA-262 standard."
   (let ((lexer (make-instance 'javascript-lexer :text str)))
     (labels ((resignal (err)
-               (destructuring-bind (row . col) (position-to-line/column
-                                                str
-                                                (token-start (yacc:yacc-parse-error-value err)))
-                 (error (make-condition 'syntax-error
-                                        :token (yacc:yacc-parse-error-value err)
-                                        :expected-terminals (yacc:yacc-parse-error-expected-terminals err)
-                                        :row row :column col))))
+               (let ((pos (token-start (yacc:yacc-parse-error-value err))))
+                 (destructuring-bind (row . col) (position-to-line/column
+                                                  str
+                                                  pos)
+                   (error (make-condition 'syntax-error
+                                          :token (yacc:yacc-parse-error-value err)
+                                          :expected-terminals (yacc:yacc-parse-error-expected-terminals err)
+                                          :pos pos :row row :column col)))))
              (handle-yacc-error (err)
                (cond
 
