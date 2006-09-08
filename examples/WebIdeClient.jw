@@ -189,7 +189,8 @@ function hookHandler(e, handler, handlerStack, latestStack, latestBox)
     {
       Event.stop(evt);
       parent.removeChild(div);
-      appWindow.$trampoline(function() { resume handler <- e; });
+      removeHighlight(box);
+      appWindow.$invokeHandler(handler, e);
     };
   
     div.appendChild(document.createTextNode(" | "));

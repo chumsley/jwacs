@@ -552,4 +552,10 @@ function $localEval(thunk, handlerStack, $s)
   return ret.result;
 }
 
+function $invokeHandler(handler, e)
+{
+  return $trampoline(function() { return handler(e); });
+}
+
 var $exHook;
+
