@@ -12,4 +12,4 @@
   (:export
    #:parse
    #:process #:build-app
-   #:syntax-error))
+   #:syntax-error #:missing-import))

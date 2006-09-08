@@ -1,0 +1,34 @@
+.exception
+{
+  background: orange;
+}
+
+.frame
+{
+  margin-top: 12pt;
+  margin-bottom: 12pt;
+  width:650px;
+}
+
+#sourceText, #dummyDiv
+{
+  font-family: Courier, sans-serif;
+  font-size: 12px;
+  padding: 0px 0px 0px 0px;
+  margin:0px 0px 0px 0px;
+}
+
+#dummyDiv
+{
+  visibility: hidden; 
+  position: absolute;
+  top: -100px;
+  left: -100px;
+}
+
+#contentDiv
+{
+  width: 80%;
+  margin: 0 auto;
+  padding-left: 50px;
+}

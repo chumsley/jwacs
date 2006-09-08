@@ -475,13 +475,16 @@ function HandlerStackEntry(k, next)
 function $trampoline(origThunk, origStack)
 {
   var handlerStack = origStack ? origStack : null; // The handler stack for this thread
-  var latestResult = null;
-  var ret = typeof origThunk == 'function' ? {done: false, thunk: origThunk} :
-            typeof origThunk == 'object' ? origThunk : null;
+  var ret;
 
-  if(typeof origThunk != 'function' && typeof origThunk != 'object')
+  if(typeof origThunk == 'function')
+    ret = {done: false, thunk: origThunk};
+  else if(typeof origThunk == 'object')
+    ret = origThunk;
+  else
     throw "$trampoline: origThunk is neither a function nor an object";
-
+  var latestResult = null;
+  
   function popHandler(expected)
   {
     var top = handlerStack;

@@ -3,11 +3,15 @@
 /// A simple web-based client for writing jwacs applications.
 import "../lib/prototype.js";
 import "../lib/jwacs-lib.js";
+import "effects.js";
+import "textarea-highlights.js";
 
 JwacsLib.initHistory();
+initHighlights();
 
 function main()
-{ }
+{
+}
 
 function doLoad()
 {
@@ -31,15 +35,9 @@ function updateButtons()
 {
   var sourceNameElm = document.getElementById("sourceName");
   if(sourceNameElm.value.match(/\.jw$/i))
-  {
-    document.getElementById('compileButton').disabled = false;
     document.getElementById('runButton').disabled = false;
-  }
   else
-  {
-    document.getElementById('compileButton').disabled = true;
     document.getElementById('runButton').disabled = true;
-  }
 }
 
 function doSave()
@@ -73,7 +71,17 @@ function doCompile()
     // Handle errors
     if(http.status == 409)
     {
-      errElm.innerHTML = http.responseText;
+      Element.show(errElm);
+      var match = http.responseText.match(/^(\d+):(.*)$/);
+      if(match)
+      {
+        errElm.innerHTML = match[2];
+        var ta = document.getElementById('sourceText');
+        var dummy = document.getElementById('dummyDiv');
+        var box = addHighlight(ta, dummy, new Number(match[1]) + 1, new Number(match[1]) + 2, 'red');
+      }
+      else
+        errElm.innerHTML = http.responseText;
       return;
     }
 
@@ -85,7 +93,7 @@ function doCompile()
 
     // Otherwise, there were no errors and we can reset the error box and return
     // the name of the application's entry URI.
-    errElm.innerHTML = "<br>";
+    Element.hide(errElm);
     return http.responseText;
   }
   catch(e)
@@ -100,6 +108,14 @@ function doCompile()
 var appWindow = null;
 function doRun()
 {
+  // Clean up now-invalid highlights and close the obsolete window before we compile
+  if(appWindow)
+    appWindow.close();
+  appWindow = null;
+  clearHighlights();
+
+  document.getElementById('exceptions').innerHTML = "";
+  
   var appText = doCompile();
   if(!appText)
     return;
@@ -110,17 +126,14 @@ function doRun()
                             "<script");
 
   //TEST
-  var pre = document.getElementById('appSourcePre');
-  if(!pre)
-  {
-    pre = document.createElement("PRE");
-    document.body.appendChild(pre);
-  }
-  pre.innerHTML = appText.replace(/</g, "&lt;");
+//   var pre = document.getElementById('appSourcePre');
+//   if(!pre)
+//   {
+//     pre = document.createElement("PRE");
+//     document.body.appendChild(pre);
+//   }
+//   pre.innerHTML = appText.replace(/</g, "&lt;");
   
-  if(appWindow)
-    appWindow.close();
-
   // We're about to throw away the running app, so none of its frames are valid anymore
   var exceptions = document.getElementById('exceptions');
   exceptions.innerHTML = "<br>"; 
@@ -144,8 +157,15 @@ function hookHandler(e, handler, handlerStack, latestStack, latestBox)
   var parent = document.getElementById('exceptions');
   
   var div = document.createElement("DIV");
-  div.className = "exceptionDiv";
+  div.className = "exception frame";
   div.appendChild(document.createTextNode("[" + dateStr(new Date) + "]: Exception '" + e + "' thrown"));
+
+  if(latestBox.startPos && latestBox.endPos)
+  {
+    var ta = document.getElementById('sourceText');
+    var dummy = document.getElementById('dummyDiv');
+    var box = addHighlight(ta, dummy, latestBox.startPos + 1, latestBox.endPos, 'orange');
+  }
 
   var restartThunk = document.createElement("A");
   restartThunk.appendChild(document.createTextNode("restart thunk"));
@@ -154,6 +174,7 @@ function hookHandler(e, handler, handlerStack, latestStack, latestBox)
   {
     Event.stop(evt);
     parent.removeChild(div);
+    removeHighlight(box);
     appWindow.$trampoline(latestBox, latestStack);
   };
   div.appendChild(document.createElement("BR"));
@@ -190,6 +211,8 @@ function hookHandler(e, handler, handlerStack, latestStack, latestBox)
   }
   div.appendChild(document.createTextNode("start=" + latestBox.startPos + ", end=" + latestBox.endPos));
   parent.appendChild(div);
+  
+  window.focus();
 };
 
 function dateStr(date)

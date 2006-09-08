@@ -2,27 +2,19 @@
 <html>
 <head>
   <title>jwacs editor</title>
-  <style type='text/css'>
-    div.exceptionDiv {
-      background: #ffaaaa;
-      margin-top: 12pt;
-      margin-bottom: 12pt;
-      width:650px;
-    }
-  </style>
+  <link href='WebIdeClient.css' type='text/css' rel='stylesheet'>
 </head>
 <body>
 <div id='contentDiv'>
   <form action='javascript:doLoad();'>
-    Source file: <input id='sourceName' type='text' onKeyUp='updateButtons();'><br>
+    Source file: <input id='sourceName' type='text' onKeyUp='updateButtons();'>
+    <input id='loadButton' type='button' value='load' onclick='doLoad();'>
+    <input id='saveButton' type='button' value='save' onclick='doSave();'>
+<!--    <input id='compileButton' type='button' value='compile' onclick='doCompile();'> -->
+    <input id='runButton' type='button' value='run' onclick='doRun();'>
   </form>
   <textarea id='sourceText' rows=24 cols=80></textarea>
-  <br>
-  <input id='loadButton' type='button' value='load' onclick='doLoad();'>
-  <input id='saveButton' type='button' value='save' onclick='doSave();'>
-  <input id='compileButton' type='button' value='compile' onclick='doCompile();'>
-  <input id='runButton' type='button' value='run' onclick='doRun();'>
-  <p><br>
+  <div id='dummyDiv'>dummy text</div>
   <form action='javascript:doEval();'>
     Eval input:<br>
     <input id='evalInput' type='text' size=80>  
