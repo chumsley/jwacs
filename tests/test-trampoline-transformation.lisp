@@ -142,6 +142,16 @@
       throw 100;"))
 
 (deftest trampoline/throw/2 :notes trampoline
+  (let ((jw::*debug-mode* t))
+    (test-transform 'trampoline (parse "throw 100;")))
+  #.(test-parse "return {startPos: 0, endPos: 10,
+                         done: false,  
+                         thunk: function($e, $localEvalArg) {
+                            if($localEvalArg) return $id(eval($localEvalArg));
+                            throw 100;
+                         }};"))
+
+(deftest trampoline/throw/2 :notes trampoline
   (test-transform 'trampoline (parse "
       throw 100 -> k;"))
   #.(test-parse "

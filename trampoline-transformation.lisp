@@ -194,15 +194,25 @@
 
 (defmethod transform ((xform (eql 'trampoline)) (elm throw-statement))
   (with-slots (value target) elm
-    (if target
-      (make-return-statement
+    (cond
+      (target
+       (make-return-statement
        :arg (make-boxed-thunk
              (make-throw-statement :value (transform 'trampoline value)
                                    :start (source-element-start elm)
                                    :end (source-element-end elm))
              *replace-handler-stack-prop*
              (make-property-access :target (transform 'trampoline target)
-                                   :field *handler-stack-k-prop*)))
-      (make-throw-statement :value (transform 'trampoline value)
-                            :start (source-element-start elm)
-                            :end (source-element-end elm)))))
+                                   :field *handler-stack-k-prop*))))
+      (*debug-mode*
+       ;; In debug mode, it's a lot less confusing if we generate an otherwise-superfluous
+       ;; thunk for each throw statement.
+       (make-return-statement
+       :arg (make-boxed-thunk
+             (make-throw-statement :value (transform 'trampoline value)
+                                   :start (source-element-start elm)
+                                   :end (source-element-end elm)))))
+      (t
+       (make-throw-statement :value (transform 'trampoline value)
+                             :start (source-element-start elm)
+                             :end (source-element-end elm))))))
