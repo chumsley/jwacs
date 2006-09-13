@@ -76,7 +76,8 @@
   "Determines the modules imported by MAIN-MODULE.  Modules whose pathnames are elements of
    ALREADY-IMPORTED will not be included.  Nonexistent files return an empty list of modules."
   (with-slots ((main-pathname path)) main-module
-    (when (probe-file main-pathname)
+    (when (or (probe-file main-pathname)
+              (module-text main-module))
       (labels ((import-decl-to-module (elm)
                  (with-slots (uripath) elm
                    (if (null (import-decl-type-symbol elm))
