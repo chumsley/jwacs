@@ -472,7 +472,7 @@
        (floating-re
         (set-cursor lexer %e)
         (make-token :terminal :number :start %s :end %e
-                    :value (read-from-string text nil eoi :start %s :end %e)))
+                    :value (read-from-string text nil nil :start %s :end %e)))
        (integer-re
         (set-cursor lexer %e)
         (make-token :terminal :number :start %s :end %e
