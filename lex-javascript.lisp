@@ -323,7 +323,7 @@
 (defstruct token
   "Represents a token returned by the lexer"
   (terminal nil :type symbol)
-  (value   nil :type (or number string (cons string string)))
+  (value   nil :type (or number string (cons string string) null))
   (start   nil :type (or number null))
   (end     nil :type (or number null)))
 
