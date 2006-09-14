@@ -327,6 +327,10 @@
   (start   nil :type (or number null))
   (end     nil :type (or number null)))
 
+#+(or sbcl cmu)
+(defmethod make-load-form ((self token) &optional environment)
+  (make-load-form-saving-slots self :environment environment))
+
 ;;;; Helper functions and macros
 (defun parse-javascript-integer (integer-str &key (start 0) end)
   "Parse integer literals, taking account of 0x and 0 radix-specifiers"
