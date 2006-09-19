@@ -373,7 +373,7 @@
 
 (defun build-app (main-module-path
                    &key debug-mode (compress-mode (not debug-mode)) (combine-mode (not debug-mode))
-                        template-uripath output-uripath prefix-lookup (runtime-uripath (if debug-mode "jw-debug-runtime" "jw-rt"))
+                        template-uripath output-uripath prefix-lookup (runtime-uripath (if debug-mode "jw-debug-runtime.js" "jw-rt.js"))
                         inline-output-stream inline-main-text)
   "Build a wrapper html file for a jwacs application.  COMBINE-MODE is forced to T if an
    INLINE-OUTPUT-STREAM is provided."
