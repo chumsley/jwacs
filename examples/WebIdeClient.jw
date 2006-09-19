@@ -20,10 +20,11 @@ function doLoad()
     var sourceNameElm = document.getElementById("sourceName");
     var textElm = document.getElementById("sourceText");
 
-    //TODO prompt if unsaved
+    //TODO prompt if changed
     
     var newSource = JwacsLib.fetchData("GET", "/jwacs/demos/web-ide/source/" + sourceNameElm.value);
     textElm.value = newSource;
+    JwacsLib.newPage();
   }
   catch(e)
   {
@@ -38,23 +39,6 @@ function updateButtons()
     document.getElementById('runButton').disabled = false;
   else
     document.getElementById('runButton').disabled = true;
-}
-
-function doSave()
-{
-  try
-  {
-    var sourceNameElm = document.getElementById("sourceName");
-    var textElm = document.getElementById("sourceText");
-
-    JwacsLib.sendRequest("POST", "/jwacs/demos/web-ide/source/" + sourceNameElm.value,
-                         textElm.value);
-  }
-  catch(e)
-  {
-    alert(e);
-  }
-  //TODO update unsaved information
 }
 
 function doCompile()

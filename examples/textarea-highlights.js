@@ -53,7 +53,7 @@ function positionBoxes()
 
 //======= Public API ===============================================================================
 
-var tabWidth = 50;
+var tabWidth = 0;
 function addHighlight(elm, dummyDiv, s, e, background)
 {
   var box = document.createElement("DIV");

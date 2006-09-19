@@ -9,7 +9,7 @@
   <form action='javascript:doLoad();'>
     Source file: <input id='sourceName' type='text' onKeyUp='updateButtons();'>
     <input id='loadButton' type='button' value='load' onclick='doLoad();'>
-    <input id='saveButton' type='button' value='save' onclick='doSave();'>
+<!--    <input id='saveButton' type='button' value='save' onclick='doSave();'> -->
 <!--    <input id='compileButton' type='button' value='compile' onclick='doCompile();'> -->
     <input id='runButton' type='button' value='run' onclick='doRun();'>
   </form>
