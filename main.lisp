@@ -19,34 +19,34 @@
   (handler-case 
       (multiple-value-bind (template output prefix-lookup runtime target)
           (decode-arguments)
-        (unless target
-          (format *error-output* "~&jwacs: No target specified~%")
-          (show-usage)
-          (return-from main 255))
-        (format t "~&Main source file:  ~A" target)
-        (when template
-          (format t "~&~%Template URI path: ~A" template)
-          (format t "~&Template file:     ~A" (truename (resolve-import-uripath target template prefix-lookup))))
-        (when runtime
-          (format t "~&~%Runtime URI path:  ~A" runtime)
-          (format t "~&Runtime file:      ~A" (truename (resolve-import-uripath target runtime prefix-lookup))))
-        (when output
-          (format t "~&~%Output URI path:   ~A" output)
-          (format t "~&Output file:       ~A" (resolve-import-uripath target output prefix-lookup)))
+        (let ((build-args (list target)))
+          (unless target
+            (format *error-output* "~&jwacs: No target specified~%")
+            (show-usage)
+            (return-from main 255))
+          (format t "~&Main source file:  ~A" target)
+          (when template
+            (format t "~&~%Template URI path: ~A" template)
+            (format t "~&Template file:     ~A" (truename (resolve-import-uripath target template prefix-lookup)))
+            (setf build-args (append build-args (list :template-uripath template))))
+          (when runtime
+            (format t "~&~%Runtime URI path:  ~A" runtime)
+            (format t "~&Runtime file:      ~A" (truename (resolve-import-uripath target runtime prefix-lookup)))
+            (setf build-args (append build-args (list :runtime-uripath runtime))))
+          (when output
+            (format t "~&~%Output URI path:   ~A" output)
+            (format t "~&Output file:       ~A" (resolve-import-uripath target output prefix-lookup))
+            (setf build-args (append build-args (list :output-uripath output))))
 
-        (build-app target
-                   :template-uripath template
-                   :output-uripath output
-                   :prefix-lookup prefix-lookup
-                   :runtime-uripath runtime)
-        (format t "~&~%Done.~%~%")
-        0)
+          (apply 'build-app build-args)
+          (format t "~&~%Done.~%~%")
+          0))
     (condition (c)
-               (let ((*print-escape* nil))
-                 (format *error-output* "~&jwacs: ")
-                 (print-object c *error-output*)
-                 (terpri *error-output*)
-                 254))))
+       (let ((*print-escape* nil))
+         (format *error-output* "~&jwacs: ")
+         (print-object c *error-output*)
+         (terpri *error-output*)
+         254))))
 
 (defun decode-arguments ()
   "Decode the command-line arguments and return the resulting option values"
