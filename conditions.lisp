@@ -7,7 +7,8 @@
 (in-package :jwacs)
 
 (define-condition positioned-condition (condition)
-  ((pos :initarg :pos :reader pos)
+  ((filename :initarg :filename :initform nil :reader filename)
+   (pos :initarg :pos :reader pos)
    (row :initarg :row :reader row)
    (column :initarg :column :reader column))
   (:documentation "Represents a condition that has a source position associated with it"))
@@ -26,17 +27,22 @@
     (cond
       (*print-escape*
        (print-unreadable-object (e s :type t :identity nil)
-         (format s "~D,~D: Unexpected terminal ~S"
-                 (row e) (column e) (token-terminal (token e)))))
+         (format s "~A (~D,~D): Unexpected terminal ~S"
+                 (or (filename e) "")
+                 (row e) (column e)
+                 (or (token-terminal (token e)) 'eof))))
       ((slot-boundp e 'expected-terminals)
-       (format s "~D,~D: Unexpected terminal ~S (value: ~S)~%~
-               Expected one of ~S"
+       (format s "~A (~D,~D): Unexpected terminal ~S (value: ~S)~%~
+                  Expected one of ~S"
+              (or (filename e) "")
               (row e) (column e)
-              (token-terminal (token e)) (token-value (token e))
+              (or (token-terminal (token e)) 'eof) (token-value (token e))
               (expected-terminals e)))
       (t
-       (format s "~D,~D: Unexpected terminal ~S (value: ~S)"
-               (row e) (column e) (token-terminal (token e)) (token-value (token e))))))
+       (format s "~A (~D,~D): Unexpected terminal ~S (value: ~S)"
+               (or (filename e) "")
+               (row e) (column e)
+               (or (token-terminal (token e)) 'eof) (token-value (token e))))))
 
 (define-condition missing-import (error positioned-condition)
   ((parent-uripath :initarg :parent-uripath :reader parent-uripath) ; Name of the module where the bad import occurs

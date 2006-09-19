@@ -45,7 +45,9 @@
 
 (defun parse-module (module)
   "Parse the source text contained in MODULE and return a js/jw source-model"
-  (parse (get-module-text module)))
+  (let ((*current-filename* (or (module-uripath module)
+                                (module-path module))))
+    (parse (get-module-text module))))
   
 (defun lookup-module-type (raw-type)
   "Converts a 'raw' module type into a canonical type symbol.

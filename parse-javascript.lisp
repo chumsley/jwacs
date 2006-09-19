@@ -650,6 +650,9 @@
     (t nil)))
 
 ;;;; ======= Public interface ======================================================================
+(defparameter *current-filename* nil
+  "The name of the file currently being parsed")
+
 (defun parse (str)
   "Parse STR as a Javascript script, returning a list of statements.
    Semicolon insertion is performed according to the ECMA-262 standard."
@@ -662,7 +665,7 @@
                    (error (make-condition 'syntax-error
                                           :token (yacc:yacc-parse-error-value err)
                                           :expected-terminals (yacc:yacc-parse-error-expected-terminals err)
-                                          :pos pos :row row :column col)))))
+                                          :filename *current-filename* :pos pos :row row :column col)))))
              (handle-yacc-error (err)
                (cond
 
@@ -697,4 +700,5 @@
 
 (defun parse-file (path)
   "Load the file at PATH and parse it into a js/jw source model"
-  (parse (read-entire-file path)))
+  (let ((*current-filename* path))
+    (parse (read-entire-file path))))
