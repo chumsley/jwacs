@@ -151,7 +151,7 @@
                             throw 100;
                          }};"))
 
-(deftest trampoline/throw/2 :notes trampoline
+(deftest trampoline/throw/3 :notes trampoline
   (test-transform 'trampoline (parse "
       throw 100 -> k;"))
   #.(test-parse "
