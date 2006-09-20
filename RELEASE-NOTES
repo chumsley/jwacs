@@ -1,12 +1,27 @@
 ====================================================================================================
+alpha2 release (Sep 19/2006):
+--------------------------------
+This is the first public release of jwacs.  New in this release:
+  
+  * The parser now performs automatic semicolon insertion
+  * Syntax errors now include file name and line/column position
+  * Added compress and combine/bundle modes for more compact output Javascript
+  * BUILD-APP now allows in-memory compilation (this is mostly to support the
+    web-based debugger)
+  * Miscellaneous bugfixes
+
+We still transform all code instead of just those functions that are on a
+potential call path to a continuation operator, so the output is quite large.
+
+====================================================================================================
 alpha1 release (August 14/2006):
 --------------------------------
 This is the initial "friends and family" release.  Error reporting is pretty
-scant, and the content-based optimizations are not yet in, so it definitely
+scant, and the context-based optimizations are not yet in, so it definitely
 requires a bit of work to get everything working properly.
 
 ====================================================================================================
-CURRENT KNOWN ISSUES (as of alpha1):
+CURRENT KNOWN ISSUES (as of alpha2):
 ------------------------------------
 * Objects may have an unexpected field named $init during construction.
 * Function.apply cannot be used to call functions that have been transformed (in
@@ -14,4 +29,3 @@ CURRENT KNOWN ISSUES (as of alpha1):
   have definitely not been transformed).
 * The with statement is not supported at all
 * finally clauses are not supported
-* The parser does not do semicolon insertion
