@@ -192,6 +192,29 @@
   18 21)
 
 
+(deftest canonicalize/for-with-var-decls-in-body/1 :notes loop-canonicalize
+  (with-fresh-genvar
+    (transform 'loop-canonicalize (test-parse "
+      while(true)
+      {
+        for(var i = 0;;);
+      }")))
+  #.(test-parse "
+      var i;
+      while(true)
+      {
+        if(!true)
+          break;
+        i = 0;
+        while(true)
+        {
+          if(!true)
+            break;
+          continue;
+        }
+        continue;
+      }"))
+
 
 ;; TODO at some point we will want to look very carefully at how the positions are calculated
 ;; for the condition test and the generated break and continue statements.

@@ -198,7 +198,9 @@
                                                                         :start (source-element-start var-decl)
                                                                         :end (source-element-end var-decl))))
                              (var-decl-statement-var-decls elm))))
-    (combine-statements assignments)))
+    (if (= 1 (length assignments))
+      (first assignments)
+      (combine-statements assignments))))
 
 
 ;; ===================
