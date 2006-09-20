@@ -157,15 +157,20 @@
 (defmethod transform ((xform (eql 'loop-canonicalize)) (elm for))
  (let* ((new-decls (mapcar (lambda (decl)  (make-var-decl :name (var-decl-name decl) :initializer nil))
                            (collect-in-scope (for-body elm) 'var-decl)))
-        (new-header-statements (if (null new-decls)
-                                 (list (for-initializer elm))
-                                 (list (make-var-decl-statement :var-decls new-decls)
-                                       (for-initializer elm))))
+        (new-header-statements (cond
+                                 ((and (for-initializer elm)
+                                       new-decls)
+                                  (list (make-var-decl-statement :var-decls new-decls)
+                                       (for-initializer elm)))
+                                  ((for-initializer elm)
+                                   (for-initializer elm))
+                                  (t
+                                   nil)))
         (new-loop (make-while :label (source-element-label elm)
                               :condition (make-special-value :symbol :true)
                               :body (single-statement
                                      (make-if-statement
-                                      :condition (make-unary-operator :op-symbol :logical-not :arg (for-condition elm))
+                                      :condition (make-unary-operator :op-symbol :logical-not :arg (or (for-condition elm) (make-special-value :symbol :true)))
                                       :then-statement (make-break-statement :target-label nil))
                                      (transform 'loop-canonicalize (transform 'loop-canonicalize-in-body (for-body elm)))
                                      (for-step elm)

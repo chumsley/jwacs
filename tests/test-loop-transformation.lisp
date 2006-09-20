@@ -32,7 +32,17 @@
                (test-parse "x=0; labelled: while(x<4) { foo(); x++; }"))
   #.(test-parse "x=0; labelled: while(true) { if(!(x<4)) break; foo(); x++; continue; }"))
 
-
+(deftest canonicalize/while/infinite :notes loop-canonicalize
+  (transform 'loop-canonicalize
+               (test-parse "
+        while(true);"))
+  #.(test-parse "
+        while(true)
+        {
+          if(!true)
+            break;
+          continue;
+        }"))  
 
 
 ;; ====================================
@@ -71,7 +81,21 @@
           x++;
           continue;
         }"))
-            
+
+(deftest canonicalize/for/infinite :notes loop-canonicalize
+  (with-fresh-genvar
+    (transform 'loop-canonicalize
+               (test-parse "
+        for(;;);")))
+  #.(test-parse "
+        while(true)
+        {
+          if(!true)
+            break;
+          continue;
+        }"))
+
+
 ;; ====================================
 ;; DO-WHILE LOOPS
 
@@ -166,6 +190,8 @@
     (values (source-element-start foo-call)
             (source-element-end foo-call)))
   18 21)
+
+
 
 ;; TODO at some point we will want to look very carefully at how the positions are calculated
 ;; for the condition test and the generated break and continue statements.

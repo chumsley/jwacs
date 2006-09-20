@@ -26,7 +26,7 @@ function runTests()
     runTest("for/3", matrixReduce([[10, 20], [1]]), null);
     runTest("for/4", negativeOddSum(4), 10);
     runTest("for/5", negativeOddSum(5), -15);
-    runTest("for-in/1", sumWords([]), 0);
+    runTest("for-in/2", sumWords([]), 0);
     runTest("switch/1", wordToNumber("one"), 1);
     runTest("switch/2", wordToNumber("two"), 2);
     runTest("switch/3", isNaN(sumWords(["hi", "zero", "ten"])), true);
