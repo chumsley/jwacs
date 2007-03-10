@@ -13,8 +13,8 @@
 ;;; - All new expressions transformed to new expressions that pass a continuation as the first argument
 ;;; - All assignments to function call or `new` results transformed to new continuations
 ;;; - All returns transformed to returns of the arg passed to the current continuation
-;;; - TODO describe loop conversions
-;;; - TODO describe try-catch conversions
+;;; - TODO describe loop conversions in more detail
+;;; - TODO describe try-catch conversions in more detail
 ;;;
 ;;;; Preconditions
 ;;; The CPS transform assumes the following:
@@ -396,7 +396,7 @@
                                               (make-continuation-function :parameters (list k-param-name)
                                                                           :body (in-local-scope
                                                                                   (tx-cps augmented-statement-tail nil)))
-                                              (fn-call-args initializer))
+                                              (mapcar (lambda (arg) (tx-cps arg nil)) (fn-call-args initializer)))
                                        :start (source-element-start initializer)
                                        :end (source-element-end initializer))))
            (values (make-return-statement :arg new-call
@@ -411,7 +411,7 @@
                                                        (make-continuation-function :parameters (list k-param-name)
                                                                                    :body (in-local-scope
                                                                                            (tx-cps augmented-statement-tail nil)))
-                                                       (new-expr-args initializer))
+                                                       (mapcar (lambda (arg) (tx-cps arg nil)) (new-expr-args initializer)))
                                                 :start (source-element-start initializer)
                                                 :end (source-element-end initializer))))
            (values (make-return-statement :arg new-construction

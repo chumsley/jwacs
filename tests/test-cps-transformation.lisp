@@ -1622,4 +1622,37 @@
                                                                                                                           :arg #s(fn-call :fn #s(identifier :start 31 :end 34 :name "baz")
                                                                                                                                           :args (#s(identifier :name "$k"))))))))
                                                :start 17 :end 20)))))
-  
+
+(deftest cps/simple-function-expression/1 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "x = function() { return baz(); }")))
+  #.(test-parse "x = function($k) { return baz($k); }"))
+
+(deftest cps/function-expression-as-fn-arg/1 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+      var JW0 = bar(function()
+      {
+        return baz();
+      });
+      foo = JW0")))
+  #.(test-parse "
+      return bar( function(JW0) {
+        foo = JW0;
+        suspend;
+      }, function($k) { return baz($k); });"))
+
+(deftest cps/function-expression-as-new-expr-arg/1 :notes cps
+  (with-fresh-genvar
+    (test-transform 'cps (parse "
+      var JW0 = new bar(function()
+      {
+        return baz();
+      });
+      foo = JW0")))
+  #.(test-parse "
+      return new bar( function(JW0) {
+        foo = JW0;
+        suspend;
+      }, function($k) { return baz($k); });"))
+      
