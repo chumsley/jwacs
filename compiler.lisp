@@ -300,6 +300,7 @@
    "Outputs HTML to STREAM to cause the wrapper html file to link to MODULE."))
 
 (defmethod wrap-module (module (module-type (eql 'jw)) stream)
+  (declare (ignore stream module))
   (error "Internal error: jwacs modules must be transformed before they are wrapped"))
 
 (defmethod wrap-module (module (module-type (eql 'js)) stream)

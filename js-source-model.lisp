@@ -8,17 +8,12 @@
 ;;;
 (in-package :jwacs)
 
-#-(or sbcl cmu)
-(defmacro defelement (name &rest slots)
-  `(defstruct ,name ,@slots))
-
-#+(or sbcl cmu)
 (defmacro defelement (name &rest slots)
   (let ((type (if (consp name) (first name) name)))
     `(progn
-       (defstruct ,name ,@slots)
-       (defmethod make-load-form ((self ,type) &optional environment)
-         (make-load-form-saving-slots self :environment environment)))))
+      (defstruct ,name ,@slots)
+      (defmethod make-load-form ((self ,type) &optional environment)
+        (make-load-form-saving-slots self :environment environment)))))
 
 ;;;; ======= Javascript source element structures ==================================================
 
