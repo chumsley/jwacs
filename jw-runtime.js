@@ -88,7 +88,7 @@ function $isTransformed(f, thisObj)
 {
   try
   {
-    if(thisObj)
+    if(thisObj != null && thisObj != undefined)
       return thisObj[f].$jw;
     return f.$jw;
   }
@@ -128,7 +128,7 @@ function $call(f, k, thisObj, args)
 function $call0(f, k, thisObj, a1, a2, a3, a4, a5, a6, a7, a8)
 {
   var r;
-  if(thisObj)
+  if(thisObj != null && thisObj != undefined)
   {
     if($isTransformed(f, thisObj))
     {
@@ -337,7 +337,7 @@ function $new(ctor, k, args)
 
     var obj = new ctor.$blank;
     var augmentedK = $makeK(function(x) {
-      if(x)
+      if(x != null && x != undefined)
         return k(x);
       else
         return k(obj);
@@ -381,7 +381,7 @@ function $new0(ctor, k, a1, a2, a3, a4, a5, a6, a7, a8)
     obj.$init = ctor;
     var augmentedK = $makeK(function(x) {
       delete obj.$init;
-      if(x)
+      if(x != null && x != undefined)
         return k(x);
       else
         return k(obj);

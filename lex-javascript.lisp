@@ -494,7 +494,9 @@
        (string-re
         (set-cursor lexer %e)
         (make-token :terminal :string-literal :start %s :end %e
-                    :value (subseq text (1+ %s) (1- %e))))
+                    :value (cl-ppcre:regex-replace-all "(^|[^\\\\])\""
+                                                       (subseq text (1+ %s) (1- %e))
+                                                       "\\1\\\"")))
        (operator-re
         (set-cursor lexer %e)
         (let* ((text (subseq text %s %e))

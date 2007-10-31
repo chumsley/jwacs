@@ -55,6 +55,9 @@ function runTests()
     runTest("strip-var-decls/1", regressionTestStripSimpleInitialization(), true);
     runTest("strip-var-decls/2", stripVarsInSerialTry(), true);
     runTest("throw/1", throwReenteredThroughContinuation(), true);
+    runTest("strings_compat/1", stringMethods(), true);
+    runTest("strings_compat/2", "'", "'");
+    runTest("strings_compat/3", '"', '"');
   }
   catch(ex)
   {
@@ -626,5 +629,10 @@ function stripVarsInSerialTry()
   throw "Cannot create a suitable http request object";
 }
 
-
-  
+function stringMethods()
+{
+  var obj = {value: ""};
+  var v = obj.value;
+  var a_val = v.split(',');
+  return (obj.value == "");x
+}

@@ -597,6 +597,10 @@ suspend;")
     (pretty-string (make-string-literal :value "hello </script> ahoy")))
   "\"hello </script> ahoy\"")
 
+(deftest pretty-print/string-literal/4 :notes pretty-print
+  (pretty-string (test-parse "'\"'"))
+  "\"\\\"\";")
+
 ;;;; Some round-trip tests
 (deftest parse-print/round-trip/1 :notes (pretty-print parser)
   (test-parse (pretty-string (test-parse "\"string \\\"literal\\\"\"")))
