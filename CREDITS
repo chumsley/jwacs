@@ -16,3 +16,6 @@ omission in the cps transformation.
 
 Pascal Bourguignon contributed a patch to get jwacs compiling under
 Allegro Common Lisp.
+
+Danny Stillebroer contributed several bug reports, and did the bulk of
+the debugging for most of them.
