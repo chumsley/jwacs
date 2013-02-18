@@ -14,9 +14,6 @@
 
 ;;;; ======= Build parameters ======================================================================
 
-(defparameter *version* "alpha2"
-  "The current version")
-
 (defparameter *executable-name*
   #+win32 "jwacs.exe"
   #-win32 "jwacs"
@@ -48,7 +45,7 @@
 
 ;;;; ======= System definition =====================================================================
 (asdf:defsystem jwacs 
-  :version *version*
+  :version "0.3"
   :author "James Wright <james@chumsley.org> et al"
   :licence "MIT License <http://www.opensource.org/licenses/mit-license.php>"
   :serial t
