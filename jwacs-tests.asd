@@ -19,7 +19,8 @@
 (asdf:defsystem jwacs-tests
     :version "0.1"
     :author "James Wright <chumsley@gmail.com>, Greg Smolyn <greg@smolyn.org>"
-    :licence "BSD License <http://www.opensource.org/licenses/bsd-license.php>"
+    :license "MIT License <http://www.opensource.org/licenses/mit-license.php>"
+    :description "Unit tests for jwacs"
     :serial t
     :components
     ((:module "external"

@@ -47,7 +47,8 @@
 (asdf:defsystem jwacs 
   :version "0.3"
   :author "James Wright <james@chumsley.org> et al"
-  :licence "MIT License <http://www.opensource.org/licenses/mit-license.php>"
+  :license "MIT License <http://www.opensource.org/licenses/mit-license.php>"
+  :description "Javascript With Advanced Continuation Support"
   :serial t
   :components ((:module "external"
                         :components
