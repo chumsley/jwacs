@@ -3,21 +3,16 @@
 ;;; Defines an asdf system containing unit tests for jwacs.
 
 (defpackage :jwacs-tests-system
-  (:use :cl :asdf)
+  (:use :cl :asdf :uiop)
   (:nicknames :jw-tests-system))
 (in-package :jwacs-tests-system)
 
 ;;;; ======= Custom ASDF file types ================================================================
-(defclass jwacs-file (static-file) ())
-(defmethod source-file-type ((c jwacs-file) (s module)) "jw")
-(defmethod operation-done-p ((o load-op) (c jwacs-file))  
-  t)
-(defmethod operation-done-p ((o compile-op) (c jwacs-file))
-  t)
+(defclass jwacs-file (static-file)
+  ((type :initform "jw")))
 
 ;;;; ======= System definition =====================================================================
-(asdf:defsystem jwacs-tests
-    :version "0.1"
+(defsystem "jwacs-tests"
     :author "James Wright <chumsley@gmail.com>, Greg Smolyn <greg@smolyn.org>"
     :license "MIT License <http://www.opensource.org/licenses/mit-license.php>"
     :description "Unit tests for jwacs"
@@ -46,12 +41,5 @@
                (:file "test-trampoline-transformation")
                (:file "test-runtime-transformation")
                (:jwacs-file "lang-tests"))))
-    :depends-on (jwacs))
-
-;;;; ======= Test operation ========================================================================
-(defmethod perform ((o test-op) (c (eql (find-system 'jwacs-tests))))
-  (operate 'load-op :jwacs)
-  (funcall (intern (symbol-name '#:do-tests) (find-package :jw-tests))))
-
-(defmethod operation-done-p ((o test-op) (c (eql (find-system 'jwacs-tests))))
-  nil)
+    :depends-on ("jwacs")
+    :perform (test-op (o c) (symbol-call :jw-tests :do-tests)))

@@ -6,18 +6,8 @@
 
 (defpackage :jwacs-system
   (:use :cl :asdf)
-  (:nicknames :jw-system)
-  (:export
-   #:*version*
-   #:*executable-name*))
+  (:nicknames :jw-system))
 (in-package :jwacs-system)
-
-;;;; ======= Build parameters ======================================================================
-
-(defparameter *executable-name*
-  #+win32 "jwacs.exe"
-  #-win32 "jwacs"
-  "The name of the executable to create when dumping a binary")
 
 ;;;; ======= Compilation configuration =============================================================
 (defparameter *muffle-conflicts* t
@@ -31,25 +21,20 @@
    we're trying to load parse-javascript.lisp).")
 
 ;;;; ======= Custom ASDF file types ================================================================
-(defclass js-file (static-file) ())
-(defmethod source-file-type ((c js-file) (s module)) "js")
-(defmethod operation-done-p ((o load-op) (c js-file))  
-  t)
-(defmethod operation-done-p ((o compile-op) (c js-file))
-  t)
-
-(defmethod operation-done-p ((o load-op) (c html-file))  
-  t)
-(defmethod operation-done-p ((o compile-op) (c html-file))
-  t)
+(defclass js-file (static-file)
+  ((type :initform "js")))
 
 ;;;; ======= System definition =====================================================================
-(asdf:defsystem jwacs 
+(defsystem "jwacs"
   :version "0.3"
   :author "James Wright <james@chumsley.org> et al"
   :license "MIT License <http://www.opensource.org/licenses/mit-license.php>"
   :description "Javascript With Advanced Continuation Support"
   :serial t
+  :class program-system
+  :build-operation program-op
+  :build-pathname "jwacs"
+  :entry-point "jwacs:main"
   :components ((:module "external"
                         :components
                         ((:file "yacc")))
@@ -79,13 +64,6 @@
                (:file "trampoline-transformation")
                (:file "runtime-transformation")
                (:file "compiler")
-               #+(or sbcl lispworks) (:file "main"))
-  :depends-on (cl-ppcre))
-
-;;;; ======= Test operation ========================================================================
-(defmethod perform ((o test-op) (c (eql (find-system 'jwacs))))
-  (operate 'load-op 'jwacs-tests)
-  (operate 'test-op 'jwacs-tests))
-
-(defmethod operation-done-p ((o test-op) (c (eql (find-system 'jwacs))))
-  nil)
+               (:file "main"))
+  :depends-on ("cl-ppcre")
+  :in-order-to ((test-op (test-op "jwacs-tests"))))

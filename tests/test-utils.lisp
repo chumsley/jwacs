@@ -104,22 +104,16 @@
          (module (asdf:find-component (asdf:find-system :jwacs-tests) "tests"))
          (component (asdf:find-component module "lang-tests")))
     (jw::build-app (asdf:component-pathname component))))
-    
+
 (defun compile-examples (&key (compress-mode t) (combine-mode t))
   "Compiles all the examples"
-  (let* ((sys-pathname (truename (asdf:system-definition-pathname (asdf:find-system :jwacs))))
-         (lib-pathname (merge-pathnames (make-pathname :directory '(:relative "lib")
-                                                       :name :unspecific :type :unspecific :version :unspecific)
-                                        sys-pathname))
-         (examples-pathname (merge-pathnames (make-pathname :directory '(:relative "examples")
-                                                            :name :unspecific :type :unspecific :version :unspecific)
-                                        sys-pathname)))
+  (let ((lib-pathname (asdf:system-relative-pathname :jwacs "lib/"))
+        (examples-pathname (asdf:system-relative-pathname :jwacs "examples/")))
     (flet ((build-ex (name)
-             (jw:build-app (merge-pathnames name examples-pathname)
+             (jw:build-app (uiop:subpathname examples-pathname name)
                            :prefix-lookup `(("/lib/" . ,lib-pathname))
                            :compress-mode compress-mode
                            :combine-mode combine-mode)))
-
       (list
        (build-ex "CalendarMark2.jw")
        (build-ex "Counter.jw")
