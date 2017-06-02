@@ -7,16 +7,10 @@
 ;;;
 (in-package :jwacs)
 
-(defun command-line-arguments ()
-  "return a list of the command-line arguments"
-  #+sbcl sb-ext:*posix-argv*
-  #+lispworks system:*line-arguments-list*
-  #-(or sbcl lispworks) (error "Lispworks and SBCL are the only currently-supported compilers for binary creation"))
-  
 (defun main ()
   "This is the main entry-point for the jwacs binary."
   (show-banner)
-  (handler-case 
+  (handler-case
       (multiple-value-bind (template output prefix-lookup bundle-mode compress-mode runtime target)
           (decode-arguments)
         (let ((build-args (list target)))
@@ -57,7 +51,7 @@
 (defun decode-arguments ()
   "Decode the command-line arguments and return the resulting option values"
   (let (template output prefix-lookup (bundle-mode :default) (compress-mode :default) runtime target)
-    (do* ((arg-cell (cdr (command-line-arguments)) (cddr arg-cell))
+    (do* ((arg-cell (uiop:command-line-arguments) (cddr arg-cell))
           (arg-name (car arg-cell) (car arg-cell))
           (arg-value (cadr arg-cell) (cadr arg-cell)))
          ((null arg-cell))
@@ -113,17 +107,20 @@
              (when (and (char/= #\\ (aref path (1- (length path))))
                         (char/= #\/ (aref path (1- (length path)))))
                (setf path (format nil "~A/" path)))
-             
+
              (cons uri (parse-namestring path)))))
     (mapcar #'parse-cell (split ";" raw-str))))
-      
+
+(defparameter *version*
+  #.(asdf:component-version (asdf:find-system :jwacs)))
+
 (defun show-banner ()
   (format t "~%~%~
              ===============================================================================~%~
              jwacs - Javascript With Advanced Continuation Support~%~
              version: ~A~%~
              -------------------------------------------------------------------------------"
-          jw-system:*version*)
+          *version*)
   (write-line "" *standard-output*))
 
 (defun show-usage ()
@@ -152,4 +149,4 @@
                ~%                  and each imported Javascript file will be linked to separately.~
                ~%                  Defaults to on.
                ~%~%"
-            jw-system:*executable-name* foo bar foo bar)))
+            "jwacs" foo bar foo bar)))
