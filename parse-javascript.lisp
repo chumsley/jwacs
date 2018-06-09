@@ -544,6 +544,7 @@
   ((continue-statement :continue :line-terminator) (make-continue-statement :start $s :end $e))
 
   ((break-statement :break :no-line-terminator :identifier insertable-semicolon) (make-break-statement :target-label $$3 :start $s :end $e))
+  ((break-statement :break :no-line-terminator :inserted-semicolon) (make-break-statement :start $s :end $e))
   ((break-statement :break :no-line-terminator :semicolon) (make-break-statement :start $s :end $e))
   ((break-statement :break :line-terminator) (make-break-statement :start $s :end $e))
 
