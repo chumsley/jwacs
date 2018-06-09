@@ -222,7 +222,12 @@
                                   (:greedy-repetition 0 1
                                     (:sequence (:alternation #\e #\E)
                                                (:greedy-repetition 0 1 (:alternation #\+ #\-))
-                                               (:greedy-repetition 1 nil :digit-class)))))))
+                                               (:greedy-repetition 1 nil :digit-class))))
+                                (:sequence
+                                  (:greedy-repetition 1 nil :digit-class)
+                                  (:alternation #\e #\E)
+                                  (:greedy-repetition 0 1 (:alternation #\+ #\-))
+                                  (:greedy-repetition 1 nil :digit-class)))))
 
   "Regular expression for recognizing floating-point literals")
 
