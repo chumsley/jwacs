@@ -669,18 +669,6 @@
              (handle-yacc-error (err)
                (cond
 
-                 ;; Irritating regular-expression-literal vs. division ambiguity case.
-                 ;; If we encounter an unexpected RE literal, try interpreting it as a
-                 ;; division operator instead.  We do that by rewinding the lexer to
-                 ;; just before the RE literal and instructing it to read the slash as
-                 ;; just a slash.  We then instruct the parser to throw away the RE
-                 ;; literal and continue parsing.
-                 ((and (eq :re-literal (yacc:yacc-parse-error-terminal err))
-                       (find :slash (yacc:yacc-parse-error-expected-terminals err)))
-                  (set-cursor lexer (token-start (yacc:yacc-parse-error-value err)))
-                  (coerce-token lexer :slash)
-                  (invoke-restart 'yacc:skip-terminal))
-                 
                  ;; Don't try to perform semicolon insertion unless inserted-semicolons are permitted
                  ((null (find :inserted-semicolon (yacc:yacc-parse-error-expected-terminals err)))
                   (resignal err))
