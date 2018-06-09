@@ -73,6 +73,7 @@
   ((property-name :identifier) (make-string-literal :value $$1 :start $s :end $e))
   ((property-name :string-literal) (make-string-literal :value $$1 :start $s :end $e))
   ((property-name :number) (make-numeric-literal :value $$1 :start $s :end $e))
+  ((property-name permissible-property) (make-string-literal :value $$1 :start $s :end $e))
 
   ;; Pg 55
   ((member-expression primary-expression) $1)
@@ -83,6 +84,38 @@
                                                                                                             :start (token-start $3)
                                                                                                             :end (token-end $3))
                                                                                 :start $s :end $e))
+  ((member-expression member-expression :dot permissible-property) (make-property-access :target $1
+                                                                                         :field (make-string-literal :value $$3
+                                                                                                                     :start (token-start $3)
+                                                                                                                     :end (token-end $3))
+                                                                                         :start $s :end $e))
+
+  ((permissible-property permissible-property :no-line-terminator) $1)
+  
+  ;; (map 'list (lambda (s) `((permissible-property ,s) $1)) *keyword-symbols*)
+  ((PERMISSIBLE-PROPERTY :WITH) $1)       ((PERMISSIBLE-PROPERTY :WHILE) $1)
+  ((PERMISSIBLE-PROPERTY :VOID) $1)       ((PERMISSIBLE-PROPERTY :VAR) $1)
+  ((PERMISSIBLE-PROPERTY :TYPEOF) $1)     ((PERMISSIBLE-PROPERTY :TRY) $1)
+  ((PERMISSIBLE-PROPERTY :TRUE) $1)       ((PERMISSIBLE-PROPERTY :THROW) $1)
+  ((PERMISSIBLE-PROPERTY :THIS) $1)       ((PERMISSIBLE-PROPERTY :SWITCH) $1)
+  ((PERMISSIBLE-PROPERTY :RETURN) $1)     
+  ((PERMISSIBLE-PROPERTY :NULL) $1)       ((PERMISSIBLE-PROPERTY :NEW) $1)
+  ((PERMISSIBLE-PROPERTY :INSTANCEOF) $1) ((PERMISSIBLE-PROPERTY :IN) $1)
+  ((PERMISSIBLE-PROPERTY :IMPORT) $1)     ((PERMISSIBLE-PROPERTY :IF) $1)
+  ((PERMISSIBLE-PROPERTY :FUNCTION) $1)   ((PERMISSIBLE-PROPERTY :FOR) $1)
+  ((PERMISSIBLE-PROPERTY :FINALLY) $1)    ((PERMISSIBLE-PROPERTY :FALSE) $1)
+  ((PERMISSIBLE-PROPERTY :ENUM) $1)       ((PERMISSIBLE-PROPERTY :ELSE) $1)
+  ((PERMISSIBLE-PROPERTY :DO) $1)         ((PERMISSIBLE-PROPERTY :DELETE) $1)
+  ((PERMISSIBLE-PROPERTY :DEFAULT) $1)    ((PERMISSIBLE-PROPERTY :DEBUGGER) $1)
+  ((PERMISSIBLE-PROPERTY :CONTINUE) $1)   ((PERMISSIBLE-PROPERTY :CONST) $1)
+  ((PERMISSIBLE-PROPERTY :CATCH) $1)      ((PERMISSIBLE-PROPERTY :CASE) $1)
+  ((PERMISSIBLE-PROPERTY :BREAK) $1)
+
+  ;; also permit jwacs keywords as object properties
+  ((PERMISSIBLE-PROPERTY :RESUME) $1)
+  ((PERMISSIBLE-PROPERTY :FUNCTION_CONTINUATION) $1)
+
+  
   ((member-expression :new member-expression arguments) (make-new-expr :constructor $2 :args $3 :start $s :end $e))
 
   ((member-expression-no-lbf primary-expression-no-lbf) $1)
@@ -92,6 +125,11 @@
                                                                                                                           :start (token-start $3)
                                                                                                                           :end (token-end $3))
                                                                                               :start $s :end $e))
+  ((member-expression-no-lbf member-expression-no-lbf :dot permissible-property) (make-property-access :target $1
+                                                                                                       :field (make-string-literal :value $$3
+                                                                                                                                   :start (token-start $3)
+                                                                                                                                   :end (token-end $3))
+                                                                                                       :start $s :end $e))
   ((member-expression-no-lbf :new member-expression arguments) (make-new-expr :constructor $2 :args $3 :start $s :end $e))
 
   ((new-expression member-expression) $1)
