@@ -134,6 +134,13 @@
   "Makes a keyword out of a symbol."
   (if (keywordp x) x (intern (symbol-name x) 'keyword)))
 
+(defun update-struct (struct &rest bindings)
+  (loop
+     with copy = (copy-structure struct)
+     for (slot value) on bindings by #'cddr
+     do (setf (slot-value copy slot) value)
+     finally (return copy)))
+
 ;; The default behaviour for any transformation on a source-element that has children
 ;; is to return a new source-element whose children have been transformed.
 (defmethod transform (xform (elm source-element))
@@ -158,13 +165,21 @@
           for tx-elm = (transform xform elm)
           collect tx-elm)))
 
+(defun transfer-label (target elm)
+  (if (and elm target)
+      (update-struct target 'label (source-element-label elm))
+      target))
+
 ;; Override the default slot-traversing behaviour for elements that have single-statement
 ;; children, since we might need to single-statement them.
 (defmethod transform (xform (elm if-statement))
-  (with-slots (condition then-statement else-statement) elm
-    (make-if-statement :condition (transform xform condition)
-                       :then-statement (single-statement (transform xform then-statement))
-                       :else-statement (single-statement (transform xform else-statement)))))
+  (with-slots (label condition then-statement else-statement) elm
+    (make-if-statement :label label
+                       :condition (transform xform condition)
+                       :then-statement (transfer-label (single-statement (transform xform then-statement))
+                                                       then-statement)
+                       :else-statement (transfer-label (single-statement (transform xform else-statement))
+                                                       else-statement))))
 
 (defmethod transform (xform (elm while))
   (with-slots (label body condition) elm
