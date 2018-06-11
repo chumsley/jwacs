@@ -154,5 +154,16 @@
                 value-node
                 location-node
                 explicitly-terminated-p
-                ))
+
+                ;; compilation
+                module
+                make-module
+                with-module-output
+                pipeline-compile
+                *compiler-pipeline*
+                emit-elms
+                get-module-text
+                generate-runtime
+                *runtime-text*
+                *debug-runtime-text*))
                 

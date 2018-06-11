@@ -236,9 +236,12 @@
         (unnested-explicitize (if-statement-then-statement elm))
       (multiple-value-bind (else-proxy else-prereqs)
           (unnested-explicitize (if-statement-else-statement elm))
-        (values (make-if-statement :condition cond-proxy
-                                   :then-statement (single-statement then-prereqs then-proxy)
-                                   :else-statement (single-statement else-prereqs else-proxy)
+        (values (make-if-statement :label (source-element-label elm)
+                                   :condition cond-proxy
+                                   :then-statement (transfer-label (single-statement then-prereqs then-proxy)
+                                                                   (if-statement-then-statement elm))
+                                   :else-statement (transfer-label (single-statement else-prereqs else-proxy)
+                                                                   (if-statement-else-statement elm))
                                    :start (source-element-start elm)
                                    :end (source-element-end elm))
                 cond-prereqs)))))

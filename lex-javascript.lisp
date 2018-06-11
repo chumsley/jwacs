@@ -222,7 +222,12 @@
                                   (:greedy-repetition 0 1
                                     (:sequence (:alternation #\e #\E)
                                                (:greedy-repetition 0 1 (:alternation #\+ #\-))
-                                               (:greedy-repetition 1 nil :digit-class)))))))
+                                               (:greedy-repetition 1 nil :digit-class))))
+                                (:sequence
+                                  (:greedy-repetition 1 nil :digit-class)
+                                  (:alternation #\e #\E)
+                                  (:greedy-repetition 0 1 (:alternation #\+ #\-))
+                                  (:greedy-repetition 1 nil :digit-class)))))
 
   "Regular expression for recognizing floating-point literals")
 
@@ -359,9 +364,17 @@
   ((cursor :initform 0 :accessor cursor)
    (text :initarg :text :reader text)
    (unget-stack :initform nil :accessor unget-stack)
-   (encountered-line-terminator :initform nil :accessor encountered-line-terminator))
+   (encountered-line-terminator :initform nil :accessor encountered-line-terminator)
+   (regexp-possible :initform nil :accessor regexp-possible))
   (:documentation
    "Represents the current state of a lexing operation"))
+
+(defun regexp-possible-p (terminal)
+  (case terminal
+    ((:identifier :null :true :false :this :right-bracket :right-paren
+                  :minus2 :plus2 :number :string-literal)
+     nil)
+    (otherwise t)))
 
 (defun next-token (lexer)
   "Returns a token structure containing the next token in the lexing operation
@@ -469,7 +482,7 @@
    character on entry; on exit points to the first character after the consumed token.
    Returns a token structure.  The token's terminal will be NIL on end of input"
   (with-slots (text cursor) lexer
-    (re-cond (text :start cursor)
+    (let* ((token (re-cond (text :start cursor)
        ("^$"
         (make-token :terminal nil :start (length text) :end (length text)))
        (floating-re
@@ -487,10 +500,16 @@
                              :identifier)))
           (make-token :terminal terminal :start %s :end %e :value text)))
        (regexp-re
-        (set-cursor lexer %e)
-        (make-token :terminal :re-literal :start %s :end %e
-                    :value (cons (unescape-regexp (subseq text (aref %sub-s 0) (aref %sub-e 0)))
-                                 (subseq text (aref %sub-s 1) (aref %sub-e 1)))))
+        (if (regexp-possible lexer)
+            (progn
+              (set-cursor lexer %e)
+              (make-token :terminal :re-literal :start %s :end %e
+                          :value (cons (unescape-regexp (subseq text (aref %sub-s 0) (aref %sub-e 0)))
+                                       (subseq text (aref %sub-s 1) (aref %sub-e 1)))))
+            (progn
+              (set-cursor lexer (+ %s 1))
+              (make-token :terminal :slash :start %s :end (+ %s 1)
+                          :value "/"))))
        (string-re
         (set-cursor lexer %e)
         (make-token :terminal :string-literal :start %s :end %e
@@ -507,6 +526,9 @@
         (error "unrecognized token: '~A'" (subseq text %s %e)))
        (t
         (error "coding error - we should never get here")))))
+      (setf (regexp-possible lexer)
+            (regexp-possible-p (token-terminal token)))
+      token)))
 
 ;; TODO Tab handling
 (defun position-to-line/column (text index)

@@ -507,6 +507,42 @@
 (defparameter *nearest-break* nil
   "Name of the break continuation function for the nearest enclosing loop")
 
+(defmethod tx-cps ((elm statement-block) statement-tail)
+  ;; The break continuation must be transformed outside the scope of the break binding,
+  ;; because break statements from within the break continuation should refer to an
+  ;; outermore break continuation.  Eg, in:
+  ;;
+  ;;  var break$n = function()
+  ;;  {
+  ;;    break; // <----
+  ;;  }
+  ;;  var break$0 = function()
+  ;;  {
+  ;;    ...
+  ;;  }
+  ;;
+  ;; The "arrowed" break statement in `break$n` should be transformed to `resume break$0;`,
+  ;; NOT to `resume break$n;`; the latter would result in an infinite loop.
+  (let ((label (source-element-label elm)))
+    (if label
+        (with-added-environment
+          (let* ((break-k (genvar label))
+                 (break-k-decl (make-labelled-continuation break-k statement-tail))
+                 (*escaping-references* (union *escaping-references* (find-free-variables statement-tail))))
+            (add-binding (concatenate 'string label "$break") break-k)
+            (multiple-value-bind (new-elms consumed)
+                (tx-cps (statement-block-statements elm)
+                        (list (make-resume-statement
+                               :target (make-identifier :name break-k))))
+              (values
+               (list break-k-decl
+                     (make-statement-block :label nil
+                                           :start (source-element-start elm)
+                                           :end   (source-element-end   elm)
+                                           :statements new-elms))
+               consumed))))
+        (call-next-method))))
+
 (defmethod tx-cps ((elm while) statement-tail)
   (with-added-environment 
     ;; The break continuation must be transformed outside the scope of the break binding,
@@ -571,11 +607,122 @@
 ;; pretty close to optimal.  In particular, we don't want to output a non-null
 ;; statement-tail more than once, but we also don't want to generate a named
 ;; continuation unless absolutely necessary.
-(defmethod tx-cps ((elm if-statement) statement-tail)
 
-  (if (null statement-tail)
-    ;; No special handling is required when there's no statement tail
-    (call-next-method)
+(defmethod tx-cps ((elm if-statement) statement-tail)
+  (let* ((if-k-name (genvar "ifK"))
+         (if-k-decl (make-labelled-continuation if-k-name statement-tail))
+         (*escaping-references* (union *escaping-references* (find-free-variables statement-tail)))
+         (if-k-resume (make-resume-statement :target (make-identifier :name if-k-name))))
+    (labels ((break-binding (elm)
+               (when-let (label (and elm (source-element-label elm)))
+                 (add-binding (concatenate 'string label "$break")
+                              if-k-name))))
+      (with-slots (condition then-statement else-statement) elm
+        (multiple-value-bind (tx-then then-consumed)
+            (if then-statement
+                (with-added-environment
+                  (break-binding elm)
+                  (break-binding then-statement)
+                  (tx-cps (combine-statements then-statement)
+                          (list if-k-resume)))
+                (values nil nil))
+          (multiple-value-bind (tx-else else-consumed)
+              (if else-statement
+                  (with-added-environment
+                    (break-binding elm)
+                    (break-binding else-statement)
+                    (tx-cps (combine-statements else-statement)
+                            (list if-k-resume)))
+                  (values nil nil))
+            (cond
+
+              ((or (and then-consumed else-consumed)
+                   (source-element-label elm)
+                   (and then-statement (source-element-label then-statement))
+                   (and else-statement (source-element-label else-statement)))
+               ;; Base Case: When both branches have been consumed, or
+               ;; if any part of the if-statement is labelled, we need
+               ;; to emit the full-form if-statement with labelled
+               ;; continuation and setup break targets
+               #+_(print `(BASE (or (and ,then-consumed ,else-consumed)
+                                    ,(source-element-label elm)
+                                    ,(source-element-label then-statement)
+                                    ,(source-element-label else-statement)))
+                         *TRACE-OUTPUT*)
+               (values
+                (list
+                 if-k-decl
+                 (make-if-statement :condition (tx-cps condition nil)
+                                    :then-statement (single-statement tx-then)
+                                    :else-statement (single-statement tx-else)
+                                    :start (source-element-start elm)
+                                    :end (source-element-end elm)))
+                t))
+              ((or then-consumed else-consumed)
+               ;; When just one branch consumes the continuation and
+               ;; there are no labels, we can inline the continuation
+               ;; into the consuming branch
+               (values
+                (make-if-statement :condition (tx-cps condition nil)
+                                   :then-statement (single-statement
+                                                    (if then-consumed
+                                                        (tx-cps then-statement statement-tail)
+                                                        tx-then))
+                                   :else-statement (single-statement
+                                                    (if else-consumed
+                                                        (tx-cps else-statement statement-tail)
+                                                        tx-else))
+                                   :start (source-element-start elm)
+                                   :end (source-element-end elm))
+                t))
+              (t
+               ;; When the continuation isn't consumed, we return nil as
+               ;; second parameter
+               (values
+                (make-if-statement :condition (tx-cps condition nil)
+                                   :then-statement (single-statement tx-then)
+                                   :else-statement (single-statement tx-else)
+                                   :start (source-element-start elm)
+                                   :end (source-element-end elm))
+                nil)))))))))
+
+#+nil(defmethod tx-cps ((elm if-statement) statement-tail)
+
+  (cond
+    #+nil
+    ((if-statement-label elm)
+     (tx-cps (make-statement-block :label (source-element-label elm)
+                                   :start (source-element-start elm)
+                                   :end   (source-element-end   elm)
+                                   :statements (list (update-struct elm 'label nil)))
+             statement-tail))
+    #+nil
+    ((and (if-statement-then-statement elm)
+          (source-element-label (if-statement-then-statement elm)))
+     (tx-cps (make-statement-block :label (source-element-label (if-statement-then-statement elm))
+                                   :start (source-element-start (if-statement-then-statement elm))
+                                   :end   (source-element-end   (if-statement-then-statement elm))
+                                   :statements (list (update-struct
+                                                      elm 'then-statement
+                                                      (update-struct (if-statement-then-statement elm)
+                                                                     'label nil))))
+             statement-tail))
+    #+nil
+    ((and (if-statement-else-statement elm)
+          (source-element-label (if-statement-else-statement elm)))
+     (tx-cps (make-statement-block :label (source-element-label (if-statement-else-statement elm))
+                                   :start (source-element-start (if-statement-else-statement elm))
+                                   :end   (source-element-end   (if-statement-else-statement elm))
+                                   :statements (list (update-struct
+                                                      elm 'else-statement
+                                                      (update-struct (if-statement-else-statement elm)
+                                                                     'label nil))))
+             statement-tail))
+
+  ((null statement-tail)
+   ;; No special handling is required when there's no statement tail
+   (call-next-method))
+   (t
     (with-slots (condition then-statement else-statement) elm
       (let ((then-terminated (explicitly-terminated-p then-statement
                                                       '(:return :throw :break :continue :resume :suspend)))
@@ -606,7 +753,7 @@
                                  :start (source-element-start elm)
                                  :end (source-element-end elm))
               else-consumed)))
-          
+
           ((and (not then-terminated) else-terminated)
            (multiple-value-bind (tx-then then-consumed)
                (tx-cps then-statement statement-tail)
@@ -617,7 +764,7 @@
                                  :start (source-element-start elm)
                                  :end (source-element-end elm))
               then-consumed)))
-          
+
           ;; In the case where both branches are terminated, we don't consume the statement-tail
           ;; at all (because neither branch needs it)
           ((and then-terminated else-terminated)
@@ -655,7 +802,7 @@
                                                            nil))
                                   :start (source-element-start elm)
                                   :end (source-element-end elm)))
-              t))))))))
+              t)))))))))
 
 (defmethod tx-cps ((elm switch) statement-tail)
   (with-added-environment
